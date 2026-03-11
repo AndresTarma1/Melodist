@@ -101,11 +101,13 @@ compose.desktop {
             appResourcesRootDir.set(project.layout.projectDirectory.dir("../vlc-resources"))
 
             windows {
+                packageName = "Melodist Beta"
+                menu = true
                 menuGroup = "Melodist"
-                upgradeUuid = "4A2F8B6C-1D3E-4F5A-B7C8-9D0E1F2A3B4C"
                 shortcut = true
-                perUserInstall = true
-                dirChooser = true
+                dirChooser = true // Esto es lo que más suelen pedir los usuarios
+                perUserInstall = true // Recomendado para evitar problemas de permisos
+                upgradeUuid = "4A2F8B6C-1D3E-4F5A-B7C8-9D0E1F2A3B4C"
             }
         }
     }
