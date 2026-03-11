@@ -3,10 +3,10 @@ package com.example.melodist.ui.components
 import androidx.compose.runtime.Composable
 
 @Composable
-fun AlbumScreenSkeleton() = AlbumScreenSkeletonContent()
+fun AlbumScreenSkeleton() = ProvideShimmerTransition { AlbumScreenSkeletonContent() }
 
 @Composable
-fun PlaylistScreenSkeleton() = PlaylistScreenSkeletonContent()
+fun PlaylistScreenSkeleton() = ProvideShimmerTransition { PlaylistScreenSkeletonContent() }
 
 @Composable
-fun ArtistScreenSkeleton() = ArtistScreenSkeletonContent()
+fun ArtistScreenSkeleton() = ProvideShimmerTransition { ArtistScreenSkeletonContent() }

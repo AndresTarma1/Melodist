@@ -57,6 +57,7 @@ fun NavigationDesktop(rootComponent: RootComponent) {
     val downloadViewModel: DownloadViewModel = koinInject()
 
     val playerState by playerViewModel.uiState.collectAsState()
+    val progressState by playerViewModel.progressState.collectAsState()
     var isNowPlayingExpanded by remember { mutableStateOf(false) }
 
     CompositionLocalProvider(
@@ -141,6 +142,7 @@ fun NavigationDesktop(rootComponent: RootComponent) {
                     if (isNowPlayingExpanded && playerState.currentSong != null) {
                         NowPlayingPanel(
                             state = playerState,
+                            progressState = progressState,
                             onTogglePlayPause = { playerViewModel.togglePlayPause() },
                             onNext = { playerViewModel.next() },
                             onPrevious = { playerViewModel.previous() },
@@ -176,6 +178,7 @@ fun NavigationDesktop(rootComponent: RootComponent) {
                             if (playerState.currentSong != null) {
                                 MiniPlayer(
                                     state = playerState,
+                                    progressState = progressState,
                                     onTogglePlayPause = { playerViewModel.togglePlayPause() },
                                     onNext = { playerViewModel.next() },
                                     onPrevious = { playerViewModel.previous() },

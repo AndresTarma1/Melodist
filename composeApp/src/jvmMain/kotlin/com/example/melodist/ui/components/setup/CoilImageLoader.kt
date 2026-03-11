@@ -22,14 +22,17 @@ object CoilSetup {
             .memoryCachePolicy(CachePolicy.ENABLED)
             .memoryCache {
                 MemoryCache.Builder()
-                    .maxSizePercent(context, percent = 0.05)
+                    // 20MB es suficiente para una app desktop de música.
+                    // Las thumbnails son pequeñas y el disco cache cubre el resto.
+                    .maxSizeBytes(1024 * 1024 * 20)
                     .build()
             }
             .diskCachePolicy(CachePolicy.ENABLED)
             .diskCache {
                 DiskCache.Builder()
                     .directory(cacheDir.absolutePath.toPath())
-                    .maxSizeBytes(64L * 1024 * 1024)
+                    // El disco puede guardar más sin impacto en RAM
+                    .maxSizeBytes(128L * 1024 * 1024)
                     .build()
             }
             .crossfade(200)

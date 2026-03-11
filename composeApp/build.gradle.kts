@@ -63,29 +63,22 @@ compose.desktop {
     application {
         mainClass = "com.example.melodist.MainKt"
 
-        // Opciones JVM para el ejecutable empaquetado.
-        // Nota: NO usar $APPDIR aquí — causa "failed to launch JVM" en jpackage de Windows.
-        // VLC se detecta via compose.application.resources.dir (seteado automáticamente por
-        // Compose Desktop) y la lógica de findBundledVlc() en PlayerService.
         jvmArgs(
-            "-Xmx256m",                          // Heap máximo: 256 MB (Compose + Coil + DB)
-            "-Xms48m",                            // Heap inicial: 48 MB
-            "-XX:+UseG1GC",                       // GC moderno de baja latencia
-            "-XX:MaxGCPauseMillis=30",            // Pausas de GC breves
-            "-XX:+UseStringDeduplication",         // Deduplicar Strings (ahorra ~5-10 MB)
-            "-XX:SoftRefLRUPolicyMSPerMB=20",     // Liberar caches suaves más rápido
-            "-Xss512k",                           // Stack más pequeño por hilo
-            "-XX:+UseCompressedOops",             // Punteros comprimidos (menos RAM)
-            "-XX:+UseCompressedClassPointers",    // Idem para metadatos
-            "-XX:MaxMetaspaceSize=80m",           // Limitar metaspace
-            "-XX:G1HeapRegionSize=1m",            // Regiones G1 pequeñas
-            "-XX:InitiatingHeapOccupancyPercent=40" // GC más agresivo cuando está idle
+            "-XX:+EnableDynamicAgentLoading",
+            "-Xmx512m",                           // 512MB es el "sweet spot" para apps ligeras
+            "-Xms128m",                           // Iniciar con algo más de aire
+            "-XX:+UseG1GC",
+            "-XX:MaxGCPauseMillis=50",            // Un poco más de margen para que el GC termine
+            "-XX:+UseStringDeduplication",
+            "-XX:+UseCompressedOops",
+            "-XX:MaxMetaspaceSize=128m",          // Dale un poco más de espacio a las clases
+            "-XX:+ExitOnOutOfMemoryError"         // Mejor que la app cierre a que se quede congelada
         )
 
         nativeDistributions {
             targetFormats(TargetFormat.Msi)
             packageName = "Melodist"
-            packageVersion = "1.0.0"
+            packageVersion = "1.0.1"
             vendor = "Tarma"
             description = "Reproductor de música de escritorio"
 

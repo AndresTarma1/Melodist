@@ -13,16 +13,57 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 
+/**
+ * CompositionLocal que provee el valor de traducción del shimmer.
+ * Una sola infiniteTransition se crea en el nivel más alto (ej. la pantalla)
+ * y todos los skeleton components la comparten, evitando N animaciones paralelas.
+ *
+ * Uso:
+ *   ProvideShimmerTransition {
+ *       ChipRowSkeleton()
+ *       SectionSkeleton()
+ *       SongSkeleton()
+ *   }
+ */
+val LocalShimmerTranslation = staticCompositionLocalOf { 0f }
+
+/**
+ * Envuelve contenido skeleton con UNA sola animación shimmer compartida.
+ * Coloca este composable en el nivel de la pantalla (HomeScreen, SearchScreen, etc.)
+ * para que todos los skeleton hijos compartan la misma animación.
+ */
+@Composable
+fun ProvideShimmerTransition(content: @Composable () -> Unit) {
+    val transition = rememberInfiniteTransition(label = "shimmer")
+    val translateAnimation by transition.animateFloat(
+        initialValue = -1000f,
+        targetValue = 1000f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1200, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "shimmerTranslation"
+    )
+    CompositionLocalProvider(LocalShimmerTranslation provides translateAnimation) {
+        content()
+    }
+}
+
+/**
+ * Crea un brush shimmer usando la animación compartida del CompositionLocal.
+ * Si no hay ProvideShimmerTransition en el árbol, crea su propia animación
+ * como fallback (para previews, etc.)
+ */
 @Composable
 fun shimmerBrush(): Brush {
     val shimmerColors = listOf(
@@ -31,20 +72,30 @@ fun shimmerBrush(): Brush {
         MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
     )
 
-    val transition = rememberInfiniteTransition()
-    val translateAnimation by transition.animateFloat(
-        initialValue = -1000f,
-        targetValue = 1000f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1200, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
+    // Reutilizar la animación compartida si está disponible
+    val translateAnimation = LocalShimmerTranslation.current
+
+    // Si el valor es 0f y no hay Provider activo, crear una animación local como fallback
+    val translate = if (translateAnimation != 0f) {
+        translateAnimation
+    } else {
+        val transition = rememberInfiniteTransition(label = "shimmerFallback")
+        val anim by transition.animateFloat(
+            initialValue = -1000f,
+            targetValue = 1000f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(1200, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "shimmerFallbackTranslation"
         )
-    )
+        anim
+    }
 
     return Brush.linearGradient(
         colors = shimmerColors,
-        start = Offset(translateAnimation, translateAnimation),
-        end = Offset(translateAnimation + 500f, translateAnimation + 500f)
+        start = Offset(translate, translate),
+        end = Offset(translate + 500f, translate + 500f)
     )
 }
 
@@ -54,12 +105,12 @@ fun ChipRowSkeleton() {
     val brush = shimmerBrush()
 
     HorizontalScrollableRow(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
-        contentPadding = PaddingValues(horizontal = 16.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+        contentPadding = PaddingValues(horizontal = 24.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         state = scrollState,
     ) {
-        items(10) {
+        items(8) {
             Box(
                 modifier = Modifier
                     .width(90.dp)
@@ -71,16 +122,16 @@ fun ChipRowSkeleton() {
     }
 }
 
-@Preview
 @Composable
 fun SectionSkeleton() {
     val brush = shimmerBrush()
     Column(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(0.dp)
+        modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
     ) {
+        // Title row — matches headlineMedium + padding(horizontal=24, vertical=8)
         Box(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            modifier = Modifier
+                .padding(horizontal = 24.dp, vertical = 8.dp)
                 .width(180.dp)
                 .height(28.dp)
                 .clip(RoundedCornerShape(4.dp))
@@ -90,32 +141,44 @@ fun SectionSkeleton() {
         val scrollState = rememberLazyListState()
         HorizontalScrollableRow(
             modifier = Modifier.fillMaxWidth(),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
             state = scrollState,
         ) {
-            items(10) {
+            items(8) {
+                // Matches MusicItem: width 200dp, padding 8dp, aspectRatio 1f
                 Column(
-                    modifier = Modifier.width(160.dp).padding(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    modifier = Modifier
+                        .width(200.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .padding(8.dp),
+                    horizontalAlignment = Alignment.Start
                 ) {
                     Box(
-                        modifier = Modifier.fillMaxWidth().aspectRatio(1f)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(1f)
                             .clip(RoundedCornerShape(12.dp))
                             .background(brush)
                     )
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Box(
-                            modifier = Modifier.fillMaxWidth(0.8f).height(16.dp)
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(brush)
-                        )
-                        Box(
-                            modifier = Modifier.fillMaxWidth(0.5f).height(14.dp)
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(brush)
-                        )
-                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                    // Title — bodyLarge Bold
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(0.8f)
+                            .height(18.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(brush)
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    // Artist — bodySmall
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(0.5f)
+                            .height(13.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(brush)
+                    )
                 }
             }
         }
@@ -157,15 +220,5 @@ fun SongSkeleton() {
                 .background(brush)
         )
     }
-}
-
-@Preview
-@Composable
-fun Previews() {
-    Box(
-        modifier = Modifier.fillMaxSize().background(
-            Brush.horizontalGradient(listOf(Color(0xFF1E2A38), Color.Black))
-        )
-    )
 }
 

@@ -35,11 +35,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.melodist.player.PlaybackState
+import com.example.melodist.viewmodels.PlayerProgressState
 import com.example.melodist.viewmodels.PlayerUiState
 
 @Composable
 internal fun MiniPlayerContent(
     state: PlayerUiState,
+    progressState: PlayerProgressState,
     onTogglePlayPause: () -> Unit,
     onNext: () -> Unit,
     onPrevious: () -> Unit,
@@ -48,8 +50,8 @@ internal fun MiniPlayerContent(
 ) {
     val song = state.currentSong ?: return
 
-    val progress = remember(state.positionMs, state.durationMs) {
-        if (state.durationMs > 0) state.positionMs.toFloat() / state.durationMs.toFloat() else 0f
+    val progress = remember(progressState.positionMs, progressState.durationMs) {
+        if (progressState.durationMs > 0) progressState.positionMs.toFloat() / progressState.durationMs.toFloat() else 0f
     }
 
     val isError = state.playbackState == PlaybackState.ERROR

@@ -9,6 +9,7 @@ import com.example.melodist.player.DownloadService
 import com.example.melodist.player.PlaybackState
 import com.example.melodist.player.PlayerService
 import com.example.melodist.player.StreamQuality
+import com.example.melodist.player.WindowsMediaSession
 import com.metrolist.innertube.YouTube
 import com.metrolist.innertube.models.SongItem
 import com.metrolist.innertube.models.WatchEndpoint
@@ -22,6 +23,7 @@ import java.util.logging.Logger
 class PlayerViewModel(
     private val playerService: PlayerService,
     private val streamResolver: AudioStreamResolver,
+    private val mediaSession: WindowsMediaSession,
 ) : ViewModel() {
 
     private val log = Logger.getLogger("PlayerViewModel")
@@ -29,11 +31,11 @@ class PlayerViewModel(
     private val _uiState = MutableStateFlow(PlayerUiState())
     val uiState: StateFlow<PlayerUiState> = _uiState.asStateFlow()
 
-//    val currentSong: StateFlow<SongItem?> = _uiState.map { it.currentSong }
-//        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
-//
-//    val isPlaying: StateFlow<Boolean> = _uiState.map { it.playbackState == PlaybackState.PLAYING }
-//        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    /** Progreso separado: posición + duración se emiten cada segundo.
+     *  Al estar en su propio StateFlow, los composables que NO necesitan
+     *  la barra de progreso no se recomponen con cada tick. */
+    private val _progressState = MutableStateFlow(PlayerProgressState())
+    val progressState: StateFlow<PlayerProgressState> = _progressState.asStateFlow()
 
     private var resolveJob: Job? = null
     private var originalQueue: List<SongItem> = emptyList()
@@ -53,6 +55,13 @@ class PlayerViewModel(
         viewModelScope.launch {
             playerService.playbackState.collect { state ->
                 _uiState.update { it.copy(playbackState = state) }
+
+                // Notificar estado de reproducción al overlay de Windows
+                mediaSession.setPlaybackStatus(
+                    isPlaying = state == PlaybackState.PLAYING,
+                    isPaused  = state == PlaybackState.PAUSED
+                )
+
                 when (state) {
                     PlaybackState.ENDED -> onTrackEnded()
                     PlaybackState.ERROR -> {
@@ -78,13 +87,61 @@ class PlayerViewModel(
                 .combine(playerService.duration) { pos, dur -> pos to dur }
                 .distinctUntilChanged()
                 .collect { (pos, dur) ->
-                    _uiState.update { it.copy(positionMs = pos, durationMs = dur) }
+                    _progressState.update { it.copy(positionMs = pos, durationMs = dur) }
                 }
         }
         viewModelScope.launch {
             playerService.volume.collect { vol ->
                 _uiState.update { it.copy(volume = vol) }
             }
+        }
+        // Actualizar metadatos en el overlay de Windows cuando cambia la canción
+        viewModelScope.launch {
+            _uiState
+                .map { it.currentSong }
+                .distinctUntilChanged()
+                .collect { song ->
+                    if (song != null) {
+                        // Descargar thumbnail en IO, luego actualizar SMTC con file:// URI
+                        viewModelScope.launch(Dispatchers.IO) {
+                            val thumbUri = downloadThumbToTemp(song.thumbnail)
+                            mediaSession.updateMetadata(
+                                title        = song.title,
+                                artist       = song.artists.joinToString(", ") { it.name },
+                                album        = song.album?.name ?: "",
+                                thumbnailUrl = thumbUri
+                            )
+                        }
+                    } else {
+                        mediaSession.resetToIdle()
+                    }
+                }
+        }
+    }
+
+    /**
+     * Descarga el thumbnail a un archivo temporal y devuelve una URI file:///
+     * que Windows SMTC puede leer sin necesidad de headers HTTP especiales.
+     * Si falla, devuelve la URL HTTP original como fallback.
+     */
+    private fun downloadThumbToTemp(url: String?): String? {
+        if (url.isNullOrBlank()) return null
+        return try {
+            val conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+            conn.connectTimeout = 5_000
+            conn.readTimeout    = 10_000
+            conn.setRequestProperty("User-Agent", "Mozilla/5.0")
+            conn.connect()
+            val bytes = conn.inputStream.use { it.readBytes() }
+            conn.disconnect()
+
+            val tmpFile = java.io.File(System.getProperty("java.io.tmpdir"), "melodist_smtc_thumb.jpg")
+            tmpFile.writeBytes(bytes)
+            // URI file:/// con barras normales (formato Windows Runtime)
+            "file:///${tmpFile.absolutePath.replace('\\', '/')}"
+        } catch (e: Exception) {
+            log.fine("SMTC thumb download failed: ${e.message}")
+            url // fallback a HTTP URL
         }
     }
 
@@ -162,6 +219,11 @@ class PlayerViewModel(
     // ─── Transport controls ────────────────────────────────
 
     fun togglePlayPause() {
+        val state = _uiState.value
+        if (state.currentSong == null || state.queue.isEmpty() || state.currentIndex !in state.queue.indices) {
+            mediaSession.resetToIdle()
+            return
+        }
         playerService.togglePlayPause()
     }
 
@@ -186,7 +248,7 @@ class PlayerViewModel(
             RepeatMode.OFF -> {
                 val n = state.currentIndex + 1
                 if (n >= state.queue.size) {
-                    playerService.stop()
+                    stop()
                     return
                 }
                 n
@@ -209,7 +271,7 @@ class PlayerViewModel(
         val state = _uiState.value
         if (state.queue.isEmpty()) return
 
-        if (state.positionMs > 3000) {
+        if (_progressState.value.positionMs > 3000) {
             seekTo(0)
             return
         }
@@ -264,8 +326,12 @@ class PlayerViewModel(
     }
 
     fun stop() {
+        resolveJob?.cancel()
         playerService.stop()
+        _progressState.value = PlayerProgressState()
+        originalQueue = emptyList()
         _uiState.update { PlayerUiState() }
+        mediaSession.resetToIdle()
     }
 
     // ─── Queue manipulation ────────────────────────────────
@@ -393,9 +459,12 @@ class PlayerViewModel(
     }
 
     override fun onCleared() {
+        playerService.stopAudioOnly()
         super.onCleared()
     }
 }
+
+
 
 
 

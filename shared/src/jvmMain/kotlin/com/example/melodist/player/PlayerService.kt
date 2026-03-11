@@ -50,24 +50,14 @@ class PlayerService {
         try {
             val bundledPath = findBundledVlc()
             if (bundledPath != null) {
-                log.info("INICIALIZANDO CON VLC EMBEBIDO: $bundledPath")
                 System.setProperty("jna.library.path", bundledPath)
                 val pluginsDir = File(bundledPath, "plugins")
-                if (pluginsDir.isDirectory) {
-                    System.setProperty("VLC_PLUGIN_PATH", pluginsDir.absolutePath)
-                }
+                if (pluginsDir.isDirectory) System.setProperty("VLC_PLUGIN_PATH", pluginsDir.absolutePath)
             } else {
-                log.info("No se encontró VLC embebido, usando fallback de NativeDiscovery...")
                 NativeDiscovery().discover()
             }
 
-            val userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-            factory = MediaPlayerFactory(
-                "--no-video",
-                "--quiet",
-                "--no-lua",
-                "--http-user-agent=$userAgent"
-            )
+            factory = MediaPlayerFactory("--no-video", "--quiet", "--no-lua")
             mediaPlayer = factory!!.mediaPlayers().newMediaPlayer()
             attachListeners()
             startPositionTicker()
@@ -81,9 +71,8 @@ class PlayerService {
     private fun findBundledVlc(): String? {
         val userDir = File(System.getProperty("user.dir"))
         val resourcesDir = System.getProperty("compose.application.resources.dir")
-
         val candidates = mutableListOf<File>()
-        
+
         if (!resourcesDir.isNullOrBlank()) {
             candidates.add(File(resourcesDir))
             candidates.add(File(resourcesDir, "windows"))
@@ -92,48 +81,40 @@ class PlayerService {
         var current: File? = userDir
         while (current != null) {
             candidates.add(File(current, "vlc-resources/windows"))
-            candidates.add(File(current, "composeApp/vlc-resources/windows"))
             current = current.parentFile
         }
 
         for (dir in candidates) {
-            if (!dir.exists()) continue
-            val libVlc = dir.resolve("libvlc.dll")
-            if (libVlc.exists()) return dir.absolutePath
+            if (dir.exists() && dir.resolve("libvlc.dll").exists()) return dir.absolutePath
         }
         return null
     }
 
     fun play(url: String) {
         init()
-        if (!vlcAvailable || mediaPlayer == null) return
-        _playbackState.value = PlaybackState.LOADING
-        isTransitioning = false
+        // No hagas release() aquí, solo detén la media actual
         scope.launch {
             try {
-                if (mediaPlayer!!.status().isPlaying) mediaPlayer!!.controls().stop()
-                mediaPlayer!!.media().play(url)
-            } catch (e: Exception) { _playbackState.value = PlaybackState.ERROR }
+                mediaPlayer?.controls()?.stop()
+                _playbackState.value = PlaybackState.LOADING
+                isTransitioning = false
+                mediaPlayer?.media()?.play(url)
+            } catch (e: Exception) {
+                _playbackState.value = PlaybackState.ERROR
+            }
         }
     }
 
     fun pause() { scope.launch { mediaPlayer?.controls()?.pause() } }
     fun resume() { scope.launch { mediaPlayer?.controls()?.play() } }
     fun togglePlayPause() { if (_playbackState.value == PlaybackState.PLAYING) pause() else resume() }
-    
+
     fun stop() {
         isTransitioning = false
         _playbackState.value = PlaybackState.IDLE
+        _position.value = 0L
+        _duration.value = 0L
         scope.launch { mediaPlayer?.controls()?.stop() }
-    }
-
-    fun stopAudioOnly() {
-        isTransitioning = true
-        scope.launch { 
-            try {
-                if (mediaPlayer?.status()?.isPlaying == true) mediaPlayer?.controls()?.stop()
-            } catch (_: Exception) {}
-        }
     }
 
     fun seekTo(millis: Long) {
@@ -141,41 +122,62 @@ class PlayerService {
         if (dur > 0) scope.launch { mediaPlayer?.controls()?.setPosition(millis.toFloat() / dur.toFloat()) }
     }
 
-    fun setVolume(value: Int) { 
+    fun setVolume(value: Int) {
         _volume.value = value
-        scope.launch { mediaPlayer?.audio()?.setVolume(value) } 
+        scope.launch { mediaPlayer?.audio()?.setVolume(value) }
     }
 
     fun release() {
-        tickJob?.cancel(); scope.cancel(); vlcDispatcher.close()
-        mediaPlayer?.release(); factory?.release()
+        tickJob?.cancel()
+        // Liberamos solo al final, al cerrar la app
+        mediaPlayer?.release()
+        factory?.release()
+        mediaPlayer = null
+        factory = null
+        scope.cancel()
+        vlcDispatcher.close()
     }
 
     private fun attachListeners() {
         mediaPlayer?.events()?.addMediaPlayerEventListener(object : MediaPlayerEventAdapter() {
-            override fun playing(mediaPlayer: MediaPlayer) { _playbackState.value = PlaybackState.PLAYING }
-            override fun paused(mediaPlayer: MediaPlayer) { _playbackState.value = PlaybackState.PAUSED }
-            override fun stopped(mediaPlayer: MediaPlayer) { 
-                if (!isTransitioning) _playbackState.value = PlaybackState.IDLE 
-            }
-            override fun finished(mediaPlayer: MediaPlayer) { _playbackState.value = PlaybackState.ENDED }
-            override fun error(mediaPlayer: MediaPlayer) { _playbackState.value = PlaybackState.ERROR }
-            override fun lengthChanged(mediaPlayer: MediaPlayer, newLength: Long) { _duration.value = newLength }
+            override fun playing(mp: MediaPlayer) { _playbackState.value = PlaybackState.PLAYING }
+            override fun paused(mp: MediaPlayer) { _playbackState.value = PlaybackState.PAUSED }
+            override fun stopped(mp: MediaPlayer) { if (!isTransitioning) _playbackState.value = PlaybackState.IDLE }
+            override fun finished(mp: MediaPlayer) { _playbackState.value = PlaybackState.ENDED }
+            override fun error(mp: MediaPlayer) { _playbackState.value = PlaybackState.ERROR }
+            override fun lengthChanged(mp: MediaPlayer, newLength: Long) { _duration.value = newLength }
         })
     }
 
     private fun startPositionTicker() {
         tickJob = scope.launch {
             while (isActive) {
+                // Acceso seguro: no hacemos nada si el media player es null o está siendo liberado
                 val mp = mediaPlayer
-                if (mp != null && vlcAvailable && (_playbackState.value == PlaybackState.PLAYING)) {
+                if (mp != null && _playbackState.value == PlaybackState.PLAYING) {
                     try {
                         val dur = mp.status().length()
                         _duration.value = dur
                         _position.value = (mp.status().position() * dur).toLong()
-                    } catch (_: Exception) {}
+                    } catch (e: Throwable) { /* Capturamos cualquier error nativo */ }
                 }
                 delay(1000)
+            }
+        }
+    }
+
+    fun stopAudioOnly() {
+        isTransitioning = true
+        scope.launch {
+            try {
+                // Verificación de seguridad antes de llamar a métodos nativos
+                mediaPlayer?.let { mp ->
+                    if (mp.status().isPlaying) {
+                        mp.controls().stop()
+                    }
+                }
+            } catch (e: Throwable) {
+                log.warning("Intento de detener audio falló de forma segura: ${e.message}")
             }
         }
     }

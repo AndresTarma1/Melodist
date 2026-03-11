@@ -37,6 +37,7 @@ import com.example.melodist.navigation.Route
 import com.example.melodist.player.DownloadState
 import com.example.melodist.player.PlaybackState
 import com.example.melodist.viewmodels.DownloadViewModel
+import com.example.melodist.viewmodels.PlayerProgressState
 import com.example.melodist.viewmodels.PlayerUiState
 import com.example.melodist.viewmodels.QueueSource
 import com.example.melodist.viewmodels.RepeatMode
@@ -46,6 +47,7 @@ import org.koin.compose.koinInject
 @Composable
 fun WideLayout(
     state: PlayerUiState,
+    progressState: PlayerProgressState,
     song: SongItem,
     onTogglePlayPause: () -> Unit,
     onNext: () -> Unit,
@@ -94,7 +96,7 @@ fun WideLayout(
                 Spacer(Modifier.height(spacerLg))
                 SongHeader(state, song, TextAlign.Center, onNavigate, onCollapse)
                 Spacer(Modifier.height(spacerLg))
-                ProgressBar(state, onSeek)
+                ProgressBar(progressState, onSeek)
                 Spacer(Modifier.height(spacerMd))
                 TransportControls(
                     state,
@@ -181,6 +183,7 @@ fun WideLayout(
 @Composable
 fun CompactLayout(
     state: PlayerUiState,
+    progressState: PlayerProgressState,
     song: SongItem,
     onTogglePlayPause: () -> Unit,
     onNext: () -> Unit,
@@ -238,7 +241,7 @@ fun CompactLayout(
             Spacer(Modifier.height(spacerLg))
             SongHeader(state, song, TextAlign.Center, onNavigate, onCollapse)
             Spacer(Modifier.height(spacerLg))
-            ProgressBar(state, onSeek)
+            ProgressBar(progressState, onSeek)
             Spacer(Modifier.height(spacerSm))
             TransportControls(
                 state,
@@ -419,17 +422,17 @@ fun SongHeader(
 }
 
 @Composable
-fun ProgressBar(state: PlayerUiState, onSeek: (Long) -> Unit) {
+fun ProgressBar(progressState: PlayerProgressState, onSeek: (Long) -> Unit) {
     var seekPos by remember { mutableStateOf<Float?>(null) }
     val progress = seekPos
-        ?: if (state.durationMs > 0) state.positionMs.toFloat() / state.durationMs.toFloat() else 0f
+        ?: if (progressState.durationMs > 0) progressState.positionMs.toFloat() / progressState.durationMs.toFloat() else 0f
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Slider(
             value = progress,
             onValueChange = { seekPos = it },
             onValueChangeFinished = {
-                seekPos?.let { onSeek((it * state.durationMs).toLong()) }
+                seekPos?.let { onSeek((it * progressState.durationMs).toLong()) }
                 seekPos = null
             },
             modifier = Modifier.fillMaxWidth(),
@@ -446,12 +449,12 @@ fun ProgressBar(state: PlayerUiState, onSeek: (Long) -> Unit) {
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
-                formatPlayerTimeValue(seekPos?.let { (it * state.durationMs).toLong() } ?: state.positionMs),
+                formatPlayerTimeValue(seekPos?.let { (it * progressState.durationMs).toLong() } ?: progressState.positionMs),
                 style = MaterialTheme.typography.labelSmall,
                 color = Color.White.copy(alpha = 0.55f)
             )
             Text(
-                formatPlayerTimeValue(state.durationMs),
+                formatPlayerTimeValue(progressState.durationMs),
                 style = MaterialTheme.typography.labelSmall,
                 color = Color.White.copy(alpha = 0.55f)
             )

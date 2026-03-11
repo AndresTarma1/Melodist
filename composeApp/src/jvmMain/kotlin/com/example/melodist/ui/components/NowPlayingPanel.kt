@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import com.example.melodist.viewmodels.PlayerProgressState
 import com.example.melodist.viewmodels.PlayerUiState
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -28,6 +29,7 @@ import com.example.melodist.viewmodels.PlayerUiState
 @Composable
 fun NowPlayingPanel(
     state: PlayerUiState,
+    progressState: PlayerProgressState,
     onTogglePlayPause: () -> Unit,
     onNext: () -> Unit,
     onPrevious: () -> Unit,
@@ -112,6 +114,7 @@ fun NowPlayingPanel(
             if (maxWidth >= 800.dp) {
                 WideLayout(
                     state = state,
+                    progressState = progressState,
                     song = song,
                     onTogglePlayPause = onTogglePlayPause,
                     onNext = onNext,
@@ -128,6 +131,7 @@ fun NowPlayingPanel(
             } else {
                 CompactLayout(
                     state = state,
+                    progressState = progressState,
                     song = song,
                     onTogglePlayPause = onTogglePlayPause,
                     onNext = onNext,

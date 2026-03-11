@@ -69,48 +69,43 @@ fun rememberArtworkColors(url: String?): ArtworkColors {
 }
 
 private fun extractColorsFromUrl(url: String): ArtworkColors {
-    val smallUrl = url.replace("w544-h544", "w64-h64")
-        .replace("w226-h226", "w64-h64")
-        .replace("w120-h120", "w64-h64")
-        .let { if ("=w" !in it && "=s" !in it) it else it }
-
-    val image: BufferedImage = URI(smallUrl).toURL().openStream().use { stream ->
-        ImageIO.read(stream)
-    } ?: return ArtworkColors.Default
-
-    val pixels = mutableListOf<Triple<Int, Int, Int>>()
-    val stepX = maxOf(1, image.width / 32)
-    val stepY = maxOf(1, image.height / 32)
-
-    for (y in 0 until image.height step stepY) {
-        for (x in 0 until image.width step stepX) {
-            val rgb = image.getRGB(x, y)
-            val a = (rgb shr 24) and 0xFF
-            if (a < 128) continue
-            val r = (rgb shr 16) and 0xFF
-            val g = (rgb shr 8) and 0xFF
-            val b = rgb and 0xFF
-            pixels.add(Triple(r, g, b))
-        }
+    // 1. Redimensionar antes de procesar (esencial para el rendimiento)
+    val image: BufferedImage = URI(url).toURL().openStream().use { stream ->
+        val original = ImageIO.read(stream) ?: return ArtworkColors.Default
+        // Escalamos a 32x32: es suficiente para extraer colores y muy rápido
+        val resized = BufferedImage(32, 32, BufferedImage.TYPE_INT_RGB)
+        val g = resized.createGraphics()
+        g.drawImage(original, 0, 0, 32, 32, null)
+        g.dispose()
+        resized
     }
 
-    if (pixels.isEmpty()) return ArtworkColors.Default
+    // 2. Usar un IntArray para evitar crear miles de objetos 'Triple'
+    val pixels = IntArray(32 * 32)
+    image.getRGB(0, 0, 32, 32, pixels, 0, 32)
 
-    val clusters = kMeansClusters(pixels, k = 4, iterations = 8)
+    val pixelList = pixels.map { rgb ->
+        val r = (rgb shr 16) and 0xFF
+        val g = (rgb shr 8) and 0xFF
+        val b = rgb and 0xFF
+        Triple(r, g, b)
+    }
+
+    // 3. Procesar clusters (Tu lógica de kMeans se mantiene igual)
+    val clusters = kMeansClusters(pixelList, k = 4, iterations = 8)
     val sorted = clusters.sortedByDescending { it.count }
 
     val dominant = sorted[0].toColor()
     val vibrant = sorted.maxByOrNull { it.saturation() }?.toColor() ?: dominant
     val muted = sorted.minByOrNull { it.saturation() }?.toColor() ?: dominant
     val darkMuted = sorted.minByOrNull { it.luminance() }?.toColor() ?: dominant
-    val isLight = sorted[0].luminance() > 0.55f
 
     return ArtworkColors(
         dominant = dominant,
         vibrant = vibrant,
         muted = muted,
         darkMuted = darkMuted,
-        isLight = isLight
+        isLight = sorted[0].luminance() > 0.55f
     )
 }
 

@@ -219,7 +219,7 @@ internal fun AlbumInfoPanel(
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         modifier = Modifier
             .clip(RoundedCornerShape(20.dp))
-            .clickable { albumPage.album.artists?.firstOrNull()?.let { onNavigate(Route.Artist(it.id!!)) } }
+            .clickable { albumPage.album.artists?.firstOrNull()?.id?.let { onNavigate(Route.Artist(it)) } }
             .pointerHoverIcon(PointerIcon.Hand)
     ) {
         Row(

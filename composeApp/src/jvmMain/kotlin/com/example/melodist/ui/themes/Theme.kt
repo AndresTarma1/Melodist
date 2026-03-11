@@ -49,10 +49,18 @@ fun MelodistTheme(
     }
 
     // Animate all theme colors for smooth transitions when song changes
-    val animatedScheme = animateColorScheme(colorScheme)
+    val animatedPrimary by animateColorAsState(colorScheme.primary, tween(600))
+    val animatedSurface by animateColorAsState(colorScheme.surface, tween(600))
+    val animatedBackground by animateColorAsState(colorScheme.background, tween(600))
+
+    val finalScheme = colorScheme.copy(
+        primary = animatedPrimary,
+        surface = animatedSurface,
+        background = animatedBackground
+    )
 
     MaterialTheme(
-        colorScheme = animatedScheme,
+        colorScheme = finalScheme,
         content = content
     )
 }

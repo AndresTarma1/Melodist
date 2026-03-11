@@ -1,17 +1,9 @@
 package com.example.melodist
 
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.material.Divider
-import androidx.compose.material.Icon
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.*
 import com.arkivanov.decompose.DefaultComponentContext
@@ -21,11 +13,12 @@ import com.example.melodist.data.AppPreferences
 import com.example.melodist.data.account.AccountManager
 import com.example.melodist.di.appModule
 import com.example.melodist.navigation.RootComponent
+import com.example.melodist.player.PlaybackState
 import com.example.melodist.player.PlayerService
-import com.example.melodist.utils.UpdateService
+import com.example.melodist.player.WindowsMediaSession
 import com.example.melodist.viewmodels.PlayerViewModel
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import com.sun.jna.Native
+import com.sun.jna.Platform
 import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
 import com.kdroid.composetray.tray.api.Tray
@@ -37,7 +30,7 @@ private val logger = Logger.getLogger("Melodist")
 
 fun main() {
     setupEnvironments()
-    
+
     val koinApp = try {
         startKoin { modules(appModule) }
     } catch (e: Exception) {
@@ -52,6 +45,18 @@ fun main() {
     }
 
     val playerViewModel = koinApp.koin.get<PlayerViewModel>()
+
+    // Configurar callbacks SMTC (botones del overlay de Windows)
+    val mediaSession = koinApp.koin.get<WindowsMediaSession>()
+    mediaSession.setCallbacks(
+        onPlay     = { playerViewModel.togglePlayPause() },
+        onPause    = { playerViewModel.togglePlayPause() },
+        onNext     = { playerViewModel.next() },
+        onPrevious = { playerViewModel.previous() },
+        onStop     = { playerViewModel.stop() },
+    )
+
+    // Teclas multimedia físicas del teclado (Play/Pause/Next/Prev/Stop)
     val mediaKeyListener = MediaKeyListener(
         onPlayPause = { playerViewModel.togglePlayPause() },
         onNext      = { playerViewModel.next() },
@@ -71,17 +76,11 @@ fun main() {
 
         val windowState = rememberWindowState(width = 1200.dp, height = 600.dp)
         var isVisible by remember { mutableStateOf(true) }
-        val scope = rememberCoroutineScope()
         val minimizeToTray by AppPreferences.minimizeToTray.collectAsState()
 
-        // --- Lógica de Actualización ---
-        var updateRelease by remember { mutableStateOf<com.example.melodist.utils.GitHubRelease?>(null) }
-        LaunchedEffect(Unit) {
-            updateRelease = UpdateService.checkForUpdates()
-        }
-
         fun doExit() {
-            mediaKeyListener.unregister()
+            mediaKeyListener.unregister()  // liberar teclas globales
+            mediaSession.release()
             try { koinApp.koin.get<PlayerService>().release() } catch (_: Exception) {}
             stopKoin()
             exitApplication()
@@ -89,7 +88,7 @@ fun main() {
 
         if (!isVisible || minimizeToTray) {
             val playerState by playerViewModel.uiState.collectAsState()
-            val isPlaying = playerState.playbackState == com.example.melodist.player.PlaybackState.PLAYING
+            val isPlaying = playerState.playbackState == PlaybackState.PLAYING
 
             Tray(
                 icon = Icons.Filled.MusicNote,
@@ -98,10 +97,10 @@ fun main() {
             ) {
                 Item(label = if (isPlaying) "Pausar" else "Reproducir", onClick = { playerViewModel.togglePlayPause() })
                 Item(label = "Siguiente", onClick = { playerViewModel.next() })
-                Item(label = "Anterior", onClick = { playerViewModel.previous() })
+                Item(label = "Anterior",  onClick = { playerViewModel.previous() })
                 Divider()
                 Item(label = "Abrir Melodist", onClick = { isVisible = true })
-                Item(label = "Salir", onClick = { doExit() })
+                Item(label = "Salir",          onClick = { doExit() })
             }
         }
 
@@ -116,7 +115,19 @@ fun main() {
             LaunchedEffect(Unit) {
                 window.rootPane?.windowDecorationStyle = JRootPane.NONE
                 window.minimumSize = java.awt.Dimension(800, 500)
+
+                // Registrar ventana con Windows SMTC una única vez al inicio.
+                // La sincronización de metadatos/estado la hace PlayerViewModel internamente.
+                if (Platform.isWindows()) {
+                    try {
+                        val hwnd = Native.getWindowID(window)
+                        mediaSession.initialize(hwnd)
+                    } catch (e: Throwable) {
+                        logger.warning("No se pudo inicializar SMTC: ${e.message}")
+                    }
+                }
             }
+
 
             val maximizer = remember { WindowMaximizer(windowState, window) }
             var isMaximized by remember { mutableStateOf(false) }
@@ -132,29 +143,6 @@ fun main() {
                 },
                 onClose = { if (minimizeToTray) isVisible = false else doExit() }
             )
-
-            // Diálogo de actualización
-            updateRelease?.let { release ->
-                AlertDialog(
-                    onDismissRequest = { updateRelease = null },
-                    title = { Text("Actualización disponible") },
-                    text = { Text("Hay una nueva versión disponible: ${release.tagName}. ¿Deseas instalarla ahora?") },
-                    confirmButton = {
-                        Button(onClick = {
-                            val asset = release.assets.find { it.name.endsWith(".msi") }
-                            asset?.let { 
-                                scope.launch(Dispatchers.IO) {
-                                    UpdateService.downloadAndInstall(it)
-                                }
-                            }
-                            updateRelease = null
-                        }) { Text("Actualizar") }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { updateRelease = null }) { Text("Más tarde") }
-                    }
-                )
-            }
         }
     }
 }
@@ -164,7 +152,7 @@ private fun setupEnvironments() {
     val tmpDir = AppDirs.dataRoot.resolve("tmp").also { it.mkdirs() }
     System.setProperty("java.io.tmpdir", tmpDir.absolutePath)
     AccountManager.init()
-    
+
     Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
         logger.log(Level.SEVERE, "Error crítico en ${thread.name}", throwable)
     }
