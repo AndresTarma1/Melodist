@@ -4,6 +4,7 @@ import androidx.compose.material.Divider
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.*
 import com.arkivanov.decompose.DefaultComponentContext
@@ -22,6 +23,7 @@ import com.sun.jna.Platform
 import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
 import com.kdroid.composetray.tray.api.Tray
+import org.jetbrains.compose.resources.painterResource
 import java.util.logging.Level
 import java.util.logging.Logger
 import javax.swing.JRootPane
@@ -104,11 +106,13 @@ fun main() {
             }
         }
 
+        val appIcon = painterResource("music_icon_32.svg")
         Window(
             onCloseRequest = { if (minimizeToTray) isVisible = false else doExit() },
             visible = isVisible,
             title = "Melodist",
             state = windowState,
+            icon = appIcon,
             undecorated = true,
             transparent = false,
         ) {
