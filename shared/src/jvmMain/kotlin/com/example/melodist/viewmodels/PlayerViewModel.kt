@@ -13,11 +13,15 @@ import com.example.melodist.player.WindowsMediaSession
 import com.metrolist.innertube.YouTube
 import com.metrolist.innertube.models.SongItem
 import com.metrolist.innertube.models.WatchEndpoint
+import com.metrolist.innertube.models.YTItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.net.HttpURLConnection
+import java.net.URI
+import java.net.URL
 import java.util.logging.Logger
 
 class PlayerViewModel(
@@ -39,7 +43,6 @@ class PlayerViewModel(
 
     private var resolveJob: Job? = null
     private var originalQueue: List<SongItem> = emptyList()
-    private var currentStreamExpiresAt: Long = 0L
 
     init {
         // Sync audio quality preference → stream resolver
@@ -65,17 +68,7 @@ class PlayerViewModel(
                 when (state) {
                     PlaybackState.ENDED -> onTrackEnded()
                     PlaybackState.ERROR -> {
-                        val pos = playerService.position.value
-                        val dur = playerService.duration.value
-                        // If error early (duration not set or position low), retry
-                        if (dur == 0L || pos < dur - 10000) {
-                            if (System.currentTimeMillis() >= currentStreamExpiresAt - 60000) {
-                                log.info("Refrescando url expirada")
-                            } else {
-                                log.info("Reintentando resolución de stream por error de reproducción")
-                            }
-                            _uiState.value.currentSong?.let { resolveAndPlay(it) }
-                        }
+                        log.warning(">>> Error de reproducción, el usuario puede reintentar manualmente")
                     }
                     else -> {}
                 }
@@ -127,7 +120,7 @@ class PlayerViewModel(
     private fun downloadThumbToTemp(url: String?): String? {
         if (url.isNullOrBlank()) return null
         return try {
-            val conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+            val conn = URI(url).toURL().openConnection() as HttpURLConnection
             conn.connectTimeout = 5_000
             conn.readTimeout    = 10_000
             conn.setRequestProperty("User-Agent", "Mozilla/5.0")
@@ -149,6 +142,8 @@ class PlayerViewModel(
 
     fun playSingle(song: SongItem) {
         val source = QueueSource.Single(song.id)
+
+        print(song)
         _uiState.update {
             it.copy(
                 currentSong = song,
@@ -389,33 +384,30 @@ class PlayerViewModel(
         resolveJob?.cancel()
 
         resolveJob = viewModelScope.launch {
-            _uiState.update { it.copy(playbackState = PlaybackState.LOADING) }
+            _uiState.update { it.copy(playbackState = PlaybackState.LOADING, error = null) }
             playerService.stopAudioOnly()
+            
             try {
-                // Check local cache first
-                val cachedFile = DownloadService.getCachedFile(song.id)
+                val cachedFile = withContext(Dispatchers.IO) {
+                    com.example.melodist.player.DownloadService.getCachedFile(song.id)
+                }
                 if (cachedFile != null) {
-                    currentStreamExpiresAt = Long.MAX_VALUE // cached doesn't expire
                     playerService.play(cachedFile.absolutePath)
-                    return@launch
-                }
-
-                // No local cache — resolve from network
-                val stream = withContext(Dispatchers.IO) {
-                    streamResolver.resolveAudioStream(song.id)
-                }
-                if (stream != null) {
-                    currentStreamExpiresAt = System.currentTimeMillis() + (stream.expiresInSeconds ?: 0L) * 1000L
-                    playerService.play(stream.url)
                 } else {
-                    log.warning("No audio stream for ${song.id}")
-                    _uiState.update { it.copy(error = "No se pudo obtener el audio para \"${song.title}\"") }
+                    val stream = withContext(Dispatchers.IO) {
+                        streamResolver.resolveAudioStream(song.id)
+                    }
+                    if (stream != null) {
+                        playerService.play(stream.url)
+                    } else {
+                        _uiState.update { it.copy(error = "No se pudo obtener el audio para \"${song.title}\"") }
+                    }
                 }
+            } catch (e: com.example.melodist.player.AgeRestrictedException) {
+                _uiState.update { it.copy(playbackState = PlaybackState.ERROR, error = e.message) }
             } catch (e: Exception) {
-                log.warning("Resolve failed: ${song.id} — ${e.message}")
                 _uiState.update { it.copy(error = e.message) }
             }
-
         }
     }
 
@@ -445,11 +437,20 @@ class PlayerViewModel(
 
                 _uiState.update { state ->
                     if (state.currentSong?.id == originalSongId) {
-                        val newSongs = result.items
-                            .filter { it.id != originalSongId }
+                        val suggestedCurrent = result.items.find { it.id == originalSongId }
+                        val newSongs = result.items.filter { it.id != originalSongId }
 
                         state.copy(
-                            queue = state.queue + newSongs,
+                            currentSong = if (state.currentSong.duration == null && suggestedCurrent?.duration != null) {
+                                state.currentSong.copy(duration = suggestedCurrent.duration)
+                            } else state.currentSong,
+                            queue = (if (state.currentSong.duration == null && suggestedCurrent?.duration != null) {
+                                state.queue.toMutableList().apply {
+                                    if (state.currentIndex in indices) {
+                                        this[state.currentIndex] = this[state.currentIndex].copy(duration = suggestedCurrent.duration)
+                                    }
+                                }
+                            } else state.queue) + newSongs,
                             originalQueue = state.originalQueue + newSongs
                         )
                     } else state

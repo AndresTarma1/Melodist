@@ -127,6 +127,7 @@ class MusicRepository(
                     libraryRemoveToken = null,
                     lyricsOffset = 0L,
                     romanizeLyrics = 1L,
+                    isAgeRestricted = 0L,
                     isDownloaded = 0L,
                     isUploaded = 0L,
                     isVideo = 0L
@@ -332,6 +333,7 @@ class MusicRepository(
                     libraryRemoveToken = null,
                     lyricsOffset = 0L,
                     romanizeLyrics = 1L,
+                    isAgeRestricted = 0L,
                     isDownloaded = 0L,
                     isUploaded = 0L,
                     isVideo = 0L
@@ -498,7 +500,8 @@ class MusicRepository(
             else null,
             duration = song.duration.takeIf { it >= 0 }?.toInt(),
             thumbnail = song.thumbnailUrl?: "",
-            explicit = song.explicit != 0L
+            explicit = song.explicit != 0L,
+            // isAgeRestricted ya no existe en innertube.SongItem, se omite
         )
     }
 }

@@ -92,7 +92,6 @@ class PlayerService {
 
     fun play(url: String) {
         init()
-        // No hagas release() aquí, solo detén la media actual
         scope.launch {
             try {
                 mediaPlayer?.controls()?.stop()
@@ -170,15 +169,12 @@ class PlayerService {
         isTransitioning = true
         scope.launch {
             try {
-                // Verificación de seguridad antes de llamar a métodos nativos
                 mediaPlayer?.let { mp ->
                     if (mp.status().isPlaying) {
                         mp.controls().stop()
                     }
                 }
-            } catch (e: Throwable) {
-                log.warning("Intento de detener audio falló de forma segura: ${e.message}")
-            }
+            } catch (e: Throwable) { /* ignore */ }
         }
     }
 }

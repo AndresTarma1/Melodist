@@ -27,6 +27,11 @@ data class ResolvedStream(
 enum class StreamQuality { LOW, NORMAL, HIGH }
 
 /**
+ * Custom exception for age-restricted content.
+ */
+class AgeRestrictedException(message: String) : Exception(message)
+
+/**
  * Resolves a video ID into a playable audio stream URL.
  *
  * Strategy (mirrors Metrolist's YTPlayerUtils):
@@ -68,8 +73,6 @@ class AudioStreamResolver {
      * Used by DownloadService to get contentLength, itag, mimeType for chunked downloads.
      */
     suspend fun resolveAudioStream(videoId: String): ResolvedStream? {
-        log.info("Resolving stream: $videoId")
-
         for (client in fallbackClients) {
             try {
                 val signatureTimestamp = if (client.useSignatureTimestamp) {
@@ -84,18 +87,30 @@ class AudioStreamResolver {
                     signatureTimestamp = signatureTimestamp
                 ).getOrNull() ?: continue
 
+                if (response.playabilityStatus.status == "UNPLAYABLE" && 
+                    response.playabilityStatus.reason?.contains("age-restricted", ignoreCase = true) == true) {
+                    throw AgeRestrictedException(response.playabilityStatus.reason ?: "Age restricted content")
+                }
+                
                 if (response.playabilityStatus.status != "OK") continue
 
-                val processed = YouTube.newPipePlayer(videoId, response) ?: response
+                val processed = try {
+                    YouTube.newPipePlayer(videoId, response) ?: response
+                } catch (e: Exception) {
+                    if (e.toString().contains("AgeRestrictedContentException", ignoreCase = true)) {
+                        throw AgeRestrictedException("Age restricted content: cannot be watched anonymously")
+                    }
+                    response
+                }
 
                 extractBestAudioStream(processed)?.let { stream ->
-                    log.info("Resolved via ${client.clientName}: itag=${stream.itag}, bitrate=${stream.bitrate}")
                     return stream
                 }
+            } catch (e: AgeRestrictedException) {
+                throw e
             } catch (_: Exception) { }
         }
 
-        log.warning("All clients failed for videoId=$videoId")
         return null
     }
 

@@ -38,6 +38,7 @@ class DatabaseDao(private val database: MelodistDatabase) {
         dateDownload = dateDownload.toLocalDateTime(), isLocal = isLocal != 0L,
         libraryAddToken = libraryAddToken, libraryRemoveToken = libraryRemoveToken,
         lyricsOffset = lyricsOffset.toInt(), romanizeLyrics = romanizeLyrics != 0L,
+        isAgeRestricted = isAgeRestricted != 0L,
         isDownloaded = isDownloaded != 0L, isUploaded = isUploaded != 0L, isVideo = isVideo != 0L
     )
 
@@ -46,7 +47,8 @@ class DatabaseDao(private val database: MelodistDatabase) {
         albumName: String?, explicit: Long, year: Long?, date: Long?, dateModified: Long?,
         liked: Long, likedDate: Long?, totalPlayTime: Long, inLibrary: Long?, dateDownload: Long?,
         isLocal: Long, libraryAddToken: String?, libraryRemoveToken: String?,
-        lyricsOffset: Long, romanizeLyrics: Long, isDownloaded: Long, isUploaded: Long, isVideo: Long
+        lyricsOffset: Long, romanizeLyrics: Long, isAgeRestricted: Long,
+        isDownloaded: Long, isUploaded: Long, isVideo: Long
     ) = SongEntity(
         id = id, title = title, duration = duration.toInt(),
         thumbnailUrl = thumbnailUrl, albumId = albumId, albumName = albumName,
@@ -57,6 +59,7 @@ class DatabaseDao(private val database: MelodistDatabase) {
         dateDownload = dateDownload.toLocalDateTime(), isLocal = isLocal != 0L,
         libraryAddToken = libraryAddToken, libraryRemoveToken = libraryRemoveToken,
         lyricsOffset = lyricsOffset.toInt(), romanizeLyrics = romanizeLyrics != 0L,
+        isAgeRestricted = isAgeRestricted != 0L,
         isDownloaded = isDownloaded != 0L, isUploaded = isUploaded != 0L, isVideo = isVideo != 0L
     )
 
@@ -132,11 +135,11 @@ class DatabaseDao(private val database: MelodistDatabase) {
                                                liked, likedDate, totalPlayTime, inLibrary,
                                                dateDownload, isLocal, libraryAddToken,
                                                libraryRemoveToken, lyricsOffset, romanizeLyrics,
-                                               isDownloaded, isUploaded, isVideo ->
+                                               isAgeRestricted, isDownloaded, isUploaded, isVideo ->
             buildSongEntity(id, title, duration, thumbnailUrl, albumId, albumName, explicit, year,
                 date, dateModified, liked, likedDate, totalPlayTime, inLibrary, dateDownload,
                 isLocal, libraryAddToken, libraryRemoveToken, lyricsOffset, romanizeLyrics,
-                isDownloaded, isUploaded, isVideo)
+                isAgeRestricted, isDownloaded, isUploaded, isVideo)
         }.asFlow().mapToList(Dispatchers.IO)
 
     fun songById(id: String): Flow<SongEntity?> =
@@ -150,11 +153,11 @@ class DatabaseDao(private val database: MelodistDatabase) {
                                            liked, likedDate, totalPlayTime, inLibrary,
                                            dateDownload, isLocal, libraryAddToken,
                                            libraryRemoveToken, lyricsOffset, romanizeLyrics,
-                                           isDownloaded, isUploaded, isVideo ->
+                                           isAgeRestricted, isDownloaded, isUploaded, isVideo ->
             buildSongEntity(id, title, duration, thumbnailUrl, albumId, albumName, explicit, year,
                 date, dateModified, liked, likedDate, totalPlayTime, inLibrary, dateDownload,
                 isLocal, libraryAddToken, libraryRemoveToken, lyricsOffset, romanizeLyrics,
-                isDownloaded, isUploaded, isVideo)
+                isAgeRestricted, isDownloaded, isUploaded, isVideo)
         }.asFlow().mapToList(Dispatchers.IO)
 
     fun songWithRelations(songId: String): Flow<SongWithRelations?> =
@@ -181,6 +184,7 @@ class DatabaseDao(private val database: MelodistDatabase) {
             libraryAddToken = song.libraryAddToken, libraryRemoveToken = song.libraryRemoveToken,
             lyricsOffset = song.lyricsOffset.toLong(),
             romanizeLyrics = if (song.romanizeLyrics) 1L else 0L,
+            isAgeRestricted = if (song.isAgeRestricted) 1L else 0L,
             isDownloaded = if (song.isDownloaded) 1L else 0L,
             isUploaded = if (song.isUploaded) 1L else 0L,
             isVideo = if (song.isVideo) 1L else 0L

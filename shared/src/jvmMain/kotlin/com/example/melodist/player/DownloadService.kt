@@ -148,19 +148,19 @@ class DownloadService(
     // ─── Download a single song ────────────────────────────
 
     fun downloadSong(song: SongItem) {
-        val songId = song.id
-        val current = _downloadStates.value[songId]
-        if (current is DownloadState.Downloading || current is DownloadState.Queued) return
-        if (getCachedFile(songId) != null) {
-            _downloadStates.update { it + (songId to DownloadState.Completed) }
-            scope.launch { databaseDao.updateSongDownloadStatus(songId, true, System.currentTimeMillis()) }
-            return
-        }
+        scope.launch(Dispatchers.IO) {
+            val songId = song.id
+            val current = _downloadStates.value[songId]
+            if (current is DownloadState.Downloading || current is DownloadState.Queued) return@launch
+            if (getCachedFile(songId) != null) {
+                _downloadStates.update { it + (songId to DownloadState.Completed) }
+                databaseDao.updateSongDownloadStatus(songId, true, System.currentTimeMillis())
+                return@launch
+            }
 
-        _downloadStates.update { it + (songId to DownloadState.Queued) }
-        _pendingSongItems.update { it + (songId to song) }
+            _downloadStates.update { it + (songId to DownloadState.Queued) }
+            _pendingSongItems.update { it + (songId to song) }
 
-        val job = scope.launch {
             semaphore.withPermit {
                 if (!isActive) return@withPermit
                 _downloadStates.update { it + (songId to DownloadState.Downloading(0f)) }
@@ -226,9 +226,6 @@ class DownloadService(
                 }
             }
         }
-
-        synchronized(activeJobs) { activeJobs[songId] = job }
-        job.invokeOnCompletion { synchronized(activeJobs) { activeJobs.remove(songId) } }
     }
 
     fun downloadAll(songs: List<SongItem>) {

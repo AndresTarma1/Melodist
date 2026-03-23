@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS Song (
     libraryRemoveToken TEXT,
     lyricsOffset INTEGER NOT NULL DEFAULT 0,
     romanizeLyrics INTEGER NOT NULL DEFAULT 1,
+    isAgeRestricted INTEGER NOT NULL DEFAULT 0,
     isDownloaded INTEGER NOT NULL DEFAULT 0,
     isUploaded INTEGER NOT NULL DEFAULT 0,
     isVideo INTEGER NOT NULL DEFAULT 0
@@ -67,12 +68,12 @@ songsByAlbum:
 SELECT * FROM Song WHERE albumId = ?;
 
 insertSong:
-INSERT OR REPLACE INTO Song (id, title, duration, thumbnailUrl, albumId, albumName, explicit, year, date, dateModified, liked, likedDate, totalPlayTime, inLibrary, dateDownload, isLocal, libraryAddToken, libraryRemoveToken, lyricsOffset, romanizeLyrics, isDownloaded, isUploaded, isVideo)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO Song (id, title, duration, thumbnailUrl, albumId, albumName, explicit, year, date, dateModified, liked, likedDate, totalPlayTime, inLibrary, dateDownload, isLocal, libraryAddToken, libraryRemoveToken, lyricsOffset, romanizeLyrics, isAgeRestricted, isDownloaded, isUploaded, isVideo)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 insertSongIfNotExists:
-INSERT OR IGNORE INTO Song (id, title, duration, thumbnailUrl, albumId, albumName, explicit, year, date, dateModified, liked, likedDate, totalPlayTime, inLibrary, dateDownload, isLocal, libraryAddToken, libraryRemoveToken, lyricsOffset, romanizeLyrics, isDownloaded, isUploaded, isVideo)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT OR IGNORE INTO Song (id, title, duration, thumbnailUrl, albumId, albumName, explicit, year, date, dateModified, liked, likedDate, totalPlayTime, inLibrary, dateDownload, isLocal, libraryAddToken, libraryRemoveToken, lyricsOffset, romanizeLyrics, isAgeRestricted, isDownloaded, isUploaded, isVideo)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 updateSong:
 UPDATE Song SET title = ?, duration = ?, thumbnailUrl = ?, albumId = ?, albumName = ?, explicit = ?, year = ?, liked = ?, likedDate = ?, totalPlayTime = ?, inLibrary = ?, isDownloaded = ?, isUploaded = ?, isVideo = ?

@@ -21,9 +21,11 @@ import com.example.melodist.viewmodels.PlayerViewModel
 import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
 import com.kdroid.composetray.tray.api.Tray
+import com.sun.jna.platform.win32.WinUser
 import melodist.composeapp.generated.resources.Res
 import melodist.composeapp.generated.resources.music_icon
 import org.jetbrains.compose.resources.painterResource
+import java.awt.Dimension
 import java.util.logging.Level
 import java.util.logging.Logger
 import javax.swing.JRootPane
@@ -68,7 +70,9 @@ fun main() {
             )
         }
 
-        val windowState = rememberWindowState(width = 1200.dp, height = 600.dp)
+        val windowState = rememberWindowState(
+            width = 1200.dp, height = 600.dp
+        )
         var isVisible by remember { mutableStateOf(true) }
         val minimizeToTray by AppPreferences.minimizeToTray.collectAsState()
 
@@ -97,6 +101,8 @@ fun main() {
             }
         }
 
+
+
         val appIcon = painterResource(Res.drawable.music_icon)
         Window(
             onCloseRequest = { if (minimizeToTray) isVisible = false else doExit() },
@@ -107,24 +113,12 @@ fun main() {
             undecorated = true,
             transparent = false,
         ) {
-            LaunchedEffect(Unit) {
-                window.rootPane?.windowDecorationStyle = JRootPane.NONE
-                window.minimumSize = java.awt.Dimension(800, 500)
-            }
+            window.minimumSize = Dimension(800, 500)
 
-
-            val maximizer = remember { WindowMaximizer(windowState, window) }
-            var isMaximized by remember { mutableStateOf(false) }
 
             App(
                 rootComponent = rootComponent,
                 windowState = windowState,
-                isMaximized = isMaximized,
-                onMinimize = { windowState.isMinimized = true },
-                onMaximizeRestore = {
-                    maximizer.toggleMaximize()
-                    isMaximized = maximizer.isMaximized
-                },
                 onClose = { if (minimizeToTray) isVisible = false else doExit() }
             )
         }

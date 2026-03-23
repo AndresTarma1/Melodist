@@ -27,6 +27,7 @@ data class SongEntity(
     val libraryRemoveToken: String? = null,
     val lyricsOffset: Int = 0,
     val romanizeLyrics: Boolean = true,
+    val isAgeRestricted: Boolean = false,
     val isDownloaded: Boolean = false,
     val isUploaded: Boolean = false,
     val isVideo: Boolean = false

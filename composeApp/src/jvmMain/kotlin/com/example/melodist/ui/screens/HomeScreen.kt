@@ -214,7 +214,9 @@ fun HomeScreenContent(
                                         is AlbumItem -> onNavigate(Route.Album(item.browseId))
                                         is ArtistItem -> onNavigate(Route.Artist(item.id))
                                         is PlaylistItem -> onNavigate(Route.Playlist(item.id))
-                                        is SongItem -> playerViewModel?.playSingle(item)
+                                        is SongItem -> {
+                                            playerViewModel?.playSingle(item)
+                                        }
                                     }
                                 }
                             )

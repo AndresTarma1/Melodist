@@ -1,0 +1,47 @@
+INFORMACI�N: >>> resolveAndPlay START: -i6l_z0W9g4, job active: false
+mar 13, 2026 7:27:39 P.?M. com.example.melodist.viewmodels.PlayerViewModel resolveAndPlay
+INFORMACI�N: >>> resolveAndPlay after cancel: -i6l_z0W9g4
+mar 13, 2026 7:27:39 P.?M. com.example.melodist.viewmodels.PlayerViewModel$resolveAndPlay$1 invokeSuspend
+INFORMACI�N: >>> resolveAndPlay COROUTINE START: -i6l_z0W9g4
+mar 13, 2026 7:27:39 P.?M. com.example.melodist.player.PlayerService stopAudioOnly
+INFORMACI�N: >>> stopAudioOnly CALLED, mediaPlayer null=false
+mar 13, 2026 7:27:39 P.?M. com.example.melodist.viewmodels.PlayerViewModel$resolveAndPlay$1 invokeSuspend
+INFORMACI�N: >>> stopAudioOnly done: -i6l_z0W9g4
+mar 13, 2026 7:27:39 P.?M. com.example.melodist.player.PlayerService$stopAudioOnly$1 invokeSuspend
+INFORMACI�N: >>> stopAudioOnly checking status, isPlaying=true
+mar 13, 2026 7:27:39 P.?M. com.example.melodist.player.PlayerService$attachListeners$1 stopped
+INFORMACI�N: >>> VLC EVENT: stopped, isTransitioning=true
+mar 13, 2026 7:27:39 P.?M. com.example.melodist.player.PlayerService$stopAudioOnly$1 invokeSuspend
+INFORMACI�N: >>> stopAudioOnly stop() called
+mar 13, 2026 7:27:39 P.?M. com.example.melodist.viewmodels.PlayerViewModel$resolveAndPlay$1$stream$1 invokeSuspend
+INFORMACI�N: >>> resolveAudioStream START: -i6l_z0W9g4
+mar 13, 2026 7:27:39 P.?M. com.example.melodist.player.AudioStreamResolver resolveAudioStream
+INFORMACI�N: >>> AudioStreamResolver.resolveAudioStream START: -i6l_z0W9g4
+mar 13, 2026 7:27:40 P.?M. com.example.melodist.player.AudioStreamResolver resolveAudioStream
+INFORMACI�N: >>> Player response for -i6l_z0W9g4 via IOS: status=OK
+mar 13, 2026 7:27:41 P.?M. com.example.melodist.player.AudioStreamResolver resolveAudioStream
+INFORMACI�N: >>> Resolved via IOS: itag=140, bitrate=131110, expires=21540s
+mar 13, 2026 7:27:41 P.?M. com.example.melodist.player.AudioStreamResolver resolveAudioStream
+INFORMACI�N: >>> URL sample: https://rr1---sn-0ox-jubs.googlevideo.com/videoplayback?expire=1773469660&ei=fKu0acTsJa_0zLUP26GCwAY&ip=181.204.0.123&id=o-ACH7UGSn0y0-luSCGizlP0gerR7
+mar 13, 2026 7:27:41 P.?M. com.example.melodist.viewmodels.PlayerViewModel$resolveAndPlay$1$stream$1 invokeSuspend
+INFORMACI�N: >>> resolveAudioStream END: -i6l_z0W9g4, result=true
+mar 13, 2026 7:27:41 P.?M. com.example.melodist.viewmodels.PlayerViewModel$resolveAndPlay$1 invokeSuspend
+INFORMACI�N: >>> Stream URL resolved for -i6l_z0W9g4, expires in 21540s, url=https://rr1---sn-0ox-jubs.googlevideo.com/videoplayback?expire=1773469660&ei=fKu0acTsJa_0zLUP26GCwAY...
+mar 13, 2026 7:27:41 P.?M. com.example.melodist.player.PlayerService play
+INFORMACI�N: >>> PlayerService.play CALLED, mediaPlayer null=false, url length=1144
+mar 13, 2026 7:27:41 P.?M. com.example.melodist.player.PlayerService play
+INFORMACI�N: >>> PlayerService.play after init, mediaPlayer null=false
+mar 13, 2026 7:27:41 P.?M. com.example.melodist.viewmodels.PlayerViewModel$resolveAndPlay$1 invokeSuspend
+INFORMACI�N: >>> playerService.play called for -i6l_z0W9g4
+mar 13, 2026 7:27:41 P.?M. com.example.melodist.player.PlayerService$play$1 invokeSuspend
+INFORMACI�N: >>> PlayerService.play EXECUTING stop(), mp status=ok
+mar 13, 2026 7:27:41 P.?M. com.example.melodist.viewmodels.PlayerViewModel$resolveAndPlay$1 invokeSuspend
+INFORMACI�N: >>> resolveAndPlay COROUTINE END: -i6l_z0W9g4
+mar 13, 2026 7:27:41 P.?M. com.example.melodist.player.PlayerService$play$1 invokeSuspend
+INFORMACI�N: >>> PlayerService.play EXECUTING media().play()
+mar 13, 2026 7:27:41 P.?M. com.example.melodist.player.PlayerService$play$1 invokeSuspend
+INFORMACI�N: >>> PlayerService.play media().play() returned successfully
+mar 13, 2026 7:27:41 P.?M. com.example.melodist.player.PlayerService$attachListeners$1 error
+GRAVE: >>> VLC EVENT: error, media=uk.co.caprica.vlcj.player.base.MediaApi@64613374, status=uk.co.caprica.vlcj.player.base.StatusApi@605ebb20
+mar 13, 2026 7:27:41 P.?M. com.example.melodist.viewmodels.PlayerViewModel$2$1 emit
+ADVERTENCIA: Error de reproducci�n, el usuario puede reintentar manualmente

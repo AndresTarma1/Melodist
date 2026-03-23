@@ -12,7 +12,7 @@ object DatabaseDriverFactory {
 
     private val log = Logger.getLogger("DatabaseDriverFactory")
     private const val SCHEMA_VERSION_FILE = "schema_version"
-    private const val APP_SCHEMA_VERSION = 3L
+    private const val APP_SCHEMA_VERSION = 4L
 
     fun createDriver(): SqlDriver {
         val appDir = AppDirs.databaseDir

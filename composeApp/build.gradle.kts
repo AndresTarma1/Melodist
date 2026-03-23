@@ -53,6 +53,11 @@ kotlin {
                 implementation(libs.kotlinx.coroutinesSwing)
                 implementation(libs.vlcj)
                 implementation(libs.jnativehook)
+                // Source: https://mvnrepository.com/artifact/net.java.dev.jna/jna
+                implementation("net.java.dev.jna:jna:5.18.1")
+
+                // Source: https://mvnrepository.com/artifact/net.java.dev.jna/jna-platform-jpms
+                implementation("net.java.dev.jna:jna-platform-jpms:5.18.1")
             }
         }
     }

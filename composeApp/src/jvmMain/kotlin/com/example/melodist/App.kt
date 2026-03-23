@@ -23,9 +23,6 @@ import org.koin.compose.koinInject
 fun FrameWindowScope.App(
     rootComponent: RootComponent,
     windowState: WindowState,
-    isMaximized: Boolean = false,
-    onMinimize: () -> Unit,
-    onMaximizeRestore: () -> Unit,
     onClose: () -> Unit,
 ) {
     setSingletonImageLoaderFactory { context ->
@@ -40,17 +37,12 @@ fun FrameWindowScope.App(
     // Provide artwork colors globally so NowPlayingPanel doesn't re-extract them
     CompositionLocalProvider(LocalArtworkColors provides artworkColors) {
         MelodistTheme(artworkColors = artworkColors) {
-            // Habilitar resize por los bordes de la ventana sin decoración
-            WindowResizeBorder(isMaximized = isMaximized)
 
             Column(modifier = Modifier.fillMaxSize()) {
                 // Custom title bar (reemplaza la barra nativa de Windows)
                 CustomTitleBar(
                     title = playerState.currentSong?.let { "Melodist — ${it.title}" } ?: "Melodist",
                     windowState = windowState,
-                    isMaximized = isMaximized,
-                    onMinimize = onMinimize,
-                    onMaximizeRestore = onMaximizeRestore,
                     onClose = onClose,
                 )
 

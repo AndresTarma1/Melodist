@@ -168,15 +168,25 @@ fun SearchScreen(
                 filter = filter,
                 onItemClick = { item ->
                     when (item) {
-                        is SongItem -> playerViewModel?.playSingle(item)
+
+                        is SongItem -> {
+                            val song = SongItem(
+                                id = item.id,
+                                title = item.title,
+                                artists = item.artists,
+                                album = item.album,
+                                thumbnail = item.thumbnail,
+                                duration = item.duration,
+                            )
+                            playerViewModel?.playSingle(song)
+                        }
                         else -> {
                             val route = when (item) {
                                 is AlbumItem -> Route.Album(item.id)
                                 is PlaylistItem -> Route.Playlist(item.id)
                                 is ArtistItem -> Route.Artist(item.id)
-                                else -> null
                             }
-                            route?.let { onNavigate(it) }
+                            onNavigate(route)
                         }
                     }
                 },
