@@ -127,7 +127,7 @@ fun AlbumScreen(
             Icon(
                 Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = "Atrás",
-                tint = Color.White.copy(alpha = 0.85f)
+                tint = MaterialTheme.colorScheme.onSurface
             )
         }
     }
@@ -147,8 +147,8 @@ fun AlbumScreenContent(
     onPlayAll: () -> Unit = {},
     onShuffle: () -> Unit = {},
 ) {
-    val onSurfaceColor = Color.White
-    val onSurfaceVariant = Color.White.copy(alpha = 0.65f)
+    val onSurfaceColor = MaterialTheme.colorScheme.onSurface
+    val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
 
     androidx.compose.foundation.layout.BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         if (maxWidth < 800.dp) {

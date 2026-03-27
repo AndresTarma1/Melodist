@@ -115,7 +115,7 @@ fun WideLayout(
 
             VerticalDivider(
                 modifier = Modifier.fillMaxHeight(0.85f).align(Alignment.CenterVertically),
-                color = Color.White.copy(alpha = 0.10f),
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f),
                 thickness = 1.dp
             )
 
@@ -130,20 +130,20 @@ fun WideLayout(
                     Text(
                         "Cola de reproducción",
                         style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onSurface
                     )
-                    Surface(shape = CircleShape, color = Color.White.copy(alpha = 0.14f)) {
+                    Surface(shape = CircleShape, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f)) {
                         Text(
                             "${state.queue.size}",
                             style = MaterialTheme.typography.labelMedium,
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                         )
                     }
                 }
 
                 Spacer(Modifier.height(12.dp))
-                HorizontalDivider(color = Color.White.copy(alpha = 0.10f))
+                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f))
                 Spacer(Modifier.height(8.dp))
 
                 val scrollState = rememberScrollState()
@@ -168,8 +168,8 @@ fun WideLayout(
                         modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
                         style = LocalScrollbarStyle.current.copy(
                             thickness = 4.dp,
-                            unhoverColor = Color.White.copy(alpha = 0.10f),
-                            hoverColor = Color.White.copy(alpha = 0.30f),
+                            unhoverColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f),
+                            hoverColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.30f),
                             shape = CircleShape
                         )
                     )
@@ -263,7 +263,7 @@ fun CollapseButton(onClick: () -> Unit) {
         Icon(
             Icons.Rounded.KeyboardArrowDown,
             "Minimizar",
-            tint = Color.White.copy(alpha = 0.75f),
+            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
             modifier = Modifier.size(28.dp)
         )
     }
@@ -329,13 +329,13 @@ fun SongHeader(
             }
             Surface(
                 shape = RoundedCornerShape(4.dp),
-                color = Color.White.copy(alpha = 0.12f),
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
                 modifier = Modifier.padding(bottom = 10.dp)
             ) {
                 Text(
                     label,
                     style = MaterialTheme.typography.labelSmall,
-                    color = Color.White.copy(alpha = 0.70f),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.70f),
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                 )
             }
@@ -344,7 +344,7 @@ fun SongHeader(
         Text(
             song.title,
             style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.ExtraBold),
-            color = Color.White,
+            color = MaterialTheme.colorScheme.onSurface,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             textAlign = textAlign,
@@ -363,7 +363,7 @@ fun SongHeader(
                 Text(
                     artist.name,
                     style = MaterialTheme.typography.bodyLarge.copy(fontWeight = if (hasId) FontWeight.Medium else FontWeight.Normal),
-                    color = if (hasId) Color.White else Color.White.copy(alpha = 0.60f),
+                    color = if (hasId) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.60f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = if (hasId) Modifier
@@ -380,7 +380,7 @@ fun SongHeader(
                     Text(
                         ", ",
                         style = MaterialTheme.typography.bodyLarge,
-                        color = Color.White.copy(alpha = 0.45f)
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
                     )
                 }
             }
@@ -396,14 +396,14 @@ fun SongHeader(
                 Icon(
                     Icons.Rounded.Album,
                     null,
-                    tint = Color.White.copy(alpha = 0.45f),
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
                     modifier = Modifier.size(14.dp)
                 )
                 Spacer(Modifier.width(4.dp))
                 Text(
                     album.name,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White.copy(alpha = 0.70f),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.70f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier
@@ -436,9 +436,9 @@ fun ProgressBar(progressState: PlayerProgressState, onSeek: (Long) -> Unit) {
             },
             modifier = Modifier.fillMaxWidth(),
             colors = SliderDefaults.colors(
-                thumbColor = Color.White,
-                activeTrackColor = Color.White,
-                inactiveTrackColor = Color.White.copy(alpha = 0.22f),
+                thumbColor = MaterialTheme.colorScheme.onSurface,
+                activeTrackColor = MaterialTheme.colorScheme.onSurface,
+                inactiveTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.22f),
                 activeTickColor = Color.Transparent,
                 inactiveTickColor = Color.Transparent
             )
@@ -450,12 +450,12 @@ fun ProgressBar(progressState: PlayerProgressState, onSeek: (Long) -> Unit) {
             Text(
                 formatPlayerTimeValue(seekPos?.let { (it * progressState.durationMs).toLong() } ?: progressState.positionMs),
                 style = MaterialTheme.typography.labelSmall,
-                color = Color.White.copy(alpha = 0.55f)
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
             )
             Text(
                 formatPlayerTimeValue(progressState.durationMs),
                 style = MaterialTheme.typography.labelSmall,
-                color = Color.White.copy(alpha = 0.55f)
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
             )
         }
     }
@@ -515,7 +515,7 @@ fun TransportControls(
                 Icon(
                     Icons.Rounded.SkipPrevious,
                     "Anterior",
-                    tint = Color.White,
+                    tint = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.size(skipIcon)
                 )
             }
@@ -523,15 +523,15 @@ fun TransportControls(
             Surface(
                 onClick = onTogglePlayPause,
                 shape = CircleShape,
-                color = Color.White.copy(alpha = 0.18f),
-                border = BorderStroke(1.5.dp, Color.White.copy(alpha = 0.40f)),
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f)),
                 modifier = Modifier.size(playSize).pointerHoverIcon(PointerIcon.Hand)
             ) {
                 Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                     when (state.playbackState) {
                         PlaybackState.LOADING, PlaybackState.BUFFERING -> CircularProgressIndicator(
                             modifier = Modifier.size(playIcon * 0.82f),
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.primary,
                             strokeWidth = 2.5.dp,
                             strokeCap = StrokeCap.Round
                         )
@@ -547,7 +547,7 @@ fun TransportControls(
                             Icon(
                                 if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                                 null,
-                                tint = Color.White,
+                                tint = MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.size(playIcon)
                             )
                         }
@@ -562,7 +562,7 @@ fun TransportControls(
                 Icon(
                     Icons.Rounded.SkipNext,
                     "Siguiente",
-                    tint = Color.White,
+                    tint = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.size(skipIcon)
                 )
             }
@@ -593,12 +593,12 @@ fun ToggleIconButton(
     inactiveIcon: @Composable () -> Unit
 ) {
     val bg by animateColorAsState(
-        if (active) Color.White.copy(alpha = 0.20f) else Color.Transparent,
+        if (active) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.20f) else Color.Transparent,
         tween(200),
         label = "tBg"
     )
     val fg by animateColorAsState(
-        if (active) Color.White else Color.White.copy(alpha = 0.45f),
+        if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
         tween(200),
         label = "tFg"
     )
@@ -632,7 +632,7 @@ fun VolumeRow(state: PlayerUiState, onVolumeChange: (Int) -> Unit) {
                     else -> Icons.AutoMirrored.Filled.VolumeUp
                 },
                 "Volumen",
-                tint = Color.White.copy(alpha = 0.55f),
+                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
                 modifier = Modifier.size(20.dp)
             )
             Slider(
@@ -640,9 +640,9 @@ fun VolumeRow(state: PlayerUiState, onVolumeChange: (Int) -> Unit) {
                 onValueChange = { onVolumeChange((it * 100).toInt()) },
                 modifier = Modifier.weight(1f),
                 colors = SliderDefaults.colors(
-                    thumbColor = Color.White,
-                    activeTrackColor = Color.White,
-                    inactiveTrackColor = Color.White.copy(alpha = 0.20f),
+                    thumbColor = MaterialTheme.colorScheme.onSurface,
+                    activeTrackColor = MaterialTheme.colorScheme.onSurface,
+                    inactiveTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.20f),
                     activeTickColor = Color.Transparent,
                     inactiveTickColor = Color.Transparent
                 )
@@ -662,7 +662,7 @@ fun QueueItem(
     val downloadState by rememberSongDownloadState(song.id, downloadViewModel)
 
     val bg by animateColorAsState(
-        if (isCurrent) Color.White.copy(alpha = 0.16f) else Color.Transparent,
+        if (isCurrent) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.16f) else Color.Transparent,
         tween(200),
         label = "qBg"
     )
@@ -683,12 +683,12 @@ fun QueueItem(
         ) {
             Box(modifier = Modifier.width(20.dp), contentAlignment = Alignment.Center) {
                 if (isCurrent) {
-                    Icon(Icons.Rounded.GraphicEq, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Rounded.GraphicEq, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                 } else {
                     Text(
                         "${index + 1}",
                         style = MaterialTheme.typography.labelSmall,
-                        color = Color.White.copy(alpha = 0.38f)
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                     )
                 }
             }
@@ -707,14 +707,14 @@ fun QueueItem(
                     song.title,
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = if (isCurrent) FontWeight.SemiBold else FontWeight.Normal,
-                    color = if (isCurrent) Color.White else Color.White.copy(alpha = 0.85f),
+                    color = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     song.artists.joinToString(", ") { it.name },
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.48f),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.48f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -726,7 +726,7 @@ fun QueueItem(
                 Text(
                     formatPlayerTimeValue(it * 1000L),
                     style = MaterialTheme.typography.labelSmall,
-                    color = Color.White.copy(alpha = 0.38f)
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                 )
             }
         }

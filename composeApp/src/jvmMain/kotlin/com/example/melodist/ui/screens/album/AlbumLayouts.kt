@@ -28,6 +28,7 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -262,6 +263,7 @@ internal fun AlbumInfoPanel(
             contentDescription = albumPage.album.title,
             modifier = Modifier.fillMaxSize(),
             placeholderType = PlaceholderType.ALBUM,
+            contentScale = ContentScale.Crop,
             iconSize = coverSize * 0.33f
         )
     }
@@ -334,8 +336,8 @@ internal fun AlbumInfoPanel(
         FloatingActionButton(
             onClick = { if (!isLoadingForPlay) onPlayAll() },
             shape = CircleShape,
-            containerColor = Color.White,
-            contentColor = Color.Black,
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
             modifier = Modifier.size(56.dp)
                 .pointerHoverIcon(if (isLoadingForPlay) PointerIcon.Default else PointerIcon.Hand)
         ) {
@@ -343,7 +345,7 @@ internal fun AlbumInfoPanel(
                 CircularProgressIndicator(
                     modifier = Modifier.size(22.dp),
                     strokeWidth = 2.5.dp,
-                    color = Color.Black
+                    color = MaterialTheme.colorScheme.onPrimary
                 )
             } else {
                 Icon(Icons.Default.PlayArrow, null, modifier = Modifier.size(28.dp))
@@ -470,7 +472,7 @@ fun NewSongListItem(
             ) {
                 Box(modifier = Modifier.width(36.dp), contentAlignment = Alignment.Center) {
                     if (isHovered) {
-                        Icon(Icons.Default.PlayArrow, contentDescription = null)
+                        Icon(Icons.Default.PlayArrow, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                     } else {
                         Text(
                             text = index.toString(),

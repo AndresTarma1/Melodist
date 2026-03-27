@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -954,6 +955,7 @@ private fun LibraryGridItem(
                     url = thumbnailUrl, contentDescription = title,
                     modifier = Modifier.aspectRatio(1f).fillMaxWidth(),
                     shape = shape, placeholderType = placeholderType, iconSize = 40.dp,
+                    contentScale = ContentScale.Crop,
                     alignment = if (isCircle) Alignment.TopCenter else Alignment.Center
                 )
                 if (isRemovable) {

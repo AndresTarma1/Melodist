@@ -49,7 +49,9 @@ kotlin {
             // NOTA: los DLLs de VLC no van como resources del JAR;
             // se incluyen via appResourcesRootDir para que queden junto al .exe
             dependencies {
-                implementation(compose.desktop.currentOs)
+                implementation(compose.desktop.currentOs){
+                    exclude(group = "org.jetbrains.compose.material")
+                }
                 implementation(libs.kotlinx.coroutinesSwing)
                 implementation(libs.vlcj)
                 implementation(libs.jnativehook)

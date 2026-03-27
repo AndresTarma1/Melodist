@@ -63,7 +63,7 @@ fun MelodistImage(
     shape: Shape = RectangleShape,
     placeholderType: PlaceholderType = PlaceholderType.SONG,
     iconSize: Dp = 32.dp,
-    contentScale: ContentScale = ContentScale.Crop,
+    contentScale: ContentScale = ContentScale.Fit,
     alignment: Alignment = Alignment.Center
 ) {
     val placeholderIcon: ImageVector = when (placeholderType) {
@@ -104,11 +104,12 @@ fun MelodistImage(
             }
         }
 
+
         SubcomposeAsyncImage(
             model = url,
             contentDescription = contentDescription,
             modifier = modifier.clip(shape),
-            contentScale = contentScale,
+            contentScale = ContentScale.Fit,
             alignment = alignment,
             loading = { ShimmerBox(modifier = Modifier.fillMaxSize(), shape = shape) },
             error = { errorPlaceholder() }

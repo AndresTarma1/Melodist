@@ -18,6 +18,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
@@ -72,8 +74,12 @@ fun NowPlayingPanel(
     )
 
     Box(modifier = modifier.fillMaxSize()) {
+        val surfaceColor = MaterialTheme.colorScheme.surface
+        val onSurfaceColor = MaterialTheme.colorScheme.onSurface
+        val isLight = surfaceColor.luminance() > 0.5f
+
         // Fondo de respaldo sólido para evitar transparencia costosa durante el lag inicial
-        Box(Modifier.fillMaxSize().background(Color.Black))
+        Box(Modifier.fillMaxSize().background(surfaceColor))
 
         // 3. Imagen con Blur Condicional (Solución A)
         val bgUrl = remember(song.thumbnail) { upscaleThumbnailUrl(song.thumbnail, 480) }
@@ -92,13 +98,16 @@ fun NowPlayingPanel(
                     }
                     alpha = if (showHeavyEffects) 1f else 0.5f
                 }
+                .background(surfaceColor)
         )
+
+        val overlayColor = if (isLight) Color.White else Color.Black
 
         // 4. Capas de Gradientes (Solo se procesan a full cuando showHeavyEffects es true)
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = if (showHeavyEffects) 0.55f else 0.8f))
+                .background(overlayColor.copy(alpha = if (showHeavyEffects) (if (isLight) 0.45f else 0.55f) else (if (isLight) 0.7f else 0.8f)))
         )
 
         if (showHeavyEffects) {
@@ -108,8 +117,8 @@ fun NowPlayingPanel(
                     .background(
                         Brush.radialGradient(
                             colorStops = arrayOf(
-                                0.00f to vibrant.copy(alpha = 0.30f),
-                                0.50f to dominant.copy(alpha = 0.15f),
+                                0.00f to vibrant.copy(alpha = if (isLight) 0.20f else 0.30f),
+                                0.50f to dominant.copy(alpha = if (isLight) 0.10f else 0.15f),
                                 1.00f to Color.Transparent
                             ),
                             center = Offset(0f, 0f),
@@ -124,10 +133,10 @@ fun NowPlayingPanel(
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
-                        0.00f to Color.Black.copy(alpha = 0.05f),
-                        0.45f to Color.Black.copy(alpha = 0.30f),
-                        0.75f to Color.Black.copy(alpha = 0.65f),
-                        1.00f to Color.Black.copy(alpha = 0.88f)
+                        0.00f to overlayColor.copy(alpha = 0.05f),
+                        0.45f to overlayColor.copy(alpha = if (isLight) 0.15f else 0.30f),
+                        0.75f to overlayColor.copy(alpha = if (isLight) 0.45f else 0.65f),
+                        1.00f to overlayColor.copy(alpha = if (isLight) 0.75f else 0.88f)
                     )
                 )
         )

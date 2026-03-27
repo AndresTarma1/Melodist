@@ -73,6 +73,7 @@ import com.example.melodist.ui.components.HorizontalScrollableRow
 import com.example.melodist.ui.components.MelodistImage
 import com.example.melodist.ui.components.PlaceholderType
 import com.example.melodist.ui.components.SongSkeleton
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.DpOffset
@@ -700,6 +701,7 @@ fun SearchResultItem(item: YTItem, onItemClick: (YTItem) -> Unit) {
                     is PlaylistItem -> PlaceholderType.PLAYLIST
                     else -> PlaceholderType.SONG
                 },
+                contentScale = ContentScale.Crop,
                 iconSize = if (item is PlaylistItem) 32.dp else 24.dp
             )
         },

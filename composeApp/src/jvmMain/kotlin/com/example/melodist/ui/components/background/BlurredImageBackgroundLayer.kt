@@ -14,6 +14,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import coil3.compose.AsyncImage
 
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.graphics.luminance
+
 /**
  * Fondo de pantalla difuminado usando la imagen provista.
  */
@@ -25,7 +28,10 @@ fun BlurredImageBackground(
     gradientFraction: Float = 0.55f,
     content: @Composable BoxScope.() -> Unit
 ) {
-    Box(modifier = modifier) {
+    val surfaceColor = MaterialTheme.colorScheme.surface
+    val isLight = surfaceColor.luminance() > 0.5f
+
+    Box(modifier = modifier.background(surfaceColor)) {
         if (!imageUrl.isNullOrBlank()) {
             val bgUrl = upscaleThumbnailUrl(imageUrl, 480)
             AsyncImage(
@@ -43,12 +49,16 @@ fun BlurredImageBackground(
                         scaleX = 1.18f
                         scaleY = 1.18f
                     }
+                    .background(surfaceColor)
             )
+
+            val overlayColor = if (isLight) Color.White else Color.Black
+            val overlayAlpha = if (isLight) 0.65f else darkOverlayAlpha
 
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = darkOverlayAlpha))
+                    .background(overlayColor.copy(alpha = overlayAlpha))
             )
 
             Box(
@@ -56,9 +66,9 @@ fun BlurredImageBackground(
                     .fillMaxSize()
                     .background(
                         Brush.verticalGradient(
-                            0.00f to Color.Black.copy(alpha = 0.10f),
-                            gradientFraction to Color.Black.copy(alpha = 0.35f),
-                            1.00f to Color.Black.copy(alpha = 0.82f)
+                            0.00f to overlayColor.copy(alpha = if (isLight) 0.05f else 0.10f),
+                            gradientFraction to overlayColor.copy(alpha = if (isLight) 0.15f else 0.35f),
+                            1.00f to overlayColor.copy(alpha = if (isLight) 0.45f else 0.82f)
                         )
                     )
             )

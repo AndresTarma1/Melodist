@@ -97,9 +97,7 @@ class DownloadViewModel(
 
         viewModelScope.launch {
 
-// Wait for the first actual query result (or empty if DB is actually empty) before turning off loading state.
 
-            delay(300) // Small buffer to allow DB to initialize
 
             downloadedSongs.firstOrNull()
 

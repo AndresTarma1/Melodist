@@ -60,6 +60,28 @@ object AppPreferences {
     private val _minimizeToTray = MutableStateFlow(true)
     val minimizeToTray: StateFlow<Boolean> = _minimizeToTray.asStateFlow()
 
+    // ─── Window state (not flow, just helper) ───────────
+    var windowWidth: Int
+        get() = props.getProperty("window.width", "1200").toInt()
+        set(v) {
+            props.setProperty("window.width", v.toString())
+            save()
+        }
+
+    var windowHeight: Int
+        get() = props.getProperty("window.height", "800").toInt()
+        set(v) {
+            props.setProperty("window.height", v.toString())
+            save()
+        }
+
+    var windowMaximized: Boolean
+        get() = props.getProperty("window.maximized", "false").toBoolean()
+        set(v) {
+            props.setProperty("window.maximized", v.toString())
+            save()
+        }
+
     init {
         // Garantizar que el directorio existe incluso si se accede antes que main()
         AppDirs.ensureDirectories()

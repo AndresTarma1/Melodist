@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -21,6 +22,7 @@ import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
@@ -123,6 +125,7 @@ fun HomeScreen(
                         playerViewModel = playerViewModel
                     )
                 }
+
                 is HomeState.Error -> HomeScreenError(
                     message = uiState.message,
                     onRetry = onRetry
@@ -177,7 +180,12 @@ fun HomeScreenContent(
                                     if (isSelected) onChipClick(null)
                                     else onChipClick(chip.endpoint?.params)
                                 },
-                                label = { Text(chip.title, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium) },
+                                label = {
+                                    Text(
+                                        chip.title,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                    )
+                                },
                                 shape = RoundedCornerShape(20.dp),
                                 modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                                 colors = FilterChipDefaults.filterChipColors(
@@ -250,7 +258,7 @@ fun HomeScreenContent(
     }
 }
 
-@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun MusicItem(item: YTItem, onClick: (YTItem) -> Unit) {
     val isArtist = item is ArtistItem
@@ -258,15 +266,15 @@ fun MusicItem(item: YTItem, onClick: (YTItem) -> Unit) {
     val alignment = if (isArtist) Alignment.CenterHorizontally else Alignment.Start
     val titleTextAlign: TextAlign = if (isArtist) TextAlign.Center else TextAlign.Start
     val placeholderType = when (item) {
-        is ArtistItem   -> PlaceholderType.ARTIST
-        is AlbumItem    -> PlaceholderType.ALBUM
+        is ArtistItem -> PlaceholderType.ARTIST
+        is AlbumItem -> PlaceholderType.ALBUM
         is PlaylistItem -> PlaceholderType.PLAYLIST
-        else            -> PlaceholderType.SONG
+        else -> PlaceholderType.SONG
     }
 
-    val cardWidth    = item.musicItemCardWidth()
-    val aspectRatio  = item.thumbnailAspectRatio()
-    
+    val cardWidth = item.musicItemCardWidth()
+    val aspectRatio = item.thumbnailAspectRatio()
+
     var showMenu by remember { mutableStateOf(false) }
     var menuOffset by remember { mutableStateOf(DpOffset.Zero) }
     var itemHeight by remember { mutableStateOf(0) }
@@ -297,69 +305,52 @@ fun MusicItem(item: YTItem, onClick: (YTItem) -> Unit) {
                 .padding(8.dp),
             horizontalAlignment = alignment
         ) {
-        MelodistImage(
-            url = item.thumbnail,
-            contentDescription = item.title,
-            modifier = Modifier
-                .aspectRatio(aspectRatio)
-                .fillMaxWidth(),
-            shape = imageShape,
-            placeholderType = placeholderType,
-            iconSize = if (isArtist) 56.dp else 40.dp,
-            alignment = if (isArtist) Alignment.TopCenter else Alignment.Center
-        )
+            MelodistImage(
+                url = item.thumbnail,
+                contentDescription = item.title,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(aspectRatio),
+                shape = imageShape,
+                placeholderType = placeholderType,
+                iconSize = if (isArtist) 56.dp else 40.dp,
+                contentScale = ContentScale.Fit,
+                alignment = if (isArtist) Alignment.TopCenter else Alignment.Center
+            )
 
-        Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
-        Text(
-            text = item.title,
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.fillMaxWidth(),
-            textAlign = titleTextAlign
-        )
-
-        val artistText = when (item) {
-            is SongItem     -> item.artists.firstOrNull()?.name ?: ""
-            is AlbumItem    -> item.artists?.firstOrNull()?.name ?: "Álbum"
-            is ArtistItem   -> "Artista"
-            is PlaylistItem -> item.author?.name ?: "Lista"
-        }
-
-        if (artistText.isNotBlank()) {
-            Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = artistText,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
+                text = item.title,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.fillMaxWidth(),
                 textAlign = titleTextAlign
             )
-        }
-    }
-    
-    if (item is SongItem) {
-        val downloadViewModel = LocalDownloadViewModel.current
-        val playerViewModel = LocalPlayerViewModel.current
-        val downloadState by rememberSongDownloadState(item.id, downloadViewModel)
 
-        SongContextMenu(
-            expanded = showMenu,
-            onDismiss = { showMenu = false },
-            song = item,
-            downloadState = downloadState,
-            onDownload = { downloadViewModel.downloadSong(item) },
-            onRemoveDownload = { downloadViewModel.removeDownload(item.id) },
-            onCancelDownload = { downloadViewModel.cancelDownload(item.id) },
-            onAddToQueue = { playerViewModel.addToQueue(item) },
-            onPlayNext = { playerViewModel.playNext(item) },
-            offset = menuOffset
-        )
-    }
+            val artistText = when (item) {
+                is SongItem -> item.artists.firstOrNull()?.name ?: ""
+                is AlbumItem -> item.artists?.firstOrNull()?.name ?: "Álbum"
+                is ArtistItem -> "Artista"
+                is PlaylistItem -> item.author?.name ?: "Lista"
+            }
+
+            if (artistText.isNotBlank()) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = artistText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = titleTextAlign
+                )
+            }
+        }
+
     }
 }
 

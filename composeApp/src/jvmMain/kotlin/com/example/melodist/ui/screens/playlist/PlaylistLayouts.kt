@@ -28,6 +28,7 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -322,6 +323,7 @@ internal fun PlaylistInfoPanel(
             contentDescription = playlistPage.playlist.title,
             modifier = Modifier.fillMaxSize(),
             placeholderType = PlaceholderType.PLAYLIST,
+            contentScale = ContentScale.Crop,
             iconSize = coverSize * 0.33f
         )
     }
@@ -392,8 +394,8 @@ internal fun PlaylistInfoPanel(
         FloatingActionButton(
             onClick = { if (!isLoadingForPlay) onPlayAll() },
             shape = CircleShape,
-            containerColor = Color.White,
-            contentColor = Color.Black,
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
             modifier = Modifier.size(56.dp)
                 .pointerHoverIcon(if (isLoadingForPlay) PointerIcon.Default else PointerIcon.Hand)
         ) {
@@ -401,7 +403,7 @@ internal fun PlaylistInfoPanel(
                 CircularProgressIndicator(
                     modifier = Modifier.size(22.dp),
                     strokeWidth = 2.5.dp,
-                    color = Color.Black
+                    color = MaterialTheme.colorScheme.onPrimary
                 )
             } else {
                 Icon(Icons.Default.PlayArrow, null, modifier = Modifier.size(28.dp))
@@ -492,12 +494,13 @@ internal fun PlaylistSongItem(
                     contentAlignment = Alignment.Center
                 ) {
                     if (isHovered) {
-                        Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White)
+                        Icon(Icons.Default.PlayArrow, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                     } else {
+                        val color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                         Text(
                             text = index.toString(),
                             style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White.copy(alpha = 0.5f),
+                            color = color,
                             textAlign = TextAlign.Center
                         )
                     }
@@ -521,7 +524,7 @@ internal fun PlaylistSongItem(
                         text = song.title,
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.SemiBold,
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -530,7 +533,7 @@ internal fun PlaylistSongItem(
                             Icon(
                                 Icons.Default.Explicit, null,
                                 modifier = Modifier.size(14.dp),
-                                tint = Color.White.copy(alpha = 0.5f)
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                             )
                             Spacer(Modifier.width(4.dp))
                         }
@@ -538,7 +541,7 @@ internal fun PlaylistSongItem(
                             text = song.artists.joinToString(", ") { it.name }
                                 .ifEmpty { "Artista desconocido" },
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color.White.copy(alpha = 0.6f),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -546,7 +549,7 @@ internal fun PlaylistSongItem(
                             Text(
                                 text = " • ${album.name}",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = Color.White.copy(alpha = 0.4f),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -562,7 +565,7 @@ internal fun PlaylistSongItem(
                 Text(
                     text = formatDuration(song.duration ?: 0),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Normal
                 )
             }
