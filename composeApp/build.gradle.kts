@@ -41,6 +41,11 @@ kotlin {
             implementation(libs.ktor.client.content.negotiation)
             implementation(libs.ktor.serialization.json)
 
+            implementation(libs.materialKolor)
+            implementation(libs.kmpalette.core)
+            implementation(libs.kmpalette.network)
+            implementation(libs.kmpalette.extensions.file)
+
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
@@ -62,6 +67,9 @@ kotlin {
                 implementation("net.java.dev.jna:jna-platform-jpms:5.18.1")
 
                 implementation("org.jetbrains.jewel:jewel-int-ui-standalone:0.34.0-253.31033.149")
+
+                // Source: https://mvnrepository.com/artifact/org.jetbrains.runtime/jbr-api
+                implementation("org.jetbrains.runtime:jbr-api:1.10.1")
 //
 //                // Optional, for custom decorated windows:
                 implementation("org.jetbrains.jewel:jewel-int-ui-decorated-window:0.34.0-253.31033.149")

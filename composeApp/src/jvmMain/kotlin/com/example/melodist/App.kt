@@ -12,6 +12,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -21,15 +22,15 @@ import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.rememberWindowState
 import com.example.melodist.data.AppPreferences
+import com.example.melodist.data.ThemeMode
 import com.example.melodist.navigation.NavigationDesktop
 import com.example.melodist.navigation.RootComponent
 import com.example.melodist.player.PlaybackState
-import com.example.melodist.ui.components.LocalArtworkColors
-import com.example.melodist.ui.components.rememberArtworkColors
+import com.example.melodist.ui.components.artwork.LocalArtworkColors
+import com.example.melodist.ui.components.artwork.rememberArtworkColors
 import com.example.melodist.ui.themes.MelodistTheme
 import com.example.melodist.utils.LocalDownloadViewModel
 import com.example.melodist.utils.LocalPlayerViewModel
-import com.example.melodist.utils.WindowsUtils
 import com.example.melodist.viewmodels.DownloadViewModel
 import com.example.melodist.viewmodels.PlayerViewModel
 import com.kdroid.composetray.tray.api.Tray
@@ -50,7 +51,11 @@ import org.jetbrains.jewel.window.TitleBar
 import org.jetbrains.jewel.window.TitleBarScope
 import org.jetbrains.jewel.window.styling.TitleBarColors
 import org.jetbrains.jewel.window.styling.TitleBarStyle
-import kotlin.time.Duration.Companion.milliseconds
+import java.awt.Color
+import java.awt.EventQueue
+import java.awt.Frame
+import java.awt.event.ComponentAdapter
+import java.awt.event.ComponentEvent
 
 @Composable
 fun ApplicationScope.App(
@@ -63,14 +68,12 @@ fun ApplicationScope.App(
         placement = if (AppPreferences.windowMaximized) WindowPlacement.Maximized else WindowPlacement.Floating,
         width = AppPreferences.windowWidth.dp,
         height = AppPreferences.windowHeight.dp,
-        position = WindowPosition(Alignment.Center)
+        position = WindowPosition(Alignment.Center),
     )
 
-    var isVisible by remember { mutableStateOf(true) }
+    var isVisible by remember { mutableStateOf(false) }
     val minimizeToTray by AppPreferences.minimizeToTray.collectAsState()
 
-
-    // —─ Guardar estado al salir —─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─
     val handleExit = {
         if (windowState.placement == WindowPlacement.Maximized) {
             AppPreferences.windowMaximized = true
@@ -82,50 +85,52 @@ fun ApplicationScope.App(
         onExit()
     }
 
-    // ── Tray ─────────────────────────────────────────────────────────────
+    // ── Tray ─────────────────────────────────────────────────────────────────
     if (!isVisible || minimizeToTray) {
         val trayState by playerViewModel.uiState.collectAsState()
         val isPlaying = trayState.playbackState == PlaybackState.PLAYING
-
         Tray(
             icon = Icons.Filled.MusicNote,
             tooltip = trayState.currentSong?.title ?: "Melodist",
             primaryAction = { isVisible = !isVisible },
         ) {
             Item(label = if (isPlaying) "Pausar" else "Reproducir", onClick = { playerViewModel.togglePlayPause() })
-            Item(label = "siguiente", onClick = { playerViewModel.next() })
+            Item(label = "Siguiente", onClick = { playerViewModel.next() })
             Item(label = "Anterior", onClick = { playerViewModel.previous() })
             Divider()
             Item(label = "Abrir Melodist", onClick = { isVisible = true })
-            Item(label = "salir", onClick = handleExit)
+            Item(label = "Salir", onClick = handleExit)
         }
-
     }
 
-    // ── Theme state ───────────────────────────────────────────────────────
+    // ── Theme ─────────────────────────────────────────────────────────────────
     val playerState by playerViewModel.uiState.collectAsState()
     val artworkColors = rememberArtworkColors(playerState.currentSong?.thumbnail)
-    val isDark = !artworkColors.isLight
+    val themeMode by AppPreferences.themeMode.collectAsState()
+    val isDark = when (themeMode) {
+        ThemeMode.DARK -> true
+        ThemeMode.LIGHT -> false
+        ThemeMode.SYSTEM -> androidx.compose.foundation.isSystemInDarkTheme()
+    }
 
-    // ── Window ────────────────────────────────────────────────────────────
+    // ── Window ────────────────────────────────────────────────────────────────
     MelodistTheme(artworkColors = artworkColors) {
-        val railBackground = MaterialTheme.colorScheme.surface
         val surfaceColor = MaterialTheme.colorScheme.surface
 
         val titleBarStyle = if (isDark)
             TitleBarStyle.dark(
                 colors = TitleBarColors.dark(
-                    backgroundColor = railBackground,
-                    inactiveBackground = railBackground.copy(alpha = 0.85f),
-                    borderColor = railBackground,
+                    backgroundColor = surfaceColor,
+                    inactiveBackground = surfaceColor.copy(alpha = 0.85f),
+                    borderColor = surfaceColor,
                 )
             )
         else
             TitleBarStyle.light(
                 colors = TitleBarColors.light(
-                    backgroundColor = railBackground,
-                    inactiveBackground = railBackground.copy(alpha = 0.85f),
-                    borderColor = railBackground,
+                    backgroundColor = surfaceColor,
+                    inactiveBackground = surfaceColor.copy(alpha = 0.85f),
+                    borderColor = surfaceColor,
                 )
             )
 
@@ -135,15 +140,12 @@ fun ApplicationScope.App(
             else
                 JewelTheme.lightThemeDefinition(),
             styling = ComponentStyling.decoratedWindow(titleBarStyle = titleBarStyle),
-
-            ) {
+        ) {
             CompositionLocalProvider(
                 LocalArtworkColors provides artworkColors,
                 LocalPlayerViewModel provides playerViewModel,
                 LocalDownloadViewModel provides downloadViewModel,
             ) {
-
-
                 DecoratedWindow(
                     onCloseRequest = { if (minimizeToTray) isVisible = false else handleExit() },
                     state = windowState,
@@ -151,14 +153,37 @@ fun ApplicationScope.App(
                     title = "Melodist",
                     icon = painterResource(Res.drawable.music_icon),
                 ) {
+                    DisposableEffect(Unit) {
+                        val startMaximized = AppPreferences.windowMaximized
+                        val awtColor = Color(
+                            surfaceColor.toArgb()
+                        )
 
-                    // Forzar maximizado con JNA si la preferencia está activa
-                    LaunchedEffect(Unit) {
-                        if (AppPreferences.windowMaximized) {
-                            WindowsUtils.maximizeWindow(window)
+                        // Pintar TODA la cadena de contenedores Swing
+                        window.background = awtColor
+                        window.contentPane.background = awtColor
+                        window.rootPane.background = awtColor
+                        window.rootPane.contentPane.background = awtColor
+                        // El layeredPane es el que se ve durante el resize
+                        window.rootPane.layeredPane.background = awtColor
+
+                        val listener = object : ComponentAdapter() {
+                            override fun componentResized(e: ComponentEvent) {
+                                window.removeComponentListener(this)
+                                if (startMaximized) {
+                                    window.extendedState = Frame.MAXIMIZED_BOTH
+                                }
+                                EventQueue.invokeLater {
+                                    window.isVisible = true
+                                }
+                            }
                         }
-                    }
 
+                        window.addComponentListener(listener)
+                        onDispose { window.removeComponentListener(listener) }
+
+
+                    }
                     TitleBar {
                         MelodistTitleBar(
                             currentSong = playerState.currentSong?.title,
@@ -179,9 +204,11 @@ fun ApplicationScope.App(
     }
 }
 
-// —─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—
+// ─────────────────────────────────────────────────────────────────────────────
 // TitleBar content
-// —─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—─—
+// ─────────────────────────────────────────────────────────────────────────────
+
+
 
 @Composable
 private fun TitleBarScope.MelodistTitleBar(

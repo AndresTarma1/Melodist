@@ -34,15 +34,13 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.melodist.data.AppPreferences
 import com.example.melodist.navigation.Route
-import com.example.melodist.player.DownloadState
 import com.example.melodist.player.PlaybackState
-import com.example.melodist.viewmodels.DownloadViewModel
+import com.example.melodist.ui.components.artwork.ArtworkColors
 import com.example.melodist.viewmodels.PlayerProgressState
 import com.example.melodist.viewmodels.PlayerUiState
 import com.example.melodist.viewmodels.QueueSource
 import com.example.melodist.viewmodels.RepeatMode
 import com.metrolist.innertube.models.SongItem
-import org.koin.compose.koinInject
 import com.example.melodist.ui.helpers.rememberSongDownloadState
 import com.example.melodist.utils.LocalDownloadViewModel
 

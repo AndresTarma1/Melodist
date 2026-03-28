@@ -21,6 +21,8 @@ sqldelight = "2.0.2"
 coil = "3.1.0"
 vlcj = "4.10.1"
 jnativehook = "2.2.2"
+materialKolor = "4.1.1"
+kmpalette = "4.0.0-beta02"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -87,6 +89,12 @@ vlcj = { module = "uk.co.caprica:vlcj", version.ref = "vlcj" }
 
 #JNativeHook (global media keys)
 jnativehook = { module = "com.github.kwhat:jnativehook", version.ref = "jnativehook" }
+
+#Design
+materialKolor = {module= "com.materialkolor:material-kolor", version.ref = "materialKolor"}
+kmpalette-core = { module = "com.materialkolor.palette:core", version.ref = "kmpalette" }
+kmpalette_network = { module = "com.materialkolor.palette:extensions-network", version.ref = "kmpalette" }
+kmpalette-extensions-file = { module = "com.materialkolor.palette:extensions-file", version.ref = "kmpalette" }
 
 [plugins]
 sqldelight = { id = "app.cash.sqldelight", version.ref = "sqldelight" }
