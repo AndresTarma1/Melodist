@@ -25,6 +25,8 @@ kotlin {
         jvmMain.dependencies {
             api(libs.sqldelight.driver.jvm)
             api(libs.vlcj)
+
+            implementation("org.jetbrains.runtime:jbr-api:1.10.1")
             implementation("dev.toastbits:mediasession:0.1.1")
         }
     }

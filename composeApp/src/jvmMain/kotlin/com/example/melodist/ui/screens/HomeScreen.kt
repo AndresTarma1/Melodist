@@ -53,6 +53,10 @@ import androidx.compose.ui.input.pointer.onPointerEvent
 import com.example.melodist.ui.components.SongContextMenu
 import com.example.melodist.ui.helpers.rememberSongDownloadState
 import com.example.melodist.utils.LocalDownloadViewModel
+import com.example.melodist.ui.components.DownloadIndicator
+import com.metrolist.innertube.YouTube
+import com.metrolist.innertube.models.WatchEndpoint
+import kotlinx.coroutines.launch
 
 @Composable
 fun HomeScreenRoute(
@@ -61,6 +65,7 @@ fun HomeScreenRoute(
 ) {
 
     val playerViewModel = LocalPlayerViewModel.current
+    val downloadViewModel = LocalDownloadViewModel.current
     val uiState by viewModel.uiState.collectAsState()
     val currentParams by viewModel.currentParams.collectAsState()
 
@@ -275,6 +280,10 @@ fun MusicItem(item: YTItem, onClick: (YTItem) -> Unit) {
     val cardWidth = item.musicItemCardWidth()
     val aspectRatio = item.thumbnailAspectRatio()
 
+    val downloadViewModel = LocalDownloadViewModel.current
+    val playerViewModel = LocalPlayerViewModel.current
+    val scope = rememberCoroutineScope()
+
     var showMenu by remember { mutableStateOf(false) }
     var menuOffset by remember { mutableStateOf(DpOffset.Zero) }
     var itemHeight by remember { mutableStateOf(0) }
@@ -282,6 +291,12 @@ fun MusicItem(item: YTItem, onClick: (YTItem) -> Unit) {
 
     var isHovered by remember { mutableStateOf(false) }
     val color = if (isHovered) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f) else Color.Transparent
+
+    val downloadState by if (item is SongItem) {
+        rememberSongDownloadState(item.id, downloadViewModel)
+    } else {
+        remember { mutableStateOf(null) }
+    }
 
     Box(modifier = Modifier.onGloballyPositioned { itemHeight = it.size.height }) {
         Column(
@@ -305,18 +320,31 @@ fun MusicItem(item: YTItem, onClick: (YTItem) -> Unit) {
                 .padding(8.dp),
             horizontalAlignment = alignment
         ) {
-            MelodistImage(
-                url = item.thumbnail,
-                contentDescription = item.title,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(aspectRatio),
-                shape = imageShape,
-                placeholderType = placeholderType,
-                iconSize = if (isArtist) 56.dp else 40.dp,
-                contentScale = ContentScale.Fit,
-                alignment = if (isArtist) Alignment.TopCenter else Alignment.Center
-            )
+            Box {
+                MelodistImage(
+                    url = item.thumbnail,
+                    contentDescription = item.title,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(aspectRatio),
+                    shape = imageShape,
+                    placeholderType = placeholderType,
+                    iconSize = if (isArtist) 56.dp else 40.dp,
+                    contentScale = ContentScale.Fit,
+                    alignment = if (isArtist) Alignment.TopCenter else Alignment.Center
+                )
+
+                if (item is SongItem && downloadState != null) {
+                    DownloadIndicator(
+                        state = downloadState,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(4.dp)
+                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f), CircleShape)
+                            .padding(4.dp)
+                    )
+                }
+            }
 
             Spacer(modifier = Modifier.height(10.dp))
 
@@ -351,6 +379,28 @@ fun MusicItem(item: YTItem, onClick: (YTItem) -> Unit) {
             }
         }
 
+        if (item is SongItem) {
+            SongContextMenu(
+                expanded = showMenu,
+                onDismiss = { showMenu = false },
+                song = item,
+                downloadState = downloadState,
+                onDownload = {
+                    scope.launch {
+                        // Enriquecer metadata si faltan datos críticos (duración o álbum)
+                        val enrichedSong = if (item.duration == null || item.album == null) {
+                            YouTube.next(WatchEndpoint(videoId = item.id)).getOrNull()?.items?.firstOrNull { it.id == item.id } ?: item
+                        } else item
+                        downloadViewModel.downloadSong(enrichedSong)
+                    }
+                },
+                onRemoveDownload = { downloadViewModel.removeDownload(item.id) },
+                onCancelDownload = { downloadViewModel.cancelDownload(item.id) },
+                onAddToQueue = { playerViewModel?.addToQueue(item) },
+                onPlayNext = { playerViewModel?.playNext(item) },
+                offset = menuOffset
+            )
+        }
     }
 }
 

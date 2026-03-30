@@ -25,9 +25,11 @@ import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import com.example.melodist.navigation.Route
 import com.example.melodist.ui.components.ArtistScreenSkeleton
@@ -42,6 +44,7 @@ import com.example.melodist.viewmodels.PlayerViewModel
 import com.metrolist.innertube.models.*
 import com.metrolist.innertube.pages.ArtistPage
 import com.metrolist.innertube.pages.ArtistSection
+import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
 @Composable
@@ -503,77 +506,138 @@ private fun ArtistSectionCard(
     val isArtist = item is ArtistItem
     val cardShape = if (isArtist) CircleShape else RoundedCornerShape(8.dp)
 
+    val playerViewModel = LocalPlayerViewModel.current
+    val downloadViewModel = com.example.melodist.utils.LocalDownloadViewModel.current
+    val scope = rememberCoroutineScope()
+
     var isHovered by remember { mutableStateOf(false) }
+    var showMenu by remember { mutableStateOf(false) }
+    var menuOffset by remember { mutableStateOf(DpOffset.Zero) }
+    var itemHeight by remember { mutableStateOf(0) }
+    val density = androidx.compose.ui.platform.LocalDensity.current
+
     val elevation by animateColorAsState(
         if (isHovered) MaterialTheme.colorScheme.surfaceContainerHigh
         else Color.Transparent
     )
 
-    Column(
-        modifier = Modifier
-            .width(150.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(elevation)
-            .clickable {
-                val route = when (item) {
-                    is AlbumItem -> Route.Album(item.browseId)
-                    is PlaylistItem -> Route.Playlist(item.id)
-                    is ArtistItem -> Route.Artist(item.id)
-                    else -> null
+    val downloadState by if (item is SongItem) {
+        com.example.melodist.ui.helpers.rememberSongDownloadState(item.id, downloadViewModel)
+    } else {
+        remember { mutableStateOf(null) }
+    }
+
+    Box(modifier = Modifier.onGloballyPositioned { itemHeight = it.size.height }) {
+        Column(
+            modifier = Modifier
+                .width(150.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(elevation)
+                .clickable {
+                    when (item) {
+                        is AlbumItem -> onNavigate(Route.Album(item.browseId))
+                        is PlaylistItem -> onNavigate(Route.Playlist(item.id))
+                        is ArtistItem -> onNavigate(Route.Artist(item.id))
+                        is SongItem -> playerViewModel.playSingle(item)
+                    }
                 }
-                route?.let { onNavigate(it) }
+                .pointerHoverIcon(PointerIcon.Hand)
+                .onPointerEvent(PointerEventType.Enter) { isHovered = true }
+                .onPointerEvent(PointerEventType.Exit) { isHovered = false }
+                .onPointerEvent(PointerEventType.Press) {
+                    if (item is SongItem && it.button == androidx.compose.ui.input.pointer.PointerButton.Secondary) {
+                        val position = it.changes.first().position
+                        val xDp = with(density) { position.x.toDp() }
+                        val yDp = with(density) { (position.y - itemHeight).toDp() }
+                        menuOffset = androidx.compose.ui.unit.DpOffset(xDp, yDp)
+                        showMenu = true
+                    }
+                }
+                .padding(8.dp),
+            horizontalAlignment = if (isArtist) Alignment.CenterHorizontally else Alignment.Start
+        ) {
+            // Thumbnail
+            Box {
+                MelodistImage(
+                    url = item.thumbnail,
+                    contentDescription = item.title,
+                    modifier = Modifier.size(134.dp),
+                    shape = cardShape,
+                    placeholderType = when (item) {
+                        is ArtistItem -> PlaceholderType.ARTIST
+                        is AlbumItem -> PlaceholderType.ALBUM
+                        is PlaylistItem -> PlaceholderType.PLAYLIST
+                        else -> PlaceholderType.SONG
+                    },
+                    contentScale = ContentScale.Crop,
+                    iconSize = 40.dp
+                )
+
+                if (item is SongItem && downloadState != null) {
+                    com.example.melodist.ui.components.DownloadIndicator(
+                        state = downloadState,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(4.dp)
+                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f), CircleShape)
+                            .padding(4.dp)
+                    )
+                }
             }
-            .pointerHoverIcon(PointerIcon.Hand)
-            .onPointerEvent(PointerEventType.Enter) { isHovered = true }
-            .onPointerEvent(PointerEventType.Exit) { isHovered = false }
-            .padding(8.dp),
-        horizontalAlignment = if (isArtist) Alignment.CenterHorizontally else Alignment.Start
-    ) {
-        // Thumbnail
-        MelodistImage(
-            url = item.thumbnail,
-            contentDescription = item.title,
-            modifier = Modifier.size(134.dp),
-            shape = cardShape,
-            placeholderType = when (item) {
-                is ArtistItem -> PlaceholderType.ARTIST
-                is AlbumItem -> PlaceholderType.ALBUM
-                is PlaylistItem -> PlaceholderType.PLAYLIST
-                else -> PlaceholderType.SONG
-            },
-            contentScale = ContentScale.Crop,
-            iconSize = 40.dp
-        )
 
-        Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(8.dp))
 
-        Text(
-            text = item.title,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = onSurfaceColor,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = if (isArtist) TextAlign.Center else TextAlign.Start,
-            modifier = Modifier.fillMaxWidth()
-        )
+            Text(
+                text = item.title,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = onSurfaceColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = if (isArtist) TextAlign.Center else TextAlign.Start,
+                modifier = Modifier.fillMaxWidth()
+            )
 
-        // Subtitle
-        val subtitle = when (item) {
-            is SongItem -> item.artists.joinToString(", ") { it.name }
-            is AlbumItem -> item.year?.toString() ?: "Álbum"
-            is ArtistItem -> "Artista"
-            is PlaylistItem -> item.author?.name ?: "Playlist"
+            // Subtitle
+            val subtitle = when (item) {
+                is SongItem -> item.artists.joinToString(", ") { it.name }
+                is AlbumItem -> item.year?.toString() ?: "Álbum"
+                is ArtistItem -> "Artista"
+                is PlaylistItem -> item.author?.name ?: "Playlist"
+            }
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = onSurfaceVariant.copy(alpha = 0.6f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = if (isArtist) TextAlign.Center else TextAlign.Start,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
-        Text(
-            text = subtitle,
-            style = MaterialTheme.typography.bodySmall,
-            color = onSurfaceVariant.copy(alpha = 0.6f),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = if (isArtist) TextAlign.Center else TextAlign.Start,
-            modifier = Modifier.fillMaxWidth()
-        )
+
+        if (item is SongItem) {
+            com.example.melodist.ui.components.SongContextMenu(
+                expanded = showMenu,
+                onDismiss = { showMenu = false },
+                song = item,
+                downloadState = downloadState,
+                onDownload = {
+                    scope.launch {
+                        val enrichedSong = if (item.duration == null || item.album == null) {
+                            com.metrolist.innertube.YouTube.next(com.metrolist.innertube.models.WatchEndpoint(videoId = item.id))
+                                .getOrNull()?.items?.firstOrNull { it.id == item.id } ?: item
+                        } else item
+                        downloadViewModel.downloadSong(enrichedSong)
+                    }
+                },
+                onRemoveDownload = { downloadViewModel.removeDownload(item.id) },
+                onCancelDownload = { downloadViewModel.cancelDownload(item.id) },
+                onAddToQueue = { playerViewModel.addToQueue(item) },
+                onPlayNext = { playerViewModel.playNext(item) },
+                offset = menuOffset
+            )
+        }
     }
 }
 

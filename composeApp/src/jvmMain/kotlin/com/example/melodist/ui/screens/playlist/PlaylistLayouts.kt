@@ -29,10 +29,13 @@ import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import com.example.melodist.navigation.Route
 import com.example.melodist.player.DownloadState
@@ -466,10 +469,13 @@ internal fun PlaylistSongItem(
 
     var isHovered by remember { mutableStateOf(false) }
     var showContextMenu by remember { mutableStateOf(false) }
+    var menuOffset by remember { mutableStateOf(DpOffset.Zero) }
+    var itemHeight by remember { mutableStateOf(0) }
+    val density = LocalDensity.current
 
     val color = if (isHovered) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f) else Color.Transparent
 
-    Box {
+    Box(modifier = Modifier.onGloballyPositioned { itemHeight = it.size.height }) {
         Surface(
             color = color,
             modifier = Modifier
@@ -481,6 +487,10 @@ internal fun PlaylistSongItem(
                 .onPointerEvent(PointerEventType.Exit) { isHovered = false }
                 .onPointerEvent(PointerEventType.Press) {
                     if (it.button == PointerButton.Secondary) {
+                        val position = it.changes.first().position
+                        val xDp = with(density) { position.x.toDp() }
+                        val yDp = with(density) { (position.y - itemHeight).toDp() }
+                        menuOffset = DpOffset(xDp, yDp)
                         showContextMenu = true
                     }
                 }

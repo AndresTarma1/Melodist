@@ -29,9 +29,12 @@ import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.melodist.navigation.Route
@@ -453,7 +456,11 @@ private fun LibrarySongItem(
 
     var isHovered by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
-    Box {
+    var menuOffset by remember { mutableStateOf(DpOffset.Zero) }
+    var itemHeight by remember { mutableStateOf(0) }
+    val density = LocalDensity.current
+
+    Box(modifier = Modifier.onGloballyPositioned { itemHeight = it.size.height }) {
         ListItem(
             modifier = Modifier
                 .clip(RoundedCornerShape(12.dp))
@@ -461,7 +468,16 @@ private fun LibrarySongItem(
                 .clickable { onClick() }
                 .pointerHoverIcon(PointerIcon.Hand)
                 .onPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Enter) { isHovered = true }
-                .onPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Exit) { isHovered = false },
+                .onPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Exit) { isHovered = false }
+                .onPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Press) {
+                    if (it.button == androidx.compose.ui.input.pointer.PointerButton.Secondary) {
+                        val position = it.changes.first().position
+                        val xDp = with(density) { position.x.toDp() }
+                        val yDp = with(density) { (position.y - itemHeight).toDp() }
+                        menuOffset = DpOffset(xDp, yDp)
+                        showMenu = true
+                    }
+                },
             headlineContent = {
                 Text(song.title, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             },
