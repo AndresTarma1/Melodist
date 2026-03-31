@@ -46,15 +46,15 @@ class PlayerViewModel(
 
     init {
         // Sync audio quality preference → stream resolver
-        viewModelScope.launch {
-            AppPreferences.audioQuality.collect { pref ->
-                streamResolver.quality = when (pref) {
-                    AudioQuality.LOW -> StreamQuality.LOW
-                    AudioQuality.NORMAL -> StreamQuality.NORMAL
-                    AudioQuality.HIGH -> StreamQuality.HIGH
-                }
-            }
-        }
+//        viewModelScope.launch {
+//            AppPreferences.audioQuality.collect { pref ->
+//                streamResolver.quality = when (pref) {
+//                    AudioQuality.LOW -> StreamQuality.LOW
+//                    AudioQuality.NORMAL -> StreamQuality.NORMAL
+//                    AudioQuality.HIGH -> StreamQuality.HIGH
+//                }
+//            }
+//        }
         viewModelScope.launch {
             playerService.playbackState.collect { state ->
                 _uiState.update { it.copy(playbackState = state) }
@@ -392,11 +392,11 @@ class PlayerViewModel(
                 if (cachedFile != null) {
                     playerService.play(cachedFile.absolutePath)
                 } else {
-                    val stream = withContext(Dispatchers.IO) {
+                    val streamUrl = withContext(Dispatchers.IO) {
                         streamResolver.resolveAudioStream(song.id)
-                    }
-                    if (stream != null) {
-                        playerService.play(stream.url)
+                    }.streamUrl
+                    if (!streamUrl.isEmpty()) {
+                        playerService.play(streamUrl)
                     } else {
                         _uiState.update { it.copy(error = "No se pudo obtener el audio para \"${song.title}\"") }
                     }

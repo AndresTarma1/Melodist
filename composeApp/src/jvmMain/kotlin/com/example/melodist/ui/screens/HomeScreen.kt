@@ -385,19 +385,11 @@ fun MusicItem(item: YTItem, onClick: (YTItem) -> Unit) {
                 onDismiss = { showMenu = false },
                 song = item,
                 downloadState = downloadState,
-                onDownload = {
-                    scope.launch {
-                        // Enriquecer metadata si faltan datos críticos (duración o álbum)
-                        val enrichedSong = if (item.duration == null || item.album == null) {
-                            YouTube.next(WatchEndpoint(videoId = item.id)).getOrNull()?.items?.firstOrNull { it.id == item.id } ?: item
-                        } else item
-                        downloadViewModel.downloadSong(enrichedSong)
-                    }
-                },
+                onDownload = {downloadViewModel.downloadSong(item) },
                 onRemoveDownload = { downloadViewModel.removeDownload(item.id) },
                 onCancelDownload = { downloadViewModel.cancelDownload(item.id) },
-                onAddToQueue = { playerViewModel?.addToQueue(item) },
-                onPlayNext = { playerViewModel?.playNext(item) },
+                onAddToQueue = { playerViewModel.addToQueue(item) },
+                onPlayNext = { playerViewModel.playNext(item) },
                 offset = menuOffset
             )
         }

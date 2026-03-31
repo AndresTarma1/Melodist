@@ -2,6 +2,7 @@ package com.example.melodist.player
 
 import com.example.melodist.data.AppDirs
 import com.example.melodist.db.DatabaseDao
+import com.example.melodist.db.entities.ArtistEntity
 import com.example.melodist.db.entities.FormatEntity
 import com.example.melodist.db.entities.SongEntity
 import com.metrolist.innertube.models.SongItem
@@ -17,7 +18,9 @@ import java.io.File
 import java.io.RandomAccessFile
 import java.net.HttpURLConnection
 import java.net.URI
+import java.time.LocalDateTime
 import java.util.logging.Logger
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * State of a single download task.
@@ -148,6 +151,21 @@ class DownloadService(
     // ─── Download a single song ────────────────────────────
 
     fun downloadSong(song: SongItem) {
+
+        val playbackData = runBlocking(Dispatchers.IO) {
+            YTPlayerutils.playerResponseForMetadata(song.id)
+        }.getOrNull()
+
+        val newSong = SongItem(
+            id = song.id,
+            title = song.title,
+            artists = song.artists,
+            album = song.album,
+            duration = playbackData?.videoDetails?.lengthSeconds?.toInt(),
+            musicVideoType = song.musicVideoType,
+            thumbnail = song.thumbnail,
+        )
+
         scope.launch(Dispatchers.IO) {
             val songId = song.id
             val current = _downloadStates.value[songId]
@@ -166,28 +184,29 @@ class DownloadService(
                 _downloadStates.update { it + (songId to DownloadState.Downloading(0f)) }
 
                 try {
-                    ensureSongInDb(song)
 
                     // 1. Resolve stream URL + format metadata
                     val stream = streamResolver.resolveAudioStream(songId)
-                    if (stream == null) {
-                        _downloadStates.update { it + (songId to DownloadState.Failed("No se pudo resolver la URL de audio")) }
-                        return@withPermit
-                    }
+
+
+
+
+                    ensureSongInDb(newSong)
+
 
                     // 2. Determine file extension and target path
-                    val ext = extensionForMime(stream.mimeType)
+                    val ext = extensionForMime(stream.format.mimeType)
                     val targetFile = File(cacheDir, "$songId.$ext")
                     val partFile = File(cacheDir, "$songId.$ext.part")
 
                     // 3. Get total content length (from format metadata or HEAD probe)
-                    val totalBytes = stream.contentLength ?: probeContentLength(stream.url)
+                    val totalBytes = stream.format.contentLength ?: probeContentLength(stream.streamUrl)
 
                     if (totalBytes == null || totalBytes <= 0) {
-                        downloadSingleRequest(stream.url, partFile, songId)
+                        downloadSingleRequest(stream.streamUrl, partFile, songId)
                     } else {
                         // 4. Chunked download with Range headers (resumable)
-                        downloadChunked(stream.url, partFile, songId, totalBytes)
+                        downloadChunked(stream.streamUrl, partFile, songId, totalBytes)
                     }
 
                     if (!isActive) {
@@ -199,8 +218,19 @@ class DownloadService(
                     if (partFile.exists() && partFile.length() > 0) {
                         partFile.renameTo(targetFile)
 
+                        val playBackData = ResolvedStream(
+                            url = stream.streamUrl,
+                            itag = stream.format.itag,
+                            mimeType = stream.format.mimeType,
+                            bitrate = stream.format.bitrate,
+                            contentLength = stream.format.contentLength,
+                            sampleRate = 0,
+                            loudnessDb = stream.format.loudnessDb,
+                            codecs = "",
+                            expiresInSeconds = stream.streamExpiresInSeconds.toLong()
+                        )
                         // 6. Save format metadata in DB
-                        saveFormatMetadata(songId, stream)
+                        saveFormatMetadata(songId, playBackData)
 
                         // 7. Mark as downloaded
                         databaseDao.updateSongDownloadStatus(songId, true, System.currentTimeMillis())
@@ -323,15 +353,13 @@ class DownloadService(
                             // On 403, the URL likely expired — re-resolve it
                             if (is403 && urlRefreshCount < 3) {
                                 val newStream = streamResolver.resolveAudioStream(songId)
-                                if (newStream?.url != null) {
-                                    currentUrl = newStream.url
-                                    urlRefreshCount++
-                                    break
-                                }
+                                currentUrl = newStream.streamUrl
+                                urlRefreshCount++
+                                break
                             }
 
                             if (retry >= MAX_CHUNK_RETRIES) throw e
-                            delay(RETRY_BASE_DELAY_MS * retry)
+                            delay((RETRY_BASE_DELAY_MS * retry).milliseconds)
                         }
                     }
 
@@ -457,6 +485,7 @@ class DownloadService(
     private suspend fun ensureSongInDb(song: SongItem) {
         val existing = databaseDao.songById(song.id).firstOrNull()
         if (existing == null) {
+
             databaseDao.insertSong(
                 SongEntity(
                     id = song.id,
@@ -475,12 +504,12 @@ class DownloadService(
             val existingArtist = databaseDao.artistById(artistId).firstOrNull()
             if (existingArtist == null) {
                 databaseDao.insertArtist(
-                    com.example.melodist.db.entities.ArtistEntity(
+                    ArtistEntity(
                         id = artistId,
                         name = artist.name,
                         thumbnailUrl = null,
                         channelId = artist.id,
-                        lastUpdateTime = java.time.LocalDateTime.now(),
+                        lastUpdateTime = LocalDateTime.now(),
                         bookmarkedAt = null,
                         isLocal = false
                     )

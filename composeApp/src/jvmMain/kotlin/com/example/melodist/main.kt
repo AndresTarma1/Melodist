@@ -19,8 +19,6 @@ fun main() {
 
     System.setProperty("skiko.renderApi", "OPENGL")
 
-
-
     setupEnvironments()
 
     val koinApp = startKoin { modules(appModule) }.also {

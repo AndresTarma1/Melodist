@@ -100,6 +100,9 @@ SELECT * FROM Song WHERE isDownloaded = 1 ORDER BY dateDownload DESC;
 updateSongDownloadStatus:
 UPDATE Song SET isDownloaded = ?, dateDownload = ? WHERE id = ?;
 
+updateSongMetadata:
+UPDATE Song SET title = ?, duration = ?, thumbnailUrl = ? WHERE id = ?;
+
 downloadedSongsCount:
 SELECT COUNT(1) FROM Song WHERE isDownloaded = 1;
 

@@ -14,11 +14,13 @@ import com.example.melodist.db.entities.SongWithRelations
 import com.example.melodist.player.DownloadService
 
 import com.example.melodist.player.DownloadState
+import com.example.melodist.player.YTPlayerutils
 
 import com.metrolist.innertube.models.Album
 
 import com.metrolist.innertube.models.Artist
 import com.metrolist.innertube.models.SongItem
+import kotlinx.coroutines.Dispatchers
 
 import kotlinx.coroutines.flow.MutableStateFlow
 
@@ -41,6 +43,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.delay
 
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 
 
@@ -98,14 +101,13 @@ class DownloadViewModel(
         viewModelScope.launch {
 
 
-
             downloadedSongs.firstOrNull()
 
             _isLoading.value = false
 
         }
 
-        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+        viewModelScope.launch(Dispatchers.IO) {
 
             refreshCacheSize()
 
@@ -160,7 +162,7 @@ class DownloadViewModel(
 
         .map { songs ->
 
-            withContext(kotlinx.coroutines.Dispatchers.IO) {
+            withContext(Dispatchers.IO) {
 
                 val albumIds = songs.mapNotNull { it.album?.id }.distinct()
 
@@ -228,7 +230,7 @@ class DownloadViewModel(
 
         .map { dlSongs ->
 
-            withContext(kotlinx.coroutines.Dispatchers.IO) {
+            withContext(Dispatchers.IO) {
 
                 val playlists = databaseDao?.allPlaylists()?.firstOrNull() ?: emptyList()
 
@@ -273,95 +275,64 @@ class DownloadViewModel(
 
 
     fun downloadSong(song: SongItem) {
-
         downloadService.downloadSong(song)
-
     }
 
 
     fun downloadAll(songs: List<SongItem>) {
-
         downloadService.downloadAll(songs)
-
     }
 
 
     fun cancelDownload(songId: String) {
-
         downloadService.cancelDownload(songId)
-
     }
 
 
     fun removeDownload(songId: String) {
-
         downloadService.removeDownload(songId)
-
         refreshCacheSize()
-
     }
 
 
     fun clearCache() {
-
         downloadService.clearCache()
-
         refreshCacheSize()
-
     }
 
 
     fun isDownloaded(songId: String): Boolean {
-
         return downloadService.isDownloaded(songId)
-
     }
 
 
     fun getState(songId: String): DownloadState? {
-
         return downloadStates.value[songId]
-
     }
 
-
     fun refreshCacheSize() {
-
-        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-
+        viewModelScope.launch(Dispatchers.IO) {
             val size = DownloadService.getCacheSizeBytes()
-
             _cacheSizeText.value = DownloadService.formatSize(size)
-
         }
-
     }
 
 
     /** Returns a flow for a single song's download state, distinct until changed. */
 
-    fun downloadStateFlow(songId: String): Flow<DownloadState?> =
-
-        downloadStates.map { it[songId] }.distinctUntilChanged()
+    fun downloadStateFlow(songId: String): Flow<DownloadState?> = downloadStates.map { it[songId] }.distinctUntilChanged()
 
 
     fun isAnyDownloadingFlow(songIds: List<String>): Flow<Boolean> =
-
         downloadStates.map { states ->
-
             songIds.any { id ->
-
                 val state = states[id]
-
                 state is DownloadState.Queued || state is DownloadState.Downloading
-
             }
-
         }.distinctUntilChanged()
 
 
-    /** Returns a flow that emits true if ALL of the provided songs are completely downloaded. */
-
+    /** Returns a flow that emits true if ALL the provided songs are completely downloaded. */
     fun isFullyDownloadedFlow(songIds: List<String>): Flow<Boolean> =
 
         downloadStates.map { states ->
@@ -377,43 +348,27 @@ class DownloadViewModel(
 /** Converts a [SongWithRelations] to a [SongItem] for UI display, including artists. */
 
 private fun SongWithRelations.toSongItem(): SongItem = SongItem(
-
     id = song.id,
-
     title = song.title,
-
     artists = artists.map { Artist(name = it.name, id = it.id) },
-
     album = if (song.albumName != null && song.albumId != null) Album(
         name = song.albumName, id = song.albumId
     ) else null,
-
     duration = if (song.duration > 0) song.duration else null,
-
     thumbnail = song.thumbnailUrl ?: "",
-
     explicit = song.explicit
-
 )
 
 
 /** Converts a [SongEntity] to a [SongItem] (simplified, no artists). */
 
 private fun SongEntity.toSongItem(): SongItem = SongItem(
-
     id = id,
-
     title = title,
-
     artists = emptyList(),
-
     album = if (albumName != null && albumId != null) Album(name = albumName, id = albumId) else null,
-
     duration = if (duration > 0) duration else null,
-
     thumbnail = thumbnailUrl ?: "",
-
     explicit = explicit
-
 )
 
