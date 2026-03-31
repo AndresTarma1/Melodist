@@ -52,6 +52,7 @@ import org.jetbrains.jewel.window.TitleBarScope
 import org.jetbrains.jewel.window.styling.TitleBarColors
 import org.jetbrains.jewel.window.styling.TitleBarStyle
 import java.awt.Color
+import java.awt.Dimension
 import java.awt.EventQueue
 import java.awt.Frame
 import java.awt.event.ComponentAdapter
@@ -153,6 +154,7 @@ fun ApplicationScope.App(
                     title = "Melodist",
                     icon = painterResource(Res.drawable.music_icon),
                 ) {
+                    window.minimumSize = Dimension(1024, 600)
                     DisposableEffect(Unit) {
                         val startMaximized = AppPreferences.windowMaximized
                         val awtColor = Color(
@@ -164,8 +166,6 @@ fun ApplicationScope.App(
                         window.contentPane.background = awtColor
                         window.rootPane.background = awtColor
                         window.rootPane.contentPane.background = awtColor
-                        // El layeredPane es el que se ve durante el resize
-                        window.rootPane.layeredPane.background = awtColor
 
                         val listener = object : ComponentAdapter() {
                             override fun componentResized(e: ComponentEvent) {

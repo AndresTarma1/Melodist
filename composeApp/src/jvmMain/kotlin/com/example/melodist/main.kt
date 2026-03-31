@@ -16,6 +16,11 @@ import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
 
 fun main() {
+
+    System.setProperty("skiko.renderApi", "OPENGL")
+
+
+
     setupEnvironments()
 
     val koinApp = startKoin { modules(appModule) }.also {

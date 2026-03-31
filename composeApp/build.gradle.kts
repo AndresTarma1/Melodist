@@ -24,6 +24,7 @@ kotlin {
             implementation(libs.androidx.lifecycle.runtimeCompose)
             implementation(projects.shared)
 
+
             implementation("io.github.kdroidfilter:composenativetray:1.1.0")
 
             implementation(libs.koin.core)
