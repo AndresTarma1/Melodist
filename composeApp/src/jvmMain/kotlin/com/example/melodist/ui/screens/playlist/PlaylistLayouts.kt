@@ -42,24 +42,21 @@ import com.example.melodist.utils.LocalPlayerViewModel
 import com.example.melodist.ui.helpers.rememberSongDownloadState
 import com.example.melodist.ui.helpers.contextMenuArea
 import com.example.melodist.ui.screens.PlaylistActions
+import com.example.melodist.ui.screens.PlaylistScreenState
 import com.example.melodist.ui.screens.formatDuration
 import com.metrolist.innertube.models.SongItem
 import com.metrolist.innertube.pages.PlaylistPage
 
 @Composable
-internal fun PlaylistWide(
+internal fun PlaylistLayout(
     playlistPage: PlaylistPage,
-    songs: List<SongItem>,
-    hasMore: Boolean,
-    isSaved: Boolean,
-    isSaving: Boolean = false,
-    isLoadingForPlay: Boolean = false,
+    state: PlaylistScreenState,
     actions: PlaylistActions
 ) {
     val playerViewModel = LocalPlayerViewModel.current
     val downloadViewModel = LocalDownloadViewModel.current
 
-    val songIds = remember(songs) { songs.map { it.id } }
+    val songIds = remember(state.songs) { state.songs.map { it.id } }
 
     // OPTIMIZACIÓN 1: Recolectamos el estado como un objeto State, NO usamos "by".
     // Esto evita que PlaylistWide lea el valor booleano directamente y se recomponga.
@@ -88,9 +85,11 @@ internal fun PlaylistWide(
             PlaylistInfoPanel(
                 playlistPage = playlistPage,
                 coverSize = 240.dp,
-                isSaved = isSaved,
-                isSaving = isSaving,
-                isLoadingForPlay = isLoadingForPlay,
+                controls = PlaylistInfoPanelControls(
+                    isSaved = state.isSaved,
+                    isSaving = state.isSaving,
+                    isLoadingForPlay = state.isLoadingForPlay,
+                ),
                 actions = actions,
                 isDownloadingAny = { isAnyDownloadingState.value },
                 isFullyDownloaded = { isFullyDownloadedState.value }
@@ -106,27 +105,27 @@ internal fun PlaylistWide(
                 state = lazyListState,
                 modifier = Modifier.fillMaxSize()
             ) {
-                itemsIndexed(songs, key = { _, song -> song.id }) { index, song ->
+                itemsIndexed(state.songs, key = { _, song -> song.id }) { index, song ->
                     // El PlaylistSongItem ya estaba bien optimizado gracias a `rememberSongDownloadState`
                     PlaylistSongItem(
                         index = index + 1,
                         song = song,
                         onClick = {
                             playerViewModel.playPlaylist(
-                                songs, index,
+                                state.songs, index,
                                 playlistPage.playlist.id,
                                 playlistPage.playlist.title
                             )
                         }
                     )
-                    if (index < songs.lastIndex) {
+                    if (index < state.songs.lastIndex) {
                         HorizontalDivider(
                             color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f),
                             modifier = Modifier.padding(start = 48.dp)
                         )
                     }
                 }
-                if (hasMore) item { LoadingMoreSongsItem(onLoadMore = actions.onLoadMore) }
+                if (state.hasMore) item { LoadingMoreSongsItem(onLoadMore = actions.onLoadMore) }
             }
 
             // Aquí asumo que tienes tu propio VerticalScrollbar
@@ -135,13 +134,17 @@ internal fun PlaylistWide(
     }
 }
 
+internal data class PlaylistInfoPanelControls(
+    val isSaved: Boolean,
+    val isSaving: Boolean,
+    val isLoadingForPlay: Boolean,
+)
+
 @Composable
 internal fun PlaylistInfoPanel(
     playlistPage: PlaylistPage,
     coverSize: Dp,
-    isSaved: Boolean,
-    isSaving: Boolean = false,
-    isLoadingForPlay: Boolean = false,
+    controls: PlaylistInfoPanelControls,
     actions: PlaylistActions,
     isDownloadingAny: () -> Boolean,
     isFullyDownloaded: () -> Boolean,
@@ -242,14 +245,14 @@ internal fun PlaylistInfoPanel(
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         IconButton(
-            onClick = { if (!isSaving) actions.onToggleSave() },
+            onClick = { if (!controls.isSaving) actions.onToggleSave() },
             modifier = Modifier
                 .size(44.dp)
                 .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                .pointerHoverIcon(if (isSaving) PointerIcon.Default else PointerIcon.Hand)
+                .pointerHoverIcon(if (controls.isSaving) PointerIcon.Default else PointerIcon.Hand)
         ) {
-            if (isSaving) {
+            if (controls.isSaving) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(18.dp),
                     strokeWidth = 2.dp,
@@ -257,24 +260,24 @@ internal fun PlaylistInfoPanel(
                 )
             } else {
                 Icon(
-                    if (isSaved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
+                    if (controls.isSaved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
                     null,
-                    tint = if (isSaved) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                    tint = if (controls.isSaved) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.size(20.dp)
                 )
             }
         }
 
         FloatingActionButton(
-            onClick = { if (!isLoadingForPlay) actions.onPlayAll() },
+            onClick = { if (!controls.isLoadingForPlay) actions.onPlayAll() },
             shape = CircleShape,
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary,
             modifier = Modifier
                 .size(56.dp)
-                .pointerHoverIcon(if (isLoadingForPlay) PointerIcon.Default else PointerIcon.Hand)
+                .pointerHoverIcon(if (controls.isLoadingForPlay) PointerIcon.Default else PointerIcon.Hand)
         ) {
-            if (isLoadingForPlay) {
+            if (controls.isLoadingForPlay) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(22.dp),
                     strokeWidth = 2.5.dp,
@@ -286,7 +289,7 @@ internal fun PlaylistInfoPanel(
         }
 
         IconButton(
-            onClick = { if (!isLoadingForPlay) actions.onShuffle() },
+            onClick = { if (!controls.isLoadingForPlay) actions.onShuffle() },
             modifier = Modifier
                 .size(44.dp)
                 .clip(CircleShape)

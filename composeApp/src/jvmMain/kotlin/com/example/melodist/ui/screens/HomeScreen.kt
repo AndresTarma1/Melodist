@@ -169,7 +169,7 @@ fun HomeScreenContent(
             // Filtros (Chips)
             if (!page.chips.isNullOrEmpty()) {
                 val lazyListState = rememberLazyListState()
-                Column {
+                Column(Modifier.padding(end = 16.dp)) {
                     HorizontalScrollableRow(
                         modifier = Modifier.padding(vertical = 12.dp),
                         state = lazyListState,
@@ -208,7 +208,7 @@ fun HomeScreenContent(
 
             // Secciones
             page.sections.forEach { section ->
-                Column(modifier = Modifier.padding(vertical = 24.dp)) {
+                Column(modifier = Modifier.padding(top = 12.dp, bottom = 12.dp, end= 16.dp)) {
                     Text(
                         text = section.title,
                         style = MaterialTheme.typography.headlineMedium,
@@ -247,18 +247,15 @@ fun HomeScreenContent(
                     CircularProgressIndicator(modifier = Modifier.size(40.dp), strokeWidth = 3.dp)
                 }
             }
-
-            Spacer(modifier = Modifier.height(100.dp))
         }
 
         VerticalScrollbar(
             adapter = rememberScrollbarAdapter(scrollState),
-            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(vertical = 8.dp, horizontal = 8.dp),
+            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(12.dp),
             style = LocalScrollbarStyle.current.copy(
                 thickness = 6.dp,
                 unhoverColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
                 hoverColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
-                shape = RoundedCornerShape(3.dp)
             )
         )
     }

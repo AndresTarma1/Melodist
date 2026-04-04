@@ -52,22 +52,14 @@ import com.metrolist.innertube.models.SongItem
 import com.metrolist.innertube.pages.AlbumPage
 
 @Composable
-internal fun AlbumScreenWide(
+internal fun AlbumScreenLayout(
     albumPage: AlbumPage,
-    songs: List<SongItem>,
-    hasMore: Boolean,
-    onLoadMore: () -> Unit,
-    onSurfaceColor: Color,
-    onSurfaceVariant: Color,
-    onNavigate: (Route) -> Unit,
-    isSaved: Boolean,
-    isSaving: Boolean = false,
-    isLoadingForPlay: Boolean = false,
-    onToggleSave: () -> Unit,
-    onPlayAll: () -> Unit = {},
-    onShuffle: () -> Unit = {},
+    state: AlbumScreenState,
+    actions: AlbumScreenActions,
 ) {
     val playerViewModel = LocalPlayerViewModel.current
+    val onSurfaceColor = MaterialTheme.colorScheme.onSurface
+    val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
 
     Row(modifier = Modifier.fillMaxSize().padding(start = 48.dp, end = 24.dp, top = 48.dp)) {
         Column(
@@ -80,17 +72,16 @@ internal fun AlbumScreenWide(
         ) {
             AlbumInfoPanel(
                 albumPage = albumPage,
-                songs = songs,
+                songs = state.songs,
                 onSurfaceColor = onSurfaceColor,
                 onSurfaceVariant = onSurfaceVariant,
                 coverSize = 240.dp,
-                onNavigate = onNavigate,
-                isSaved = isSaved,
-                isSaving = isSaving,
-                isLoadingForPlay = isLoadingForPlay,
-                onToggleSave = onToggleSave,
-                onPlayAll = onPlayAll,
-                onShuffle = onShuffle,
+                actions = actions,
+                controls = AlbumInfoPanelControls(
+                    isSaved = state.isSaved,
+                    isSaving = state.isSaving,
+                    isLoadingForPlay = state.isLoadingForPlay,
+                ),
             )
         }
 
@@ -98,100 +89,23 @@ internal fun AlbumScreenWide(
 
         Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
             AlbumSongsList(
-                songs = songs,
-                hasMore = hasMore,
-                onLoadMore = onLoadMore,
+                songs = state.songs,
+                hasMore = state.hasMore,
+                onLoadMore = actions.onLoadMore,
                 onSurfaceVariant = onSurfaceVariant,
                 onSongClick = { index ->
-                    playerViewModel.playAlbum(songs, index, albumPage.album.browseId, albumPage.album.title)
+                    playerViewModel.playAlbum(state.songs, index, albumPage.album.browseId, albumPage.album.title)
                 },
             )
         }
     }
 }
 
-@Composable
-internal fun AlbumScreenCompact(
-    albumPage: AlbumPage,
-    songs: List<SongItem>,
-    hasMore: Boolean,
-    onLoadMore: () -> Unit,
-    onSurfaceColor: Color,
-    onSurfaceVariant: Color,
-    onNavigate: (Route) -> Unit,
-    isSaved: Boolean,
-    isSaving: Boolean = false,
-    isLoadingForPlay: Boolean = false,
-    onToggleSave: () -> Unit,
-    onPlayAll: () -> Unit = {},
-    onShuffle: () -> Unit = {},
-) {
-    val playerViewModel = LocalPlayerViewModel.current
-    val lazyListState = rememberLazyListState()
-
-    Box(modifier = Modifier.fillMaxSize()) {
-        LazyColumn(
-            state = lazyListState,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(start = 20.dp, end = 20.dp, top = 48.dp, bottom = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            item {
-                AlbumInfoPanel(
-                    albumPage = albumPage,
-                    songs = songs,
-                    onSurfaceColor = onSurfaceColor,
-                    onSurfaceVariant = onSurfaceVariant,
-                    coverSize = 200.dp,
-                    onNavigate = onNavigate,
-                    isSaved = isSaved,
-                    isSaving = isSaving,
-                    isLoadingForPlay = isLoadingForPlay,
-                    onToggleSave = onToggleSave,
-                    onPlayAll = onPlayAll,
-                    onShuffle = onShuffle,
-                )
-                Spacer(Modifier.height(24.dp))
-                HorizontalDivider(
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
-                    modifier = Modifier.padding(horizontal = 8.dp)
-                )
-                Spacer(Modifier.height(8.dp))
-            }
-
-            itemsIndexed(songs, key = { _, song -> song.id }) { index, song ->
-                NewSongListItem(
-                    index = index + 1,
-                    song = song,
-                    onPlay = {
-                        playerViewModel.playAlbum(songs, index, albumPage.album.browseId, albumPage.album.title)
-                    }
-                )
-                if (index < songs.lastIndex) {
-                    HorizontalDivider(
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f),
-                        modifier = Modifier.padding(start = 48.dp)
-                    )
-                }
-            }
-
-            if (hasMore) item { LoadingMoreSongsItem(onLoadMore = onLoadMore) }
-            item { Spacer(modifier = Modifier.height(80.dp)) }
-        }
-
-        VerticalScrollbar(
-            adapter = rememberScrollbarAdapter(lazyListState),
-            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(vertical = 12.dp),
-            style = LocalScrollbarStyle.current.copy(
-                thickness = 4.dp,
-                unhoverColor = onSurfaceVariant.copy(alpha = 0.08f),
-                hoverColor = onSurfaceVariant.copy(alpha = 0.25f),
-                shape = RoundedCornerShape(2.dp)
-            )
-        )
-    }
-}
+internal data class AlbumInfoPanelControls(
+    val isSaved: Boolean,
+    val isSaving: Boolean,
+    val isLoadingForPlay: Boolean,
+)
 
 @Composable
 internal fun AlbumInfoPanel(
@@ -200,13 +114,8 @@ internal fun AlbumInfoPanel(
     onSurfaceColor: Color,
     onSurfaceVariant: Color,
     coverSize: Dp,
-    onNavigate: (Route) -> Unit,
-    isSaved: Boolean,
-    isSaving: Boolean = false,
-    isLoadingForPlay: Boolean = false,
-    onToggleSave: () -> Unit,
-    onPlayAll: () -> Unit = {},
-    onShuffle: () -> Unit = {},
+    actions: AlbumScreenActions,
+    controls: AlbumInfoPanelControls,
 ) {
     val downloadViewModel = LocalDownloadViewModel.current
 
@@ -224,7 +133,7 @@ internal fun AlbumInfoPanel(
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         modifier = Modifier
             .clip(RoundedCornerShape(20.dp))
-            .clickable { albumPage.album.artists?.firstOrNull()?.id?.let { onNavigate(Route.Artist(it)) } }
+            .clickable { albumPage.album.artists?.firstOrNull()?.id?.let { actions.onNavigate(Route.Artist(it)) } }
             .pointerHoverIcon(PointerIcon.Hand)
     ) {
         Row(
@@ -314,14 +223,14 @@ internal fun AlbumInfoPanel(
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         IconButton(
-            onClick = { if (!isSaving) onToggleSave() },
+            onClick = { if (!controls.isSaving) actions.onToggleSave() },
             modifier = Modifier
                 .size(44.dp)
                 .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                .pointerHoverIcon(if (isSaving) PointerIcon.Default else PointerIcon.Hand)
+                .pointerHoverIcon(if (controls.isSaving) PointerIcon.Default else PointerIcon.Hand)
         ) {
-            if (isSaving) {
+            if (controls.isSaving) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(18.dp),
                     strokeWidth = 2.dp,
@@ -329,23 +238,23 @@ internal fun AlbumInfoPanel(
                 )
             } else {
                 Icon(
-                    if (isSaved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
+                    if (controls.isSaved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
                     null,
-                    tint = if (isSaved) MaterialTheme.colorScheme.primary else onSurfaceColor,
+                    tint = if (controls.isSaved) MaterialTheme.colorScheme.primary else onSurfaceColor,
                     modifier = Modifier.size(20.dp)
                 )
             }
         }
 
         FloatingActionButton(
-            onClick = { if (!isLoadingForPlay) onPlayAll() },
+            onClick = { if (!controls.isLoadingForPlay) actions.onPlayAll() },
             shape = CircleShape,
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary,
             modifier = Modifier.size(56.dp)
-                .pointerHoverIcon(if (isLoadingForPlay) PointerIcon.Default else PointerIcon.Hand)
+                .pointerHoverIcon(if (controls.isLoadingForPlay) PointerIcon.Default else PointerIcon.Hand)
         ) {
-            if (isLoadingForPlay) {
+            if (controls.isLoadingForPlay) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(22.dp),
                     strokeWidth = 2.5.dp,
@@ -357,7 +266,7 @@ internal fun AlbumInfoPanel(
         }
 
         IconButton(
-            onClick = { if (!isLoadingForPlay) onShuffle() },
+            onClick = { if (!controls.isLoadingForPlay) actions.onShuffle() },
             modifier = Modifier
                 .size(44.dp)
                 .clip(CircleShape)

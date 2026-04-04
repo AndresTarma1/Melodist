@@ -20,37 +20,14 @@ import androidx.compose.ui.unit.dp
 internal fun AlbumScreenSkeletonContent() {
     val brush = shimmerBrush()
 
-    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        val isCompact = maxWidth < 800.dp
-
-        if (isCompact) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp, vertical = 16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                InfoPanelSkeleton(brush, coverSize = 200.dp)
-                Spacer(Modifier.height(24.dp))
-                HorizontalDivider(
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.08f),
-                    modifier = Modifier.padding(horizontal = 8.dp)
-                )
-                Spacer(Modifier.height(8.dp))
-                SongListSkeleton(brush, count = 6)
-            }
-        } else {
-            Row(modifier = Modifier.fillMaxSize().padding(start = 48.dp, end = 24.dp)) {
-                Column(
-                    modifier = Modifier.width(320.dp).padding(top = 24.dp, bottom = 24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) { InfoPanelSkeleton(brush, coverSize = 240.dp) }
-                Spacer(Modifier.width(32.dp))
-                Column(modifier = Modifier.weight(1f).padding(top = 24.dp, end = 12.dp)) {
-                    SongListSkeleton(brush, count = 8)
-                }
-            }
+    Row(modifier = Modifier.fillMaxSize().padding(start = 48.dp, end = 24.dp)) {
+        Column(
+            modifier = Modifier.width(320.dp).padding(top = 24.dp, bottom = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) { InfoPanelSkeleton(brush, coverSize = 240.dp) }
+        Spacer(Modifier.width(32.dp))
+        Column(modifier = Modifier.weight(1f).padding(top = 24.dp, end = 12.dp)) {
+            SongListSkeleton(brush, count = 8)
         }
     }
 }
@@ -59,37 +36,14 @@ internal fun AlbumScreenSkeletonContent() {
 internal fun PlaylistScreenSkeletonContent() {
     val brush = shimmerBrush()
 
-    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        val isCompact = maxWidth < 800.dp
-
-        if (isCompact) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp, vertical = 16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                InfoPanelSkeleton(brush, coverSize = 200.dp)
-                Spacer(Modifier.height(24.dp))
-                HorizontalDivider(
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.08f),
-                    modifier = Modifier.padding(horizontal = 8.dp)
-                )
-                Spacer(Modifier.height(8.dp))
-                PlaylistSongListSkeleton(brush, count = 6)
-            }
-        } else {
-            Row(modifier = Modifier.fillMaxSize().padding(start = 48.dp, end = 24.dp)) {
-                Column(
-                    modifier = Modifier.width(300.dp).padding(top = 24.dp, bottom = 24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) { InfoPanelSkeleton(brush, coverSize = 240.dp) }
-                Spacer(Modifier.width(32.dp))
-                Column(modifier = Modifier.weight(1f).padding(top = 24.dp, end = 12.dp)) {
-                    PlaylistSongListSkeleton(brush, count = 8)
-                }
-            }
+    Row(modifier = Modifier.fillMaxSize().padding(start = 48.dp, end = 24.dp)) {
+        Column(
+            modifier = Modifier.width(300.dp).padding(top = 24.dp, bottom = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) { InfoPanelSkeleton(brush, coverSize = 240.dp) }
+        Spacer(Modifier.width(32.dp))
+        Column(modifier = Modifier.weight(1f).padding(top = 24.dp, end = 12.dp)) {
+            PlaylistSongListSkeleton(brush, count = 8)
         }
     }
 }
@@ -98,85 +52,38 @@ internal fun PlaylistScreenSkeletonContent() {
 internal fun ArtistScreenSkeletonContent() {
     val brush = shimmerBrush()
 
-    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        val isCompact = maxWidth < 800.dp
-
-        if (isCompact) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(start = 20.dp, end = 20.dp, top = 48.dp, bottom = 16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                // Avatar outer box 176dp containing 160dp circle card (with translucent bg halo)
-                Box(Modifier.size(176.dp), contentAlignment = Alignment.Center) {
-                    Box(Modifier.size(176.dp).clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.35f)))
-                    Box(Modifier.size(160.dp).clip(CircleShape).background(brush))
-                }
-                Spacer(Modifier.height(20.dp))
-                // Title — headlineMedium
-                Box(Modifier.width(180.dp).height(28.dp).clip(RoundedCornerShape(4.dp)).background(brush))
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 48.dp, vertical = 24.dp)
+            .padding(top = 32.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(196.dp), contentAlignment = Alignment.Center) {
+                Box(Modifier.size(196.dp).clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.35f)))
+                Box(Modifier.size(180.dp).clip(CircleShape).background(brush))
+            }
+            Spacer(Modifier.width(32.dp))
+            Column {
+                Box(Modifier.width(220.dp).height(36.dp).clip(RoundedCornerShape(4.dp)).background(brush))
+                Spacer(Modifier.height(6.dp))
+                Box(Modifier.width(140.dp).height(16.dp).clip(RoundedCornerShape(4.dp)).background(brush))
                 Spacer(Modifier.height(4.dp))
-                // Subscriber count — bodyMedium
-                Box(Modifier.width(120.dp).height(16.dp).clip(RoundedCornerShape(4.dp)).background(brush))
-                Spacer(Modifier.height(3.dp))
-                // Monthly listeners — bodySmall
-                Box(Modifier.width(90.dp).height(13.dp).clip(RoundedCornerShape(4.dp)).background(brush))
+                Box(Modifier.width(100.dp).height(13.dp).clip(RoundedCornerShape(4.dp)).background(brush))
                 Spacer(Modifier.height(20.dp))
-                // Buttons: save(44) + play(56) + shuffle(44)
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(Modifier.size(44.dp).clip(CircleShape).background(brush))
                     Box(Modifier.size(56.dp).clip(CircleShape).background(brush))
                     Box(Modifier.size(44.dp).clip(CircleShape).background(brush))
                 }
-                Spacer(Modifier.height(32.dp))
-                repeat(2) {
-                    ArtistSectionSkeleton(brush)
-                    Spacer(Modifier.height(24.dp))
-                }
             }
-        } else {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 48.dp, vertical = 24.dp)
-                    .padding(top = 32.dp)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    // Avatar: outer 196dp box with inner 180dp card
-                    Box(Modifier.size(196.dp), contentAlignment = Alignment.Center) {
-                        Box(Modifier.size(196.dp).clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.35f)))
-                        Box(Modifier.size(180.dp).clip(CircleShape).background(brush))
-                    }
-                    Spacer(Modifier.width(32.dp))
-                    Column {
-                        // Title — displaySmall (~32-36sp)
-                        Box(Modifier.width(220.dp).height(36.dp).clip(RoundedCornerShape(4.dp)).background(brush))
-                        Spacer(Modifier.height(6.dp))
-                        // Subscriber count — bodyMedium
-                        Box(Modifier.width(140.dp).height(16.dp).clip(RoundedCornerShape(4.dp)).background(brush))
-                        Spacer(Modifier.height(4.dp))
-                        // Monthly listeners — bodySmall
-                        Box(Modifier.width(100.dp).height(13.dp).clip(RoundedCornerShape(4.dp)).background(brush))
-                        Spacer(Modifier.height(20.dp))
-                        // Buttons: save(44) + play(56) + shuffle(44)
-                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Box(Modifier.size(44.dp).clip(CircleShape).background(brush))
-                            Box(Modifier.size(56.dp).clip(CircleShape).background(brush))
-                            Box(Modifier.size(44.dp).clip(CircleShape).background(brush))
-                        }
-                    }
-                }
-                Spacer(Modifier.height(40.dp))
-                repeat(3) {
-                    ArtistSectionSkeleton(brush)
-                    Spacer(Modifier.height(24.dp))
-                }
-            }
+        }
+        Spacer(Modifier.height(40.dp))
+        repeat(3) {
+            ArtistSectionSkeleton(brush)
+            Spacer(Modifier.height(24.dp))
         }
     }
 }

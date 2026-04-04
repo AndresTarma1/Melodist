@@ -1,7 +1,6 @@
 package com.example.melodist.ui.screens
 
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -20,13 +19,20 @@ import androidx.compose.ui.unit.dp
 import com.example.melodist.navigation.Route
 import com.example.melodist.ui.components.BlurredImageBackground
 import com.example.melodist.ui.components.PlaylistScreenSkeleton
-import com.example.melodist.ui.screens.playlist.PlaylistWide
+import com.example.melodist.ui.screens.playlist.PlaylistLayout
 import com.example.melodist.utils.LocalDownloadViewModel
 import com.example.melodist.utils.LocalPlayerViewModel
 import com.example.melodist.viewmodels.PlaylistState
 import com.example.melodist.viewmodels.PlaylistViewModel
 import com.metrolist.innertube.models.SongItem
-import com.metrolist.innertube.pages.PlaylistPage
+
+data class PlaylistScreenState(
+    val songs: List<SongItem> = emptyList(),
+    val hasMore: Boolean = false,
+    val isSaved: Boolean = false,
+    val isSaving: Boolean = false,
+    val isLoadingForPlay: Boolean = false,
+)
 
 
 data class PlaylistActions(
@@ -90,14 +96,18 @@ fun PlaylistScreenRoute(
     val songs by viewModel.songs.collectAsState()
     val hasMoreSongs by viewModel.hasMoreSongs.collectAsState()
 
-
-    PlaylistScreen(
-        uiState = uiState,
+    val state = PlaylistScreenState(
         songs = songs,
         hasMore = hasMoreSongs,
         isSaved = successState?.isSaved ?: false,
         isSaving = successState?.isSaving ?: false,
         isLoadingForPlay = successState?.isLoadingForPlay ?: false,
+    )
+
+
+    PlaylistScreen(
+        uiState = uiState,
+        state = state,
         actions = actions
     )
 }
@@ -105,11 +115,7 @@ fun PlaylistScreenRoute(
 @Composable
 fun PlaylistScreen(
     uiState: PlaylistState,
-    songs: List<SongItem> = emptyList(),
-    hasMore: Boolean = false,
-    isSaved: Boolean = false,
-    isSaving: Boolean = false,
-    isLoadingForPlay: Boolean = false,
+    state: PlaylistScreenState,
     actions: PlaylistActions
 ) {
     val thumbnailUrl = (uiState as? PlaylistState.Success)?.playlistPage?.playlist?.thumbnail
@@ -122,13 +128,9 @@ fun PlaylistScreen(
     ) {
         when (uiState) {
             is PlaylistState.Loading -> PlaylistScreenSkeleton()
-            is PlaylistState.Success -> PlaylistScreenContent(
+            is PlaylistState.Success -> PlaylistLayout(
                 playlistPage = uiState.playlistPage,
-                songs = songs,
-                hasMore = hasMore,
-                isSaved = isSaved,
-                isSaving = isSaving,
-                isLoadingForPlay = isLoadingForPlay,
+                state = state,
                 actions = actions
             )
 
@@ -151,28 +153,4 @@ fun PlaylistScreen(
             )
         }
     }
-}
-
-@Composable
-fun PlaylistScreenContent(
-    playlistPage: PlaylistPage,
-    songs: List<SongItem>,
-    hasMore: Boolean = false,
-    isSaved: Boolean = false,
-    isSaving: Boolean = false,
-    isLoadingForPlay: Boolean = false,
-    actions: PlaylistActions
-) {
-    Box(modifier = Modifier.fillMaxSize()) {
-        PlaylistWide(
-            playlistPage = playlistPage,
-            songs = songs,
-            hasMore = hasMore,
-            isSaved = isSaved,
-            isSaving = isSaving,
-            isLoadingForPlay = isLoadingForPlay,
-            actions = actions
-        )
-    }
-
 }

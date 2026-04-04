@@ -23,7 +23,23 @@ import com.example.melodist.utils.LocalPlayerViewModel
 import com.example.melodist.viewmodels.AlbumState
 import com.example.melodist.viewmodels.AlbumViewModel
 import com.metrolist.innertube.models.SongItem
-import com.metrolist.innertube.pages.AlbumPage
+
+data class AlbumScreenState(
+    val songs: List<SongItem> = emptyList(),
+    val hasMore: Boolean = false,
+    val isSaved: Boolean = false,
+    val isSaving: Boolean = false,
+    val isLoadingForPlay: Boolean = false,
+)
+
+data class AlbumScreenActions(
+    val onBack: () -> Unit,
+    val onLoadMore: () -> Unit,
+    val onNavigate: (Route) -> Unit,
+    val onToggleSave: () -> Unit,
+    val onPlayAll: () -> Unit,
+    val onShuffle: () -> Unit,
+)
 
 @Composable
 fun AlbumScreenRoute(
@@ -38,19 +54,21 @@ fun AlbumScreenRoute(
     val playerViewModel = LocalPlayerViewModel.current
     val successState = uiState as? AlbumState.Success
 
-    AlbumScreen(
-        uiState = uiState,
+    val state = AlbumScreenState(
         songs = songs,
         hasMore = hasMoreSongs,
-        onLoadMore = { viewModel.loadMoreSongs() },
-        onNavigate = onNavigate,
-        onBack = onBack,
         isSaved = successState?.isSaved ?: false,
         isSaving = successState?.isSaving ?: false,
         isLoadingForPlay = successState?.isLoadingForPlay ?: false,
+    )
+
+    val actions = AlbumScreenActions(
+        onBack = onBack,
+        onLoadMore = { viewModel.loadMoreSongs() },
+        onNavigate = onNavigate,
         onToggleSave = { viewModel.toggleSave() },
         onPlayAll = {
-            val state = successState ?: return@AlbumScreen
+            val state = successState ?: return@AlbumScreenActions
             viewModel.playAllSongs(shuffle = false) { allSongs, startIndex ->
                 playerViewModel.playAlbum(
                     allSongs,
@@ -61,7 +79,7 @@ fun AlbumScreenRoute(
             }
         },
         onShuffle = {
-            val state = successState ?: return@AlbumScreen
+            val state = successState ?: return@AlbumScreenActions
             viewModel.playAllSongs(shuffle = true) { allSongs, startIndex ->
                 playerViewModel.playAlbum(
                     allSongs,
@@ -72,22 +90,19 @@ fun AlbumScreenRoute(
             }
         },
     )
+
+    AlbumScreen(
+        uiState = uiState,
+        state = state,
+        actions = actions,
+    )
 }
 
 @Composable
 fun AlbumScreen(
     uiState: AlbumState,
-    songs: List<SongItem> = emptyList(),
-    hasMore: Boolean = false,
-    onLoadMore: () -> Unit = {},
-    onNavigate: (Route) -> Unit,
-    onBack: () -> Unit,
-    isSaved: Boolean = false,
-    isSaving: Boolean = false,
-    isLoadingForPlay: Boolean = false,
-    onToggleSave: () -> Unit = {},
-    onPlayAll: () -> Unit = {},
-    onShuffle: () -> Unit = {},
+    state: AlbumScreenState,
+    actions: AlbumScreenActions,
 ) {
     val thumbnailUrl = (uiState as? AlbumState.Success)?.albumPage?.album?.thumbnail
 
@@ -99,18 +114,10 @@ fun AlbumScreen(
     ) {
         when (uiState) {
             is AlbumState.Loading -> AlbumScreenSkeleton()
-            is AlbumState.Success -> AlbumScreenContent(
+            is AlbumState.Success -> AlbumScreenLayout(
                 albumPage = uiState.albumPage,
-                songs = songs,
-                hasMore = hasMore,
-                onLoadMore = onLoadMore,
-                onNavigate = onNavigate,
-                isSaved = isSaved,
-                isSaving = isSaving,
-                isLoadingForPlay = isLoadingForPlay,
-                onToggleSave = onToggleSave,
-                onPlayAll = onPlayAll,
-                onShuffle = onShuffle,
+                state = state,
+                actions = actions,
             )
             is AlbumState.Error -> Box(
                 Modifier.fillMaxSize(),
@@ -121,67 +128,13 @@ fun AlbumScreen(
         }
 
         IconButton(
-            onClick = onBack,
+            onClick = actions.onBack,
             modifier = Modifier.padding(8.dp).align(Alignment.TopStart)
         ) {
             Icon(
                 Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = "Atrás",
                 tint = MaterialTheme.colorScheme.onSurface
-            )
-        }
-    }
-}
-
-@Composable
-fun AlbumScreenContent(
-    albumPage: AlbumPage,
-    songs: List<SongItem>,
-    hasMore: Boolean = false,
-    onLoadMore: () -> Unit = {},
-    onNavigate: (Route) -> Unit,
-    isSaved: Boolean = false,
-    isSaving: Boolean = false,
-    isLoadingForPlay: Boolean = false,
-    onToggleSave: () -> Unit = {},
-    onPlayAll: () -> Unit = {},
-    onShuffle: () -> Unit = {},
-) {
-    val onSurfaceColor = MaterialTheme.colorScheme.onSurface
-    val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
-
-    androidx.compose.foundation.layout.BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        if (maxWidth < 800.dp) {
-            AlbumScreenCompact(
-                albumPage = albumPage,
-                songs = songs,
-                hasMore = hasMore,
-                onLoadMore = onLoadMore,
-                onSurfaceColor = onSurfaceColor,
-                onSurfaceVariant = onSurfaceVariant,
-                onNavigate = onNavigate,
-                isSaved = isSaved,
-                isSaving = isSaving,
-                isLoadingForPlay = isLoadingForPlay,
-                onToggleSave = onToggleSave,
-                onPlayAll = onPlayAll,
-                onShuffle = onShuffle,
-            )
-        } else {
-            AlbumScreenWide(
-                albumPage = albumPage,
-                songs = songs,
-                hasMore = hasMore,
-                onLoadMore = onLoadMore,
-                onSurfaceColor = onSurfaceColor,
-                onSurfaceVariant = onSurfaceVariant,
-                onNavigate = onNavigate,
-                isSaved = isSaved,
-                isSaving = isSaving,
-                isLoadingForPlay = isLoadingForPlay,
-                onToggleSave = onToggleSave,
-                onPlayAll = onPlayAll,
-                onShuffle = onShuffle,
             )
         }
     }

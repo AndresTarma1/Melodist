@@ -109,9 +109,10 @@ fun MelodistImage(
             model = url,
             contentDescription = contentDescription,
             modifier = modifier.clip(shape),
-            contentScale = ContentScale.Fit,
+            contentScale = contentScale,
             alignment = alignment,
             loading = { ShimmerBox(modifier = Modifier.fillMaxSize(), shape = shape) },
+            clipToBounds = true,
             error = { errorPlaceholder() }
         )
     }

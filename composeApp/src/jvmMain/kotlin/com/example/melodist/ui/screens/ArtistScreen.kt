@@ -81,7 +81,7 @@ fun ArtistScreen(
     ) {
         when (uiState) {
             is ArtistState.Loading -> ArtistScreenSkeleton()
-            is ArtistState.Success -> ArtistScreenContent(uiState.artistPage, onNavigate, isSaved = isSaved, onToggleSave = onToggleSave)
+            is ArtistState.Success -> ArtistScreenLayout(uiState.artistPage, onNavigate, isSaved = isSaved, onToggleSave = onToggleSave)
             is ArtistState.Error -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(uiState.message, color = MaterialTheme.colorScheme.error)
             }
@@ -102,26 +102,26 @@ fun ArtistScreen(
 }
 
 @Composable
-fun ArtistScreenContent(artistPage: ArtistPage, onNavigate: (Route) -> Unit, isSaved: Boolean = false, onToggleSave: () -> Unit = {}) {
+fun ArtistScreenLayout(artistPage: ArtistPage, onNavigate: (Route) -> Unit, isSaved: Boolean = false, onToggleSave: () -> Unit = {}) {
     val surfaceColor = Color.Transparent
     val onSurfaceColor = Color.White
     val onSurfaceVariant = Color.White.copy(alpha = 0.65f)
 
-    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        val isCompact = maxWidth < 800.dp
-
-
-        if (isCompact) {
-            ArtistCompact(artistPage, onSurfaceColor, onSurfaceVariant, surfaceColor, onNavigate, isSaved, onToggleSave)
-        } else {
-            ArtistWide(artistPage, onSurfaceColor, onSurfaceVariant, surfaceColor, onNavigate, isSaved, onToggleSave)
-        }
+    Box(modifier = Modifier.fillMaxSize()) {
+        ArtistWideLayout(
+            artistPage = artistPage,
+            onSurfaceColor = onSurfaceColor,
+            onSurfaceVariant = onSurfaceVariant,
+            surfaceColor = surfaceColor,
+            onNavigate = onNavigate,
+            isSaved = isSaved,
+            onToggleSave = onToggleSave
+        )
     }
 }
 
-// ── Wide layout ──
 @Composable
-private fun ArtistWide(
+private fun ArtistWideLayout(
     artistPage: ArtistPage,
     onSurfaceColor: Color,
     onSurfaceVariant: Color,
@@ -287,174 +287,6 @@ private fun ArtistWide(
         VerticalScrollbar(
             adapter = rememberScrollbarAdapter(scrollState),
             modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(vertical = 12.dp, horizontal = 4.dp),
-            style = LocalScrollbarStyle.current.copy(
-                thickness = 4.dp,
-                unhoverColor = onSurfaceVariant.copy(alpha = 0.08f),
-                hoverColor = onSurfaceVariant.copy(alpha = 0.25f),
-                shape = RoundedCornerShape(2.dp)
-            )
-        )
-    }
-}
-
-// ── Compact layout ──
-@Composable
-private fun ArtistCompact(
-    artistPage: ArtistPage,
-    onSurfaceColor: Color,
-    onSurfaceVariant: Color,
-    surfaceColor: Color,
-    onNavigate: (Route) -> Unit,
-    isSaved: Boolean,
-    onToggleSave: () -> Unit
-) {
-    val scrollState = rememberScrollState()
-
-    Box(modifier = Modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(scrollState)
-                .padding(start = 20.dp, end = 20.dp, top = 48.dp, bottom = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            // Avatar with translucent background
-            Box(
-                modifier = Modifier.size(176.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                // Translucent background circle
-                Box(
-                    modifier = Modifier
-                        .size(176.dp)
-                        .clip(CircleShape)
-                        .background(
-                            MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.35f)
-                        )
-                )
-                Card(
-                    modifier = Modifier
-                        .size(160.dp)
-                        .shadow(16.dp, CircleShape),
-                    shape = CircleShape
-                ) {
-                    MelodistImage(
-                        url = artistPage.artist.thumbnail,
-                        contentDescription = artistPage.artist.title,
-                        modifier = Modifier.fillMaxSize(),
-                        shape = CircleShape,
-                        placeholderType = PlaceholderType.ARTIST,
-                        iconSize = 64.dp,
-                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                        alignment = Alignment.TopCenter
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(20.dp))
-
-            Text(
-                text = artistPage.artist.title,
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
-                color = onSurfaceColor,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-
-            Spacer(Modifier.height(4.dp))
-
-            artistPage.subscriberCountText?.let {
-                Text(it, style = MaterialTheme.typography.bodyMedium, color = onSurfaceVariant)
-            }
-
-            artistPage.monthlyListenerCount?.let {
-                Text(it, style = MaterialTheme.typography.bodySmall, color = onSurfaceVariant.copy(alpha = 0.7f))
-            }
-
-            Spacer(Modifier.height(20.dp))
-
-            // Action buttons
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                IconButton(
-                    onClick = onToggleSave,
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                        .pointerHoverIcon(PointerIcon.Hand)
-                ) {
-                    Icon(
-                        if (isSaved) Icons.Default.PersonRemove else Icons.Default.PersonAdd,
-                        null,
-                        tint = if (isSaved) MaterialTheme.colorScheme.primary else onSurfaceColor,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-
-                FloatingActionButton(
-                    onClick = { /* TODO */ },
-                    shape = CircleShape,
-                    containerColor = Color.White,
-                    contentColor = Color.Black,
-                    modifier = Modifier.size(56.dp).pointerHoverIcon(PointerIcon.Hand)
-                ) {
-                    Icon(Icons.Default.PlayArrow, null, modifier = Modifier.size(28.dp))
-                }
-
-                IconButton(
-                    onClick = { /* TODO */ },
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                        .pointerHoverIcon(PointerIcon.Hand)
-                ) {
-                    Icon(Icons.Default.Shuffle, null, tint = onSurfaceColor, modifier = Modifier.size(20.dp))
-                }
-            }
-
-            Spacer(Modifier.height(32.dp))
-
-            // Sections
-            artistPage.sections.forEach { section ->
-                ArtistSectionRow(section, onNavigate, onSurfaceColor, onSurfaceVariant)
-                Spacer(Modifier.height(24.dp))
-            }
-
-            // Description
-            artistPage.description?.let { desc ->
-                if (desc.isNotBlank()) {
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        "Acerca de",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = onSurfaceColor,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        text = desc,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = onSurfaceVariant,
-                        maxLines = 4,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(80.dp))
-        }
-
-        VerticalScrollbar(
-            adapter = rememberScrollbarAdapter(scrollState),
-            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(vertical = 12.dp),
             style = LocalScrollbarStyle.current.copy(
                 thickness = 4.dp,
                 unhoverColor = onSurfaceVariant.copy(alpha = 0.08f),

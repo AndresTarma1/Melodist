@@ -1,227 +1,227 @@
 package com.example.melodist.ui.components.player
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.*
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeDown
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
-import androidx.compose.material.icons.rounded.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.rounded.Album
+import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Repeat
+import androidx.compose.material.icons.rounded.RepeatOne
+import androidx.compose.material.icons.rounded.Shuffle
+import androidx.compose.material.icons.rounded.SkipNext
+import androidx.compose.material.icons.rounded.SkipPrevious
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.melodist.data.AppPreferences
 import com.example.melodist.navigation.Route
 import com.example.melodist.player.PlaybackState
+import com.example.melodist.ui.components.BlurredImageBackground
 import com.example.melodist.ui.components.DownloadIndicator
 import com.example.melodist.ui.components.MelodistImage
 import com.example.melodist.ui.components.PlaceholderType
-import com.example.melodist.ui.components.artwork.ArtworkColors
 import com.example.melodist.ui.components.formatPlayerTimeValue
 import com.example.melodist.ui.components.upscaleThumbnailUrl
+import com.example.melodist.ui.helpers.rememberSongDownloadState
+import com.example.melodist.utils.LocalDownloadViewModel
+import com.example.melodist.utils.LocalPlayerViewModel
 import com.example.melodist.viewmodels.PlayerProgressState
 import com.example.melodist.viewmodels.PlayerUiState
 import com.example.melodist.viewmodels.QueueSource
 import com.example.melodist.viewmodels.RepeatMode
 import com.metrolist.innertube.models.SongItem
-import com.example.melodist.ui.helpers.rememberSongDownloadState
-import com.example.melodist.utils.LocalDownloadViewModel
-import com.example.melodist.utils.LocalPlayerViewModel
 
 @Composable
-fun WideLayout(
+fun NowPlayingLayout(
     state: PlayerUiState,
     progressState: PlayerProgressState,
     song: SongItem,
     onCollapse: () -> Unit,
-    artworkColors: ArtworkColors = ArtworkColors.Default,
     onNavigate: ((Route) -> Unit)? = null,
 ) {
-
-
     val playerViewModel = LocalPlayerViewModel.current
 
-    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        val h = maxHeight
-        val isShort = h < 600.dp
-        val coverSize = when {
-            h < 500.dp -> 260; h < 650.dp -> 340; else -> 420
-        }
-        val spacerLg = if (isShort) 12.dp else 24.dp
-        val spacerMd = if (isShort) 8.dp else 16.dp
-        val vertPad = if (isShort) 12.dp else 24.dp
-
-        Row(
+    BlurredImageBackground(
+        imageUrl = song.thumbnail,
+        modifier = Modifier.fillMaxSize(),
+        darkOverlayAlpha = 0.62f,
+        gradientFraction = 0.52f
+    ) {
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 32.dp, vertical = vertPad),
-            horizontalArrangement = Arrangement.spacedBy(32.dp)
+                .padding(horizontal = 48.dp, vertical = 28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .verticalScroll(rememberScrollState()),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Row(modifier = Modifier.fillMaxWidth()) { CollapseButton(onCollapse) }
-                Spacer(Modifier.height(spacerLg))
-                CoverArt(
-                    url = song.thumbnail,
-                    title = song.title,
-                    size = coverSize,
-                    glowColor = artworkColors.vibrant
-                )
-                Spacer(Modifier.height(spacerLg))
-                SongHeader(state, song, TextAlign.Center, onNavigate, onCollapse)
-                Spacer(Modifier.height(spacerLg))
-                ProgressBar(progressState){ playerViewModel.seekTo(it)}
-                Spacer(Modifier.height(spacerMd))
-                TransportControls(state)
-                Spacer(Modifier.height(spacerMd))
-                VolumeRow(state){ playerViewModel.setVolume(it)}
-                Spacer(Modifier.height(spacerMd))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                IconButton(
+                    onClick = onCollapse,
+                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)
+                ) {
+                    Icon(Icons.Default.Close, contentDescription = "Cerrar", tint = MaterialTheme.colorScheme.onSurface)
+                }
             }
 
-            VerticalDivider(
-                modifier = Modifier.fillMaxHeight(0.85f).align(Alignment.CenterVertically),
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f),
-                thickness = 1.dp
-            )
+            Spacer(Modifier.height(18.dp))
+            CoverArt(url = song.thumbnail, title = song.title, size = 440)
+            Spacer(Modifier.height(24.dp))
+            SongHeader(state = state, song = song, textAlign = TextAlign.Center, onNavigate = onNavigate, onCollapse = onCollapse)
+//            Spacer(Modifier.height(24.dp))
+//            ProgressBar(progressState = progressState) { playerViewModel.seekTo(it) }
+//            Spacer(Modifier.height(14.dp))
+//            TransportControls(state = state)
+//            Spacer(Modifier.height(12.dp))
+//            VolumeRow(state = state) { playerViewModel.setVolume(it) }
+        }
+    }
+}
 
-            Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                Spacer(Modifier.height(56.dp))
+@Composable
+fun PlaybackQueuePanel(
+    state: PlayerUiState,
+    isVisible: Boolean,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val playerViewModel = LocalPlayerViewModel.current
+    val panelWidth = 420.dp
+    val listState = rememberLazyListState()
 
+    AnimatedVisibility(
+        visible = isVisible,
+        enter = expandHorizontally(tween(220), expandFrom = Alignment.End) + fadeIn(tween(180)),
+        exit = shrinkHorizontally(tween(180), shrinkTowards = Alignment.End) + fadeOut(tween(160)),
+        modifier = modifier
+    ) {
+        Surface(
+            modifier = Modifier
+                .width(panelWidth)
+                .fillMaxHeight(),
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            tonalElevation = 6.dp,
+            shadowElevation = 12.dp,
+            shape = RoundedCornerShape(topStart = 20.dp, bottomStart = 20.dp)
+        ) {
+            Column(modifier = Modifier.fillMaxSize().padding(18.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        "Cola de reproducción",
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface
+                        text = "Fila de reproduccion",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold
                     )
-                    Surface(shape = CircleShape, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f)) {
-                        Text(
-                            "${state.queue.size}",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                        )
+                    IconButton(onClick = onDismiss, modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)) {
+                        Icon(Icons.Default.Close, contentDescription = "Cerrar fila")
                     }
                 }
 
-                Spacer(Modifier.height(12.dp))
-                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f))
+                Spacer(Modifier.height(8.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 Spacer(Modifier.height(8.dp))
 
-                val scrollState = rememberScrollState()
-
-                Box(modifier = Modifier.weight(1f)) {
-                    Column(
-                        modifier = Modifier.fillMaxSize().verticalScroll(scrollState),
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
-                    ) {
-                        state.queue.forEachIndexed { index, queueSong ->
-                            QueueItem(
-                                song = queueSong,
-                                index = index,
-                                isCurrent = index == state.currentIndex,
-                                onClick = { playerViewModel.playAtIndex(index) }
-                            )
-                        }
-                        Spacer(Modifier.height(32.dp))
-                    }
-                    VerticalScrollbar(
-                        adapter = rememberScrollbarAdapter(scrollState),
-                        modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
-                        style = LocalScrollbarStyle.current.copy(
-                            thickness = 4.dp,
-                            unhoverColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f),
-                            hoverColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.30f),
-                            shape = CircleShape
+                LazyColumn(
+                    state = listState,
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    itemsIndexed(state.queue, key = { index, item -> "${item.id}-$index" }) { index, queueSong ->
+                        QueueItem(
+                            song = queueSong,
+                            index = index,
+                            isCurrent = index == state.currentIndex,
+                            onClick = { playerViewModel.playAtIndex(index) }
                         )
-                    )
+                    }
                 }
             }
         }
     }
 }
 
-
-
 @Composable
-fun CollapseButton(onClick: () -> Unit) {
-    IconButton(onClick = onClick, modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)) {
-        Icon(
-            Icons.Rounded.KeyboardArrowDown,
-            "Minimizar",
-            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
-            modifier = Modifier.size(28.dp)
-        )
-    }
-}
-
-@Composable
-fun CoverArt(url: String?, title: String, size: Int, glowColor: Color = Color.Black) {
+fun CoverArt(url: String?, title: String, size: Int) {
     val highRes by AppPreferences.highResCoverArt.collectAsState()
     val highResUrl = if (highRes) upscaleThumbnailUrl(url, 1080) else url
 
-    val animGlow by animateColorAsState(
-        glowColor.copy(alpha = 0.70f),
-        tween(600),
-        label = "coverGlow"
-    )
-
     val width = size.dp
     val height = (size * 9f / 16f).dp
-    val corner = when {
-        size >= 400 -> 20.dp; size >= 280 -> 18.dp; else -> 14.dp
-    }
+    val corner = 20.dp
 
     Card(
-        modifier = Modifier
-            .width(width)
-            .height(height)
-            .shadow(
-                elevation = 48.dp,
-                shape = RoundedCornerShape(corner),
-                ambientColor = animGlow,
-                spotColor = animGlow
-            ),
+        modifier = Modifier.width(width).height(height),
         shape = RoundedCornerShape(corner),
-        elevation = CardDefaults.cardElevation(0.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
     ) {
         MelodistImage(
             url = highResUrl,
             contentDescription = title,
             modifier = Modifier.fillMaxSize(),
             placeholderType = PlaceholderType.SONG,
-            iconSize = (size * 0.12f).dp
+            iconSize = (size * 0.12f).dp,
+            contentScale = ContentScale.Crop
         )
     }
 }
@@ -234,34 +234,33 @@ fun SongHeader(
     onNavigate: ((Route) -> Unit)? = null,
     onCollapse: (() -> Unit)? = null
 ) {
-    val centerH = if (textAlign == TextAlign.Center) Alignment.CenterHorizontally else Alignment.Start
-
-    Column(horizontalAlignment = centerH, modifier = Modifier.fillMaxWidth()) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth(0.72f)) {
         state.queueSource?.let { source ->
             val label = when (source) {
                 is QueueSource.Album -> "De: ${source.title}"
                 is QueueSource.Playlist -> "De: ${source.title}"
-                is QueueSource.Single -> "Radio de la canción"
+                is QueueSource.Single -> "Radio de la cancion"
                 QueueSource.Custom -> "Cola personalizada"
             }
             Surface(
-                shape = RoundedCornerShape(4.dp),
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-                modifier = Modifier.padding(bottom = 10.dp)
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.62f),
+                modifier = Modifier.padding(bottom = 12.dp)
             ) {
                 Text(
-                    label,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.70f),
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                    text = label,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                 )
             }
         }
 
         Text(
-            song.title,
-            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.ExtraBold),
+            text = song.title,
+            style = MaterialTheme.typography.headlineMedium,
             color = MaterialTheme.colorScheme.onSurface,
+            fontWeight = FontWeight.Bold,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             textAlign = textAlign,
@@ -272,19 +271,19 @@ fun SongHeader(
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = if (textAlign == TextAlign.Center) Arrangement.Center else Arrangement.Start,
+            horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
             song.artists.forEachIndexed { i, artist ->
                 val hasId = artist.id != null
                 Text(
-                    artist.name,
-                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = if (hasId) FontWeight.Medium else FontWeight.Normal),
-                    color = if (hasId) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.60f),
+                    text = artist.name,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = if (hasId) Modifier
-                        .clip(RoundedCornerShape(4.dp))
+                        .clip(RoundedCornerShape(6.dp))
                         .clickable {
                             onCollapse?.invoke()
                             onNavigate?.invoke(Route.Artist(artist.id!!))
@@ -295,9 +294,9 @@ fun SongHeader(
                 )
                 if (i < song.artists.size - 1) {
                     Text(
-                        ", ",
+                        text = ", ",
                         style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -306,25 +305,20 @@ fun SongHeader(
         song.album?.let { album ->
             Spacer(Modifier.height(4.dp))
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = if (textAlign == TextAlign.Center) Arrangement.Center else Arrangement.Start,
-                verticalAlignment = Alignment.CenterVertically
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Icon(
-                    Icons.Rounded.Album,
-                    null,
-                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
-                    modifier = Modifier.size(14.dp)
-                )
+                Icon(Icons.Rounded.Album, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.width(4.dp))
                 Text(
-                    album.name,
+                    text = album.name,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.70f),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier
-                        .clip(RoundedCornerShape(4.dp))
+                        .clip(RoundedCornerShape(6.dp))
                         .clickable {
                             onCollapse?.invoke()
                             onNavigate?.invoke(Route.Album(album.id))
@@ -343,7 +337,7 @@ fun ProgressBar(progressState: PlayerProgressState, onSeek: (Long) -> Unit) {
     val progress = seekPos
         ?: if (progressState.durationMs > 0) progressState.positionMs.toFloat() / progressState.durationMs.toFloat() else 0f
 
-    Column(modifier = Modifier.fillMaxWidth()) {
+    Column(modifier = Modifier.fillMaxWidth(0.72f)) {
         Slider(
             value = progress,
             onValueChange = { seekPos = it },
@@ -351,218 +345,144 @@ fun ProgressBar(progressState: PlayerProgressState, onSeek: (Long) -> Unit) {
                 seekPos?.let { onSeek((it * progressState.durationMs).toLong()) }
                 seekPos = null
             },
-            modifier = Modifier.fillMaxWidth(),
             colors = SliderDefaults.colors(
-                thumbColor = MaterialTheme.colorScheme.onSurface,
-                activeTrackColor = MaterialTheme.colorScheme.onSurface,
-                inactiveTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.22f),
-                activeTickColor = Color.Transparent,
-                inactiveTickColor = Color.Transparent
+                thumbColor = MaterialTheme.colorScheme.primary,
+                activeTrackColor = MaterialTheme.colorScheme.primary,
+                inactiveTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.20f)
             )
         )
         Row(
-            modifier = Modifier.fillMaxWidth().offset(y = (-6).dp),
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
-                formatPlayerTimeValue(seekPos?.let { (it * progressState.durationMs).toLong() }
-                    ?: progressState.positionMs),
+                text = formatPlayerTimeValue(seekPos?.let { (it * progressState.durationMs).toLong() } ?: progressState.positionMs),
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
-                formatPlayerTimeValue(progressState.durationMs),
+                text = formatPlayerTimeValue(progressState.durationMs),
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
 }
 
 @Composable
-fun TransportControls(
-    state: PlayerUiState
-) {
+fun TransportControls(state: PlayerUiState) {
     val playerViewModel = LocalPlayerViewModel.current
 
-    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-        val isVN = maxWidth < 280.dp
-        val isN = maxWidth < 360.dp
-        val playSize = when {
-            isVN -> 48.dp; isN -> 56.dp; else -> 64.dp
-        }
-        val playIcon = when {
-            isVN -> 24.dp; isN -> 28.dp; else -> 34.dp
-        }
-        val skipSize = when {
-            isVN -> 36.dp; isN -> 40.dp; else -> 48.dp
-        }
-        val skipIcon = when {
-            isVN -> 22.dp; isN -> 26.dp; else -> 32.dp
-        }
-        val toggleSize = when {
-            isVN -> 32.dp; isN -> 36.dp; else -> 40.dp
-        }
-        val toggleIcon = when {
-            isVN -> 16.dp; isN -> 18.dp; else -> 20.dp
-        }
-        val spacing = when {
-            isVN -> 4.dp; isN -> 6.dp; else -> 8.dp
-        }
-
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(spacing, Alignment.CenterHorizontally),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            ToggleIconButton(
-                state.isShuffled,
-                { playerViewModel.toggleShuffle()},
-                toggleSize,
-                activeIcon = { Icon(Icons.Rounded.Shuffle, null, modifier = Modifier.size(toggleIcon)) },
-                inactiveIcon = { Icon(Icons.Rounded.Shuffle, null, modifier = Modifier.size(toggleIcon)) }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        FilledIconButton(
+            onClick = { playerViewModel.previous() },
+            modifier = Modifier.size(44.dp).pointerHoverIcon(PointerIcon.Hand),
+            colors = IconButtonDefaults.filledIconButtonColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                contentColor = MaterialTheme.colorScheme.onSurface
             )
+        ) {
+            Icon(Icons.Rounded.SkipPrevious, contentDescription = "Anterior")
+        }
 
-            IconButton(
-                onClick = { playerViewModel.previous()},
-                modifier = Modifier.size(skipSize).pointerHoverIcon(PointerIcon.Hand)
-            ) {
-                Icon(
-                    Icons.Rounded.SkipPrevious,
-                    "Anterior",
-                    tint = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.size(skipIcon)
+        FilledIconButton(
+            onClick = { playerViewModel.togglePlayPause() },
+            modifier = Modifier.size(58.dp).pointerHoverIcon(PointerIcon.Hand),
+            colors = IconButtonDefaults.filledIconButtonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            )
+        ) {
+            when (state.playbackState) {
+                PlaybackState.LOADING, PlaybackState.BUFFERING -> CircularProgressIndicator(
+                    modifier = Modifier.size(24.dp),
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    strokeWidth = 2.5.dp,
+                    strokeCap = StrokeCap.Round
                 )
-            }
-
-            Surface(
-                onClick = { playerViewModel.togglePlayPause()},
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-                border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f)),
-                modifier = Modifier.size(playSize).pointerHoverIcon(PointerIcon.Hand)
-            ) {
-                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                    when (state.playbackState) {
-                        PlaybackState.LOADING, PlaybackState.BUFFERING -> CircularProgressIndicator(
-                            modifier = Modifier.size(playIcon * 0.82f),
-                            color = MaterialTheme.colorScheme.primary,
-                            strokeWidth = 2.5.dp,
-                            strokeCap = StrokeCap.Round
+                else -> {
+                    AnimatedContent(
+                        targetState = state.playbackState == PlaybackState.PLAYING,
+                        transitionSpec = { fadeIn(tween(180)) togetherWith fadeOut(tween(140)) },
+                        label = "playPause"
+                    ) { playing ->
+                        Icon(
+                            imageVector = if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                            contentDescription = if (playing) "Pausar" else "Reproducir",
+                            modifier = Modifier.size(30.dp)
                         )
-
-                        else -> AnimatedContent(
-                            targetState = state.playbackState == PlaybackState.PLAYING,
-                            transitionSpec = {
-                                (scaleIn(tween(200)) + fadeIn(tween(180))) togetherWith
-                                    (scaleOut(tween(150)) + fadeOut(tween(130)))
-                            },
-                            label = "playPause"
-                        ) { playing ->
-                            Icon(
-                                if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                                null,
-                                tint = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.size(playIcon)
-                            )
-                        }
                     }
                 }
             }
-
-            IconButton(
-                onClick = { playerViewModel.next()},
-                modifier = Modifier.size(skipSize).pointerHoverIcon(PointerIcon.Hand)
-            ) {
-                Icon(
-                    Icons.Rounded.SkipNext,
-                    "Siguiente",
-                    tint = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.size(skipIcon)
-                )
-            }
-
-            ToggleIconButton(
-                state.repeatMode != RepeatMode.OFF,
-                { playerViewModel.toggleRepeat()},
-                toggleSize,
-                activeIcon = {
-                    Icon(
-                        if (state.repeatMode == RepeatMode.ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
-                        null,
-                        modifier = Modifier.size(toggleIcon)
-                    )
-                },
-                inactiveIcon = { Icon(Icons.Rounded.Repeat, null, modifier = Modifier.size(toggleIcon)) }
-            )
         }
+
+        FilledIconButton(
+            onClick = { playerViewModel.next() },
+            modifier = Modifier.size(44.dp).pointerHoverIcon(PointerIcon.Hand),
+            colors = IconButtonDefaults.filledIconButtonColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                contentColor = MaterialTheme.colorScheme.onSurface
+            )
+        ) {
+            Icon(Icons.Rounded.SkipNext, contentDescription = "Siguiente")
+        }
+
+        PlayerModeButtons(state = state)
     }
 }
 
 @Composable
-fun ToggleIconButton(
-    active: Boolean,
-    onClick: () -> Unit,
-    size: Dp = 40.dp,
-    activeIcon: @Composable () -> Unit,
-    inactiveIcon: @Composable () -> Unit
-) {
-    val bg by animateColorAsState(
-        if (active) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.20f) else Color.Transparent,
-        tween(200),
-        label = "tBg"
-    )
-    val fg by animateColorAsState(
-        if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
-        tween(200),
-        label = "tFg"
-    )
-
-    Surface(
-        onClick = onClick,
-        shape = CircleShape,
-        color = bg,
-        modifier = Modifier.size(size).pointerHoverIcon(PointerIcon.Hand)
-    ) {
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-            CompositionLocalProvider(LocalContentColor provides fg) {
-                if (active) activeIcon() else inactiveIcon()
-            }
+private fun PlayerModeButtons(state: PlayerUiState) {
+    val playerViewModel = LocalPlayerViewModel.current
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+        IconButton(onClick = { playerViewModel.toggleShuffle() }, modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)) {
+            Icon(
+                Icons.Rounded.Shuffle,
+                contentDescription = "Shuffle",
+                tint = if (state.isShuffled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        IconButton(onClick = { playerViewModel.toggleRepeat() }, modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)) {
+            Icon(
+                imageVector = if (state.repeatMode == RepeatMode.ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
+                contentDescription = "Repeat",
+                tint = if (state.repeatMode != RepeatMode.OFF) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
 
 @Composable
 fun VolumeRow(state: PlayerUiState, onVolumeChange: (Int) -> Unit) {
-    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.fillMaxWidth(if (maxWidth < 360.dp) 1f else 0.75f).align(Alignment.Center),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Icon(
-                when {
-                    state.volume == 0 -> Icons.AutoMirrored.Filled.VolumeOff
-                    state.volume < 50 -> Icons.AutoMirrored.Filled.VolumeDown
-                    else -> Icons.AutoMirrored.Filled.VolumeUp
-                },
-                "Volumen",
-                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
-                modifier = Modifier.size(20.dp)
+    Row(
+        modifier = Modifier.fillMaxWidth(0.52f),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Icon(
+            imageVector = when {
+                state.volume == 0 -> Icons.AutoMirrored.Filled.VolumeOff
+                state.volume < 50 -> Icons.AutoMirrored.Filled.VolumeDown
+                else -> Icons.AutoMirrored.Filled.VolumeUp
+            },
+            contentDescription = "Volumen",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(20.dp)
+        )
+        Slider(
+            value = state.volume / 100f,
+            onValueChange = { onVolumeChange((it * 100).toInt()) },
+            modifier = Modifier.weight(1f),
+            colors = SliderDefaults.colors(
+                thumbColor = MaterialTheme.colorScheme.primary,
+                activeTrackColor = MaterialTheme.colorScheme.primary,
+                inactiveTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.20f)
             )
-            Slider(
-                value = state.volume / 100f,
-                onValueChange = { onVolumeChange((it * 100).toInt()) },
-                modifier = Modifier.weight(1f),
-                colors = SliderDefaults.colors(
-                    thumbColor = MaterialTheme.colorScheme.onSurface,
-                    activeTrackColor = MaterialTheme.colorScheme.onSurface,
-                    inactiveTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.20f),
-                    activeTickColor = Color.Transparent,
-                    inactiveTickColor = Color.Transparent
-                )
-            )
-        }
+        )
     }
 }
 
@@ -576,18 +496,14 @@ fun QueueItem(
     val downloadViewModel = LocalDownloadViewModel.current
     val downloadState by rememberSongDownloadState(song.id, downloadViewModel)
 
-    val bg by animateColorAsState(
-        if (isCurrent) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.16f) else Color.Transparent,
-        tween(200),
-        label = "qBg"
-    )
+    val emphasis by animateFloatAsState(targetValue = if (isCurrent) 1f else 0f, animationSpec = tween(180), label = "queueCurrent")
 
     Surface(
-        color = bg,
-        shape = RoundedCornerShape(10.dp),
+        color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.45f + (0.2f * emphasis)),
+        shape = RoundedCornerShape(12.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
             .pointerHoverIcon(PointerIcon.Hand)
     ) {
@@ -598,12 +514,12 @@ fun QueueItem(
         ) {
             Box(modifier = Modifier.width(20.dp), contentAlignment = Alignment.Center) {
                 if (isCurrent) {
-                    Icon(Icons.Rounded.GraphicEq, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Rounded.GraphicEq, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                 } else {
                     Text(
-                        "${index + 1}",
+                        text = "${index + 1}",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -611,7 +527,7 @@ fun QueueItem(
             MelodistImage(
                 url = song.thumbnail,
                 contentDescription = song.title,
-                modifier = Modifier.size(40.dp),
+                modifier = Modifier.size(42.dp),
                 shape = RoundedCornerShape(8.dp),
                 placeholderType = PlaceholderType.SONG,
                 iconSize = 18.dp
@@ -619,7 +535,7 @@ fun QueueItem(
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    song.title,
+                    text = song.title,
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = if (isCurrent) FontWeight.SemiBold else FontWeight.Normal,
                     color = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
@@ -627,21 +543,21 @@ fun QueueItem(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    song.artists.joinToString(", ") { it.name },
+                    text = song.artists.joinToString(", ") { it.name },
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.48f),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
 
-            DownloadIndicator(state = downloadState, modifier = Modifier.padding(end = 6.dp))
+            DownloadIndicator(state = downloadState, modifier = Modifier.padding(end = 4.dp))
 
             song.duration?.let {
                 Text(
-                    formatPlayerTimeValue(it * 1000L),
+                    text = formatPlayerTimeValue(it * 1000L),
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }

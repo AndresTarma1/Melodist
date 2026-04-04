@@ -1,5 +1,6 @@
 package com.example.melodist.navigation
 
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -13,13 +14,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.unit.dp
 import com.arkivanov.decompose.extensions.compose.stack.Children
 import com.arkivanov.decompose.extensions.compose.stack.animation.fade
 import com.arkivanov.decompose.extensions.compose.stack.animation.stackAnimation
 import com.arkivanov.decompose.extensions.compose.subscribeAsState
 import com.example.melodist.ui.components.MiniPlayer
-import com.example.melodist.ui.components.NowPlayingPanel
+import com.example.melodist.ui.components.player.NowPlayingLayout
+import com.example.melodist.ui.components.player.PlaybackQueuePanel
 import com.example.melodist.viewmodels.PlayerViewModel
 import com.example.melodist.ui.screens.*
 import com.example.melodist.utils.LocalDownloadViewModel
@@ -58,121 +62,153 @@ fun NavigationDesktop(rootComponent: RootComponent) {
     val playerState by playerViewModel.uiState.collectAsState()
     val progressState by playerViewModel.progressState.collectAsState()
     var isNowPlayingExpanded by remember { mutableStateOf(false) }
+    var isQueueVisible by remember { mutableStateOf(false) }
 
-        Surface(
-            modifier = Modifier.fillMaxSize(),
-            color = MaterialTheme.colorScheme.surface,
-        ) {
-            Row(modifier = Modifier.fillMaxSize()) {
+    // Estado para el ancho de la cola. Empieza en 300.dp
+    var queueWidth by remember { mutableStateOf(300.dp) }
+// Necesitamos LocalDensity para convertir los píxeles del arrastre a Dp
+    val density = LocalDensity.current
 
-                // Navigation Rail
-                NavigationRail(
-                    modifier = Modifier.width(90.dp),
-                    containerColor = Color.Transparent,
-                    header = {
-                        Icon(
-                            Icons.Default.MusicNote,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(vertical = 24.dp).size(32.dp)
-                        )
-                    }
-                ) {
-                    Column(
-                        modifier = Modifier.fillMaxHeight(),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        mainTabs.forEach { tab ->
-                            NavigationRailItem(
-                                selected = activeConfig == tab.config,
-                                onClick = {
-                                    isNowPlayingExpanded = false  // Collapse full player on nav change
-                                    rootComponent.switchTab(tab.config)
-                                },
-                                icon = { Icon(tab.icon, null) },
-                                label = { Text(tab.label) },
-                                alwaysShowLabel = false,
-                                colors = navigationRailItemCustomColors()
-                            )
-                        }
+    // Fondo global (el "océano" sobre el que flotan las islas)
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.surface,
+    ) {
+        Row(modifier = Modifier.fillMaxSize()) {
 
-                        Spacer(Modifier.weight(1f))
-
-                        bottomTabs.forEach { tab ->
-                            NavigationRailItem(
-                                selected = activeConfig == tab.config,
-                                onClick = {
-                                    isNowPlayingExpanded = false  // Collapse full player on nav change
-                                    rootComponent.switchTab(tab.config)
-                                },
-                                icon = { Icon(tab.icon, null) },
-                                label = { Text(tab.label) },
-                                alwaysShowLabel = false,
-                                colors = navigationRailItemCustomColors()
-                            )
-                        }
-                        Spacer(Modifier.height(16.dp))
-                    }
+            // ─── Navigation Rail (Intacto) ────────────────────────
+            NavigationRail(
+                modifier = Modifier.width(90.dp),
+                containerColor = Color.Transparent,
+                header = {
+                    Icon(
+                        Icons.Default.MusicNote,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(vertical = 24.dp).size(32.dp)
+                    )
                 }
-
-                // Content area + MiniPlayer
-                val gradientBrush = Brush.verticalGradient(
-                    colors = listOf(
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.07f),
-                        MaterialTheme.colorScheme.surface
-                    ),
-                    startY = 0f,
-                    endY = 500f
-                )
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(bottom = 12.dp, end = 12.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.surface)
-                        .background(gradientBrush)
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxHeight(),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Expanded Now Playing Panel (overlays everything)
-                    if (isNowPlayingExpanded && playerState.currentSong != null) {
-                        NowPlayingPanel(
-                            state = playerState,
-                            progressState = progressState,
-                            onCollapse = { isNowPlayingExpanded = false },
-                            onNavigate = { route ->
+                    mainTabs.forEach { tab ->
+                        NavigationRailItem(
+                            selected = activeConfig == tab.config,
+                            onClick = {
                                 isNowPlayingExpanded = false
-                                rootComponent.navigateTo(route.toConfig())
-                            }
+                                isQueueVisible = false
+                                rootComponent.switchTab(tab.config)
+                            },
+                            icon = { Icon(tab.icon, null) },
+                            label = { Text(tab.label) },
+                            alwaysShowLabel = false,
+                            colors = navigationRailItemCustomColors()
                         )
-                    } else {
-                        Column(modifier = Modifier.fillMaxSize()) {
-                            // Screen content
-                            Box(modifier = Modifier.weight(1f)) {
-                                Children(
-                                    stack = rootComponent.childStack,
-                                    animation = stackAnimation(fade())
-                                ) { child ->
+                    }
 
-                                    ScreenRouter(
-                                        instance = child.instance,
-                                        rootComponent = rootComponent,
-                                    )
+                    Spacer(Modifier.weight(1f))
 
+                    bottomTabs.forEach { tab ->
+                        NavigationRailItem(
+                            selected = activeConfig == tab.config,
+                            onClick = {
+                                isNowPlayingExpanded = false
+                                isQueueVisible = false
+                                rootComponent.switchTab(tab.config)
+                            },
+                            icon = { Icon(tab.icon, null) },
+                            label = { Text(tab.label) },
+                            alwaysShowLabel = false,
+                            colors = navigationRailItemCustomColors()
+                        )
+                    }
+                    Spacer(Modifier.height(16.dp))
+                }
+            }
+
+            // ─── Área de contenido (El Archipiélago de Islas) ─────
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(top = 16.dp, end = 16.dp, bottom = 16.dp) // Margen exterior seguro
+            ) {
+                val currentSong = playerState.currentSong
+
+                // Fila Superior: Pantalla Principal + Cola Lateral
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                ) {
+                    // 🏝️ ISLA 1: Contenido Principal (Rutas hijas)
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(16.dp)) // Redondeo completo
+                            .background(MaterialTheme.colorScheme.surfaceContainer) // Color de fondo aislado
+                    ) {
+                        if (isNowPlayingExpanded && currentSong != null) {
+                            NowPlayingLayout(
+                                state = playerState,
+                                progressState = progressState,
+                                song = currentSong,
+                                onCollapse = { isNowPlayingExpanded = false },
+                                onNavigate = { route ->
+                                    isNowPlayingExpanded = false
+                                    rootComponent.navigateTo(route.toConfig())
                                 }
-                            }
-
-                            // MiniPlayer at the bottom
-                            if (playerState.currentSong != null) {
-                                MiniPlayer(
-                                    progressState = progressState,
-                                    onClickExpand = { isNowPlayingExpanded = true }
+                            )
+                        } else {
+                            Children(
+                                stack = rootComponent.childStack,
+                                animation = stackAnimation(fade())
+                            ) { child ->
+                                ScreenRouter(
+                                    instance = child.instance,
+                                    rootComponent = rootComponent,
                                 )
                             }
                         }
                     }
+
+                    // 🏝️ ISLA 2: Cola de Reproducción
+                    // Animamos dinámicamente el gap para que aparezca suavemente al abrir la cola
+                    val queueGap by animateDpAsState(
+                        targetValue = if (isQueueVisible) 16.dp else 0.dp,
+                        label = "queueGapAnimation"
+                    )
+
+                    PlaybackQueuePanel(
+                        state = playerState,
+                        isVisible = isQueueVisible,
+                        onDismiss = { isQueueVisible = false },
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .padding(start = queueGap) // Separación visual entre la ruta principal y la cola
+                            .clip(RoundedCornerShape(16.dp)) // Redondeo individual
+                            .background(if (isQueueVisible) MaterialTheme.colorScheme.surfaceContainer else Color.Transparent)
+                    )
+                }
+
+                // 🏝️ ISLA 3: MiniPlayer Inferior
+                if (currentSong != null) {
+                    Spacer(modifier = Modifier.height(16.dp)) // Separa verticalmente el reproductor del contenido
+
+                    MiniPlayer(
+                        progressState = progressState,
+                        onClickExpand = { isNowPlayingExpanded = true },
+                        onToggleQueue = { isQueueVisible = !isQueueVisible },
+                        isQueueVisible = isQueueVisible,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp)) // Hace que el MiniPlayer no sea una simple barra pegada
+                    )
                 }
             }
-
+        }
     }
 }
 
