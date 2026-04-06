@@ -1,4 +1,4 @@
-package com.example.melodist.ui.screens
+package com.example.melodist.ui.screens.shared
 
 import com.metrolist.innertube.models.SongItem
 

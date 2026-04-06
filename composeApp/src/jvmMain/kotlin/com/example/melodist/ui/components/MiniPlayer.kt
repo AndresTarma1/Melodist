@@ -15,6 +15,8 @@ import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.automirrored.rounded.VolumeDown
 import androidx.compose.material.icons.automirrored.rounded.VolumeOff
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.ArrowDropUp
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -281,7 +283,7 @@ fun MiniPlayer(
                         modifier = Modifier.size(40.dp).pointerHoverIcon(PointerIcon.Hand)
                     ) {
                         Icon(
-                            Icons.Rounded.MoreHoriz, // Placeholder: tres puntos
+                            if( isNowPlayingExpanded) Icons.Default.ArrowDropDown else Icons.Default.ArrowDropUp  ,
                             "Opciones",
                             modifier = Modifier.size(24.dp),
                             tint = if (isNowPlayingExpanded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
@@ -422,15 +424,7 @@ private fun HoverVolumeControl(
                         inactiveTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.18f),
                         activeTickColor = Color.Transparent,
                         inactiveTickColor = Color.Transparent
-                    ),
-                    thumb = {
-                        Box(
-                            modifier = Modifier
-                                .size(10.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.onSurface)
-                        )
-                    }
+                    )
                 )
             }
         }

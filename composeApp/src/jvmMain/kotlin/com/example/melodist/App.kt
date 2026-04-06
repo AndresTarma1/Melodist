@@ -7,6 +7,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material3.Icon
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -34,7 +36,10 @@ import com.example.melodist.utils.LocalPlayerViewModel
 import com.example.melodist.viewmodels.DownloadViewModel
 import com.example.melodist.viewmodels.PlayerViewModel
 import com.kdroid.composetray.tray.api.Tray
+import dev.hydraulic.conveyor.control.SoftwareUpdateController
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import melodist.composeapp.generated.resources.Res
 import melodist.composeapp.generated.resources.music_icon
 import org.jetbrains.compose.resources.painterResource
@@ -65,6 +70,27 @@ fun ApplicationScope.App(
     downloadViewModel: DownloadViewModel,
     onExit: () -> Unit,
 ) {
+    var updateInfo by remember { mutableStateOf<Pair<String, String>?>(null) }
+
+    LaunchedEffect(Unit) {
+        val controller = SoftwareUpdateController.getInstance() ?: return@LaunchedEffect
+        val availability = controller.canTriggerUpdateCheckUI()
+        if (availability != SoftwareUpdateController.Availability.AVAILABLE) return@LaunchedEffect
+
+        val current = controller.currentVersion ?: return@LaunchedEffect
+        val latest = withContext(Dispatchers.IO) {
+            try {
+                controller.currentVersionFromRepository
+            } catch (_: SoftwareUpdateController.UpdateCheckException) {
+                null
+            }
+        } ?: return@LaunchedEffect
+
+        if (latest > current) {
+            updateInfo = current.toString() to latest.toString()
+        }
+    }
+
     val windowState = rememberWindowState(
         placement = if (AppPreferences.windowMaximized) WindowPlacement.Maximized else WindowPlacement.Floating,
         width = AppPreferences.windowWidth.dp,
@@ -154,6 +180,36 @@ fun ApplicationScope.App(
                     title = "Melodist",
                     icon = painterResource(Res.drawable.music_icon),
                 ) {
+                    updateInfo?.let { (currentVersion, latestVersion) ->
+                        AlertDialog(
+                            onDismissRequest = { updateInfo = null },
+                            title = { Text("Actualización disponible") },
+                            text = {
+                                Text(
+                                    "Hay una nueva versión de Melodist disponible.\n\n" +
+                                        "Versión actual: $currentVersion\n" +
+                                        "Nueva versión: $latestVersion\n\n" +
+                                        "¿Deseas actualizar ahora?"
+                                )
+                            },
+                            confirmButton = {
+                                TextButton(
+                                    onClick = {
+                                        updateInfo = null
+                                        SoftwareUpdateController.getInstance()?.triggerUpdateCheckUI()
+                                    }
+                                ) {
+                                    Text("Actualizar")
+                                }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { updateInfo = null }) {
+                                    Text("Más tarde")
+                                }
+                            }
+                        )
+                    }
+
                     window.minimumSize = Dimension(1024, 600)
                     DisposableEffect(Unit) {
                         val startMaximized = AppPreferences.windowMaximized
@@ -175,6 +231,7 @@ fun ApplicationScope.App(
                                 }
                                 EventQueue.invokeLater {
                                     window.isVisible = true
+                                    isVisible = true
                                 }
                             }
                         }

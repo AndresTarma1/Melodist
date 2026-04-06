@@ -68,7 +68,7 @@ class PlaylistViewModel(
     }
 
     fun loadPlaylist(playlistId: String) {
-        if (_currentPlaylistId.value == playlistId) return
+        if (_currentPlaylistId.value == playlistId && playlistId != "LOCAL_DOWNLOADS") return
         _currentPlaylistId.value = playlistId
 
         viewModelScope.launch {

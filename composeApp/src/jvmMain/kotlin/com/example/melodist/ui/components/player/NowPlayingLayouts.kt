@@ -116,16 +116,7 @@ fun NowPlayingLayout(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                IconButton(
-                    onClick = onCollapse,
-                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)
-                ) {
-                    Icon(Icons.Default.Close, contentDescription = "Cerrar", tint = MaterialTheme.colorScheme.onSurface)
-                }
-            }
 
-            Spacer(Modifier.height(18.dp))
             if (state.queueSource is QueueSource.Album) {
                 AlbumDiscLarge(url = song.thumbnail, title = song.title)
             } else {

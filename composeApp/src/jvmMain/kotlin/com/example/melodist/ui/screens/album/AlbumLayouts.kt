@@ -43,6 +43,8 @@ import com.example.melodist.utils.LocalDownloadViewModel
 import com.example.melodist.utils.LocalPlayerViewModel
 import com.example.melodist.ui.helpers.rememberSongDownloadState
 import com.example.melodist.ui.helpers.contextMenuArea
+import com.example.melodist.ui.screens.shared.calculateTotalDuration
+import com.example.melodist.ui.screens.shared.formatDuration
 import com.metrolist.innertube.models.SongItem
 import com.metrolist.innertube.pages.AlbumPage
 
@@ -56,14 +58,15 @@ internal fun AlbumScreenLayout(
     val onSurfaceColor = MaterialTheme.colorScheme.onSurface
     val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
 
-    Row(modifier = Modifier.fillMaxSize().padding(start = 48.dp, end = 24.dp, top = 48.dp)) {
+    Row(modifier = Modifier.fillMaxSize().padding(start = 48.dp, end = 24.dp, top = 16.dp)) {
         Column(
             modifier = Modifier
                 .width(320.dp)
                 .fillMaxHeight()
                 .verticalScroll(rememberScrollState())
                 .padding(top = 8.dp, bottom = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
             AlbumInfoPanel(
                 albumPage = albumPage,
@@ -87,7 +90,6 @@ internal fun AlbumScreenLayout(
                 songs = state.songs,
                 hasMore = state.hasMore,
                 onLoadMore = actions.onLoadMore,
-                onSurfaceVariant = onSurfaceVariant,
                 onSongClick = { index ->
                     playerViewModel.playAlbum(state.songs, index, albumPage.album.browseId, albumPage.album.title)
                 },
@@ -139,7 +141,9 @@ internal fun AlbumInfoPanel(
                 modifier = Modifier
                     .size(22.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                    .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+                contentAlignment = Alignment.Center
+
             ) {
                 MelodistImage(
                     url = null,
@@ -302,16 +306,14 @@ internal fun AlbumSongsList(
     songs: List<SongItem>,
     hasMore: Boolean,
     onLoadMore: () -> Unit,
-    onSurfaceVariant: Color,
     onSongClick: (index: Int) -> Unit,
 ) {
     val scrollState = rememberLazyListState()
 
     Box(Modifier.fillMaxSize()) {
         LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(top = 8.dp, end = 12.dp),
-            state = scrollState,
-            contentPadding = PaddingValues(bottom = 80.dp)
+            modifier = Modifier.fillMaxSize().padding(end = 16.dp),
+            state = scrollState
         ) {
             itemsIndexed(songs, key = { _, song -> song.id }) { index, song ->
                 NewSongListItem(
@@ -328,12 +330,11 @@ internal fun AlbumSongsList(
             }
 
             if (hasMore) item { LoadingMoreSongsItem(onLoadMore = onLoadMore) }
-            item { Spacer(modifier = Modifier.height(80.dp)) }
         }
 
         AppVerticalScrollbar(
             state = scrollState,
-            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(vertical = 12.dp)
+            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(12.dp)
         )
     }
 }

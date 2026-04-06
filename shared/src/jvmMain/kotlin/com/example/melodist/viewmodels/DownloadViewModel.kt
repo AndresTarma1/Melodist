@@ -55,7 +55,7 @@ class DownloadViewModel(
 
     private val downloadService: DownloadService,
 
-    private val databaseDao: DatabaseDao? = null
+    private val databaseDao: DatabaseDao
 
 ) : ViewModel() {
 
@@ -76,13 +76,11 @@ class DownloadViewModel(
 
     /** Downloaded songs from DB as SongItems (for the Library Downloads tab). */
 
-    val downloadedSongs: StateFlow<List<SongItem>> = databaseDao?.downloadedSongsWithRelations()
+    val downloadedSongs: StateFlow<List<SongItem>> = databaseDao.downloadedSongsWithRelations()
 
-        ?.map { relations -> relations.map { it.toSongItem() } }
+        .map { relations -> relations.map { it.toSongItem() } }
 
-        ?.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
-
-        ?: MutableStateFlow<List<SongItem>>(emptyList())
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
 
     /** Initialization state for the downloads tab content. */
@@ -316,16 +314,16 @@ class DownloadViewModel(
 
     /** Returns a flow for a single song's download state, distinct until changed. */
 
-    fun downloadStateFlow(songId: String): Flow<DownloadState?> = downloadStates.map { it[songId] }.distinctUntilChanged()
+    fun downloadStateFlow(songId: String): Flow<DownloadState?> =
+        downloadStates.map { it[songId] }.distinctUntilChanged()
 
 
-    fun isAnyDownloadingFlow(songIds: List<String>): Flow<Boolean> =
-        downloadStates.map { states ->
-            songIds.any { id ->
-                val state = states[id]
-                state is DownloadState.Queued || state is DownloadState.Downloading
-            }
-        }.distinctUntilChanged()
+    fun isAnyDownloadingFlow(songIds: List<String>): Flow<Boolean> = downloadStates.map { states ->
+        songIds.any { id ->
+            val state = states[id]
+            state is DownloadState.Queued || state is DownloadState.Downloading
+        }
+    }.distinctUntilChanged()
 
 
     /** Returns a flow that emits true if ALL the provided songs are completely downloaded. */

@@ -30,7 +30,7 @@ import androidx.compose.ui.unit.sp
 import com.example.melodist.navigation.Route
 import com.example.melodist.ui.components.ChipRowSkeleton
 import com.example.melodist.ui.components.layout.AppVerticalScrollbar
-import com.example.melodist.ui.components.HorizontalScrollableRow
+import com.example.melodist.ui.components.layout.HorizontalScrollableRow
 import com.example.melodist.ui.components.MelodistImage
 import com.example.melodist.ui.components.PlaceholderType
 import com.example.melodist.ui.components.SectionSkeleton

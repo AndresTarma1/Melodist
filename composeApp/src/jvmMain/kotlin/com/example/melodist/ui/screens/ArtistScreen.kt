@@ -30,7 +30,7 @@ import com.example.melodist.navigation.Route
 import com.example.melodist.ui.components.ArtistScreenSkeleton
 import com.example.melodist.ui.components.layout.AppVerticalScrollbar
 import com.example.melodist.ui.components.BlurredImageBackground
-import com.example.melodist.ui.components.HorizontalScrollableRow
+import com.example.melodist.ui.components.layout.HorizontalScrollableRow
 import com.example.melodist.ui.components.MelodistImage
 import com.example.melodist.ui.components.PlaceholderType
 import com.example.melodist.ui.helpers.contextMenuArea

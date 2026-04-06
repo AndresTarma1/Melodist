@@ -95,6 +95,7 @@ materialKolor = {module= "com.materialkolor:material-kolor", version.ref = "mate
 kmpalette-core = { module = "com.materialkolor.palette:core", version.ref = "kmpalette" }
 kmpalette_network = { module = "com.materialkolor.palette:extensions-network", version.ref = "kmpalette" }
 kmpalette-extensions-file = { module = "com.materialkolor.palette:extensions-file", version.ref = "kmpalette" }
+conveyor-control = { module = "dev.hydraulic.conveyor:conveyor-control", version = "1.1" }
 
 [plugins]
 sqldelight = { id = "app.cash.sqldelight", version.ref = "sqldelight" }
@@ -105,3 +106,4 @@ kotlinJvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 ktor = { id = "io.ktor.plugin", version.ref = "ktor" }
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+conveyor = { id = "dev.hydraulic.conveyor", version = "2.0" }

@@ -1,82 +1,36 @@
 package com.example.melodist.data
 
+import com.example.melodist.platform.AppPaths
 import java.io.File
-import java.util.logging.Logger
 
 /**
- * Centraliza la creación de todas las carpetas que la app necesita antes de
- * que arranque cualquier módulo (BD, preferencias, caché de imágenes, descargas).
+ * Wrapper JVM para mantener compatibilidad con java.io.File.
  *
- * Llama a [ensureDirectories] como PRIMERA instrucción en main() para que la
- * app instalada pueda crear sus rutas de datos aunque nunca se haya ejecutado antes.
+ * Las rutas reales se resuelven via [AppPaths] (expect/actual) para escalar
+ * a otros targets sin acoplar commonMain a APIs JVM.
  */
 object AppDirs {
 
-    private val log = Logger.getLogger("AppDirs")
+    val dataRoot: File by lazy { File(AppPaths.dataRoot) }
 
-    // ── Raíces ────────────────────────────────────────────────────────────────
+    // Mantener config dentro de la misma raiz para concentrar todo en .melodist
+    val configRoot: File get() = File(AppPaths.configRoot)
 
-    /**
-     * Directorio raíz de datos persistentes: ~/.melodist
-     * (en Windows: C:\Users\<user>\.melodist)
-     */
-    val dataRoot: File by lazy {
-        File(System.getProperty("user.home"), ".melodist")
-    }
+    // Subdirectorios
+    val databaseDir: File get() = File(AppPaths.databaseDir)
+    val cacheDir: File get() = File(AppPaths.cacheDir)
+    val imageCacheDir: File get() = File(AppPaths.imageCacheDir)
+    val songsDir: File get() = File(AppPaths.songsDir)
+    val tmpDir: File get() = File(AppPaths.tmpDir)
+    val logsDir: File get() = File(AppPaths.logsDir)
 
-    /**
-     * Directorio de configuración del sistema operativo:
-     *  - Windows: %APPDATA%\melodist
-     *  - Linux/macOS: ~/.config/melodist
-     */
-    val configRoot: File by lazy {
-        val base = System.getenv("APPDATA")
-            ?: (System.getProperty("user.home") + File.separator + ".config")
-        File(base, "melodist")
-    }
-
-    // ── Subdirectorios ────────────────────────────────────────────────────────
-
-    /** Base de datos SQLite */
-    val databaseDir: File get() = dataRoot
-
-    /** Caché de imágenes de Coil */
-    val imageCacheDir: File get() = File(dataRoot, "image_cache")
-
-    /** Canciones descargadas */
-    val songsDir: File get() = File(dataRoot, "cache/songs")
-
-    /** Directorio temporal propio (para el driver SQLite nativo y otros) */
-    val tmpDir: File get() = File(dataRoot, "tmp")
-
-    /** Preferencias (settings.properties) */
-    val preferencesFile: File get() = File(dataRoot, "settings.properties")
-
-    /** Archivo de cookie de YouTube */
-    val cookieFile: File get() = File(configRoot, "yt_cookie.txt")
-
-    // ── Inicialización ────────────────────────────────────────────────────────
+    val preferencesFile: File get() = File(AppPaths.preferencesFile)
+    val cookieFile: File get() = File(AppPaths.cookieFile)
 
     /**
-     * Crea **todas** las carpetas necesarias.
-     * Es seguro llamarlo múltiples veces (idempotente).
-     * Se capturan errores para no crashear si hay algún problema de permisos.
+     * Crea todas las carpetas necesarias de forma idempotente.
      */
     fun ensureDirectories() {
-        listOf(dataRoot, configRoot, imageCacheDir, songsDir, tmpDir).forEach { dir ->
-            try {
-                if (!dir.exists()) {
-                    val created = dir.mkdirs()
-                    log.info("Creada carpeta: ${dir.absolutePath} (ok=$created)")
-                }
-            } catch (e: Exception) {
-                log.severe("Error creando ${dir.absolutePath}: ${e.message}")
-            }
-        }
-        log.info("Directorios verificados: dataRoot=${dataRoot.exists()}, configRoot=${configRoot.exists()}, songs=${songsDir.exists()}")
+        AppPaths.ensureDirectories()
     }
 }
-
-
-
-

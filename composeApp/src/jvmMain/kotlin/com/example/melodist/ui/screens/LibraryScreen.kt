@@ -38,7 +38,7 @@ import androidx.compose.ui.unit.sp
 import com.example.melodist.navigation.Route
 import com.example.melodist.ui.components.layout.AppVerticalScrollbar
 import com.example.melodist.ui.components.DownloadIndicator
-import com.example.melodist.ui.components.HorizontalScrollableRow
+import com.example.melodist.ui.components.layout.HorizontalScrollableRow
 import com.example.melodist.ui.components.MelodistImage
 import com.example.melodist.ui.components.PlaceholderType
 import com.example.melodist.ui.components.SongContextMenu
@@ -54,6 +54,7 @@ import com.metrolist.innertube.models.PlaylistItem
 import com.metrolist.innertube.models.SongItem
 import com.example.melodist.ui.helpers.rememberSongDownloadState
 import com.example.melodist.ui.helpers.contextMenuArea
+import com.example.melodist.ui.screens.shared.formatDuration
 
 // ────────────────────────────────────────────────────────
 // Route wrapper
@@ -474,7 +475,8 @@ private fun LibrarySongItem(
                         modifier = Modifier.padding(end = 4.dp)
                     )
                     song.duration?.let { dur ->
-                        Text(formatDuration(dur), style = MaterialTheme.typography.bodySmall,
+                        Text(
+                            formatDuration(dur), style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.width(4.dp))
                     }

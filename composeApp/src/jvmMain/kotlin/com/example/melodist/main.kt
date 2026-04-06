@@ -14,6 +14,10 @@ import com.example.melodist.viewmodels.DownloadViewModel
 import com.example.melodist.viewmodels.PlayerViewModel
 import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
+import java.io.File
+import java.io.PrintWriter
+import java.io.StringWriter
+import java.time.LocalDateTime
 
 fun main() {
 
@@ -22,12 +26,32 @@ fun main() {
 
     setupEnvironments()
 
-    val koinApp = startKoin { modules(appModule) }.also {
-        runCatching { it.koin.get<PlayerService>().init() }
+    Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+        logStartupError("Uncaught exception on thread '${thread.name}'", throwable)
     }
 
-    val playerViewModel = koinApp.koin.get<PlayerViewModel>()
-    val downloadViewModel = koinApp.koin.get<DownloadViewModel>()
+    val koinApp = try {
+        startKoin { modules(appModule) }.also {
+            runCatching { it.koin.get<PlayerService>().init() }
+                .onFailure { error -> logStartupError("Error inicializando PlayerService", error) }
+        }
+    } catch (e: Throwable) {
+        logStartupError("Error al iniciar Koin", e)
+        throw e
+    }
+
+    val playerViewModel = try {
+        koinApp.koin.get<PlayerViewModel>()
+    } catch (e: Throwable) {
+        logStartupError("Error creando PlayerViewModel", e)
+        throw e
+    }
+    val downloadViewModel = try {
+        koinApp.koin.get<DownloadViewModel>()
+    } catch (e: Throwable) {
+        logStartupError("Error creando DownloadViewModel", e)
+        throw e
+    }
 
     koinApp.koin.get<WindowsMediaSession>().apply {
         initialize()
@@ -73,9 +97,26 @@ fun main() {
 
 private fun setupEnvironments() {
     AppDirs.ensureDirectories()
-    System.setProperty(
-        "java.io.tmpdir",
-        AppDirs.dataRoot.resolve("tmp").also { it.mkdirs() }.absolutePath,
-    )
+    val tmpDir = AppDirs.tmpDir.also { it.mkdirs() }
+
+    System.setProperty("org.sqlite.tmpdir", tmpDir.absolutePath)
+    System.setProperty("java.io.tmpdir", tmpDir.absolutePath)
+
     AccountManager.init()
+}
+
+private fun logStartupError(context: String, throwable: Throwable) {
+    runCatching {
+        val logsDir = File(AppDirs.dataRoot, "logs")
+        if (!logsDir.exists()) logsDir.mkdirs()
+
+        val logFile = File(logsDir, "startup.log")
+        val stackTrace = StringWriter().also { throwable.printStackTrace(PrintWriter(it)) }.toString()
+        val entry = buildString {
+            appendLine("[${LocalDateTime.now()}] $context")
+            appendLine(stackTrace)
+            appendLine("------------------------------------------------------------")
+        }
+        logFile.appendText(entry)
+    }
 }

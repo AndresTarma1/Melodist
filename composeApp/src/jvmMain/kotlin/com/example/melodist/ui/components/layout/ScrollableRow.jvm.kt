@@ -1,4 +1,4 @@
-package com.example.melodist.ui.components
+package com.example.melodist.ui.components.layout
 
 import androidx.compose.foundation.HorizontalScrollbar
 import androidx.compose.foundation.layout.Arrangement
@@ -17,7 +17,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.example.melodist.ui.components.layout.appScrollbarStyle
 
 
 @Composable
@@ -40,7 +39,7 @@ fun HorizontalScrollableRow(
                 content = content
             )
             // Espaciador para que la barra no tape el contenido (opcional, ajusta según diseño)
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
         }
 
         HorizontalScrollbar(

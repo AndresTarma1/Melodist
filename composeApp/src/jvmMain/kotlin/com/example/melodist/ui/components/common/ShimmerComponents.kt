@@ -22,6 +22,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.unit.dp
+import com.example.melodist.ui.components.layout.HorizontalScrollableRow
 
 /**
  * CompositionLocal que provee el valor de traducción del shimmer.

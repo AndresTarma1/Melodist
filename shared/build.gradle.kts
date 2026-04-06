@@ -6,6 +6,9 @@ plugins {
 
 kotlin {
     jvm()
+    compilerOptions {
+        freeCompilerArgs.add("-Xexpect-actual-classes")
+    }
 
     sourceSets {
         commonMain.dependencies {
@@ -18,10 +21,10 @@ kotlin {
             implementation(libs.kotlinx.serialization.core)
             implementation(libs.kotlinx.serialization.json)
 
-                    implementation(libs.ktor.client.core)
-                    implementation(libs.ktor.client.cio)
-                    implementation(libs.ktor.client.content.negotiation)
-                    implementation(libs.ktor.serialization.json)
+            implementation(libs.ktor.client.core)
+            implementation(libs.ktor.client.cio)
+            implementation(libs.ktor.client.content.negotiation)
+            implementation(libs.ktor.serialization.json)
 
             api(libs.sqldelight.coroutines)
         }
@@ -45,4 +48,6 @@ sqldelight {
         }
     }
 }
+
+
 

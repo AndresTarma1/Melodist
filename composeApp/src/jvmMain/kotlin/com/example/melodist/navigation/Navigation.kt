@@ -136,7 +136,7 @@ fun NavigationDesktop(rootComponent: RootComponent) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(top = 16.dp, end = 16.dp, bottom = 16.dp) // Margen exterior seguro
+                    .padding(end = 16.dp, bottom = 16.dp) // Margen exterior seguro
             ) {
                 val currentSong = playerState.currentSong
 
@@ -182,38 +182,20 @@ fun NavigationDesktop(rootComponent: RootComponent) {
                         Box(
                             modifier = Modifier
                                 .fillMaxHeight()
-                                .width(16.dp) // El grosor del gap
-                                .pointerHoverIcon(PointerIcon.Hand) // Cursor de manita al pasar por encima
+                                .width(12.dp)
+                                .pointerHoverIcon(PointerIcon.Hand)
                                 .pointerInput(Unit) {
                                     detectHorizontalDragGestures { _, dragAmount ->
-                                        // Convertimos los píxeles arrastrados a Dp
                                         val dragDp = with(density) { dragAmount.toDp() }
-                                        // Restamos dragDp porque arrastrar a la IZQUIERDA (negativo)
-                                        // debe hacer que la cola de la DERECHA sea más ancha.
-                                        // Usamos coerceIn para poner un límite mínimo y máximo de ancho.
                                         queueWidth = (queueWidth - dragDp).coerceIn(250.dp, 600.dp)
                                     }
                                 },
                             contentAlignment = Alignment.Center,
-                        ) {
-                            // Un pequeño indicador visual (pill) para que el usuario sepa que se puede arrastrar
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxHeight(0.08f) // Altura cortita
-                                    .width(4.dp)
-                                    .clip(RoundedCornerShape(2.dp))
-                                    .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
-                            )
-                        }
+                        ) {}
                     }
 
                     // 🏝️ ISLA 2: Cola de Reproducción
                     // Animamos dinámicamente el gap para que aparezca suavemente al abrir la cola
-                    val queueGap by animateDpAsState(
-                        targetValue = if (isQueueVisible) 16.dp else 0.dp,
-                        label = "queueGapAnimation"
-                    )
-
                     PlaybackQueuePanel(
                         state = playerState,
                         isVisible = isQueueVisible,
@@ -221,7 +203,6 @@ fun NavigationDesktop(rootComponent: RootComponent) {
                         modifier = Modifier
                             .fillMaxHeight()
                             .width(queueWidth)
-                            .padding(start = queueGap) // Separación visual entre la ruta principal y la cola
                             .clip(RoundedCornerShape(16.dp)) // Redondeo individual
                             .background(if (isQueueVisible) MaterialTheme.colorScheme.surfaceContainer else Color.Transparent)
                     )

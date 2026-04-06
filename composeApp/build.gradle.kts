@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.composeHotReload)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.conveyor)
 }
 
 kotlin {
@@ -46,6 +47,7 @@ kotlin {
             implementation(libs.kmpalette.core)
             implementation(libs.kmpalette.network)
             implementation(libs.kmpalette.extensions.file)
+            implementation(libs.conveyor.control)
 
         }
         commonTest.dependencies {
@@ -86,6 +88,8 @@ compose.desktop {
         mainClass = "com.example.melodist.MainKt"
 
         jvmArgs(
+            "--add-modules=java.sql",
+            "-Dorg.sqlite.tmpdir=C:/Users/WinterOS/.melodist/tmp",
             "-XX:+EnableDynamicAgentLoading",
             "-Xmx512m",                           // 512MB es el "sweet spot" para apps ligeras
             "-Xms128m",                           // Iniciar con algo más de aire
@@ -100,7 +104,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Msi)
             packageName = "Melodist"
-            packageVersion = "1.0.1"
+            packageVersion = "1.0.2"
             vendor = "Tarma"
             description = "Reproductor de música de escritorio"
 

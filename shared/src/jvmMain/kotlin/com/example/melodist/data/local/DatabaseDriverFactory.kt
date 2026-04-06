@@ -8,13 +8,13 @@ import java.io.File
 import java.util.Properties
 import java.util.logging.Logger
 
-object DatabaseDriverFactory {
+actual object DatabaseDriverFactory {
 
     private val log = Logger.getLogger("DatabaseDriverFactory")
     private const val SCHEMA_VERSION_FILE = "schema_version"
     private const val APP_SCHEMA_VERSION = 5L
 
-    fun createDriver(): SqlDriver {
+    actual fun createDriver(): SqlDriver {
         val appDir = AppDirs.databaseDir
         log.info("DB dir: ${appDir.absolutePath}, exists=${appDir.exists()}, writable=${appDir.canWrite()}")
 
@@ -45,7 +45,7 @@ object DatabaseDriverFactory {
         val needsCreate = !dbFile.exists()
         log.info("needsCreate=$needsCreate")
 
-        // Verificar que java.sql esté disponible antes de crear el driver
+        // Verificacion defensiva para runtimes recortados en empaquetados.
         try {
             Class.forName("java.sql.DriverManager")
         } catch (e: ClassNotFoundException) {
@@ -53,6 +53,7 @@ object DatabaseDriverFactory {
             log.severe("Ensure 'includeAllModules = true' in compose.desktop.nativeDistributions")
             throw e
         }
+
 
         val driver = try {
             JdbcSqliteDriver(
@@ -81,4 +82,3 @@ object DatabaseDriverFactory {
         return driver
     }
 }
-

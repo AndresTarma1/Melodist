@@ -44,7 +44,7 @@ import com.example.melodist.ui.helpers.rememberSongDownloadState
 import com.example.melodist.ui.helpers.contextMenuArea
 import com.example.melodist.ui.screens.PlaylistActions
 import com.example.melodist.ui.screens.PlaylistScreenState
-import com.example.melodist.ui.screens.formatDuration
+import com.example.melodist.ui.screens.shared.formatDuration
 import com.metrolist.innertube.models.SongItem
 import com.metrolist.innertube.pages.PlaylistPage
 
@@ -104,7 +104,7 @@ internal fun PlaylistLayout(
 
             LazyColumn(
                 state = lazyListState,
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize().padding(end=16.dp)
             ) {
                 itemsIndexed(state.songs, key = { _, song -> song.id }) { index, song ->
                     // El PlaylistSongItem ya estaba bien optimizado gracias a `rememberSongDownloadState`
@@ -131,7 +131,7 @@ internal fun PlaylistLayout(
 
             AppVerticalScrollbar(
                 state = lazyListState,
-                modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(vertical = 8.dp)
+                modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(12.dp)
             )
         }
     }

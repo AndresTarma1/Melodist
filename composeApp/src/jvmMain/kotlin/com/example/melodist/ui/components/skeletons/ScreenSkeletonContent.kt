@@ -15,6 +15,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.example.melodist.ui.components.layout.HorizontalScrollableRow
 
 @Composable
 internal fun AlbumScreenSkeletonContent() {
