@@ -89,6 +89,7 @@ compose.desktop {
 
         jvmArgs(
             "--add-modules=java.sql",
+            "--enable-native-access=ALL-UNNAMED",
             "-Dorg.sqlite.tmpdir=C:/Users/WinterOS/.melodist/tmp",
             "-XX:+EnableDynamicAgentLoading",
             "-Xmx512m",                           // 512MB es el "sweet spot" para apps ligeras

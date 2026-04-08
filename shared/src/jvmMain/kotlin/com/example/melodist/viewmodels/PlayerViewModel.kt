@@ -2,8 +2,8 @@ package com.example.melodist.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.melodist.data.AppPreferences
-import com.example.melodist.data.AudioQuality
+
+import com.example.melodist.data.repository.AudioQuality
 import com.example.melodist.player.AudioStreamResolver
 import com.example.melodist.player.DownloadService
 import com.example.melodist.player.PlaybackState
@@ -23,11 +23,16 @@ import java.net.URI
 import java.net.URL
 import java.util.logging.Logger
 
+import com.example.melodist.data.repository.UserPreferencesRepository
+
 class PlayerViewModel(
     private val playerService: PlayerService,
     private val streamResolver: AudioStreamResolver,
     private val mediaSession: WindowsMediaSession,
+    private val userPreferences: UserPreferencesRepository
 ) : ViewModel() {
+
+    val highResCoverArt = userPreferences.highResCoverArt
 
     private val log = Logger.getLogger("PlayerViewModel")
 

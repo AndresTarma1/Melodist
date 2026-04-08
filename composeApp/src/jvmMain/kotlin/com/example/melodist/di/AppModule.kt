@@ -47,7 +47,7 @@ val appModule = module {
     single<AudioStreamResolver> { AudioStreamResolver() }
     single<WindowsMediaSession> { WindowsMediaSession() }
     single<DownloadService> { DownloadService(get(), get()) }
-    single<PlayerViewModel> { PlayerViewModel(get(), get(), get()) }
+    single<PlayerViewModel> { PlayerViewModel(get(), get(), get(), get()) }
     single<DownloadViewModel> { DownloadViewModel(get(), get()) }
 
     // ViewModels — loginState de AccountManager para reaccionar a cambios de sesión

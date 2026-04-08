@@ -23,7 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.melodist.data.AppDirs
-import com.example.melodist.data.AppPreferences
+
 import com.example.melodist.data.repository.AudioQuality
 import com.example.melodist.data.repository.ThemeMode
 import com.example.melodist.ui.components.layout.AppVerticalScrollbar
@@ -199,13 +199,13 @@ private fun SectionLabel(title: String, icon: ImageVector) {
 
 @Composable
 private fun SettingsCard(content: @Composable ColumnScope.() -> Unit) {
-    // En M3, usar surfaceContainer crea una distinción visual sin necesidad de bordes forzados
-    Surface(
+    Card(
         modifier = Modifier.fillMaxWidth(),
-        shape    = RoundedCornerShape(16.dp),
-        color    = MaterialTheme.colorScheme.surfaceContainer,
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Column(modifier = Modifier.fillMaxWidth(), content = content)
+        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), content = content)
     }
 }
 
@@ -221,22 +221,21 @@ private fun ToggleRow(
             .fillMaxWidth()
             .clickable { onCheckedChange(!checked) }
             .pointerHoverIcon(PointerIcon.Hand)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 6.dp),
         verticalAlignment     = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+        Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
         Text(
             text = label,
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.weight(1f)
         )
-        // Eliminados los colores personalizados para usar la paleta M3 nativa
         Switch(
             checked         = checked,
             onCheckedChange = onCheckedChange,
-            modifier        = Modifier.height(24.dp)
+            modifier        = Modifier.height(32.dp)
         )
     }
 }
@@ -250,11 +249,11 @@ private fun SegmentedRow(
     onSelect: (Int) -> Unit
 ) {
     Row(
-        modifier          = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+        modifier          = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+        Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
         Text(
             text = label,
             style = MaterialTheme.typography.bodyLarge,
@@ -265,18 +264,18 @@ private fun SegmentedRow(
         Surface(
             shape  = RoundedCornerShape(8.dp),
             color  = MaterialTheme.colorScheme.surfaceContainerHighest,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
         ) {
             Row(modifier = Modifier.padding(2.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                 options.forEachIndexed { idx, opt ->
                     val isSelected = idx == selected
                     val bg by animateColorAsState(
-                        targetValue = if (isSelected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
-                        animationSpec = tween(180), label = "bg$idx"
+                        targetValue = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+                        animationSpec = tween(150), label = "bg$idx"
                     )
                     val fg by animateColorAsState(
-                        targetValue = if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface,
-                        animationSpec = tween(180), label = "fg$idx"
+                        targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                        animationSpec = tween(150), label = "fg$idx"
                     )
                     Surface(
                         modifier = Modifier
@@ -288,9 +287,9 @@ private fun SegmentedRow(
                     ) {
                         Text(
                             text = opt,
-                            style    = MaterialTheme.typography.labelMedium.copy(fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium),
+                            style    = MaterialTheme.typography.labelMedium.copy(fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium),
                             color    = fg,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
                         )
                     }
                 }
@@ -302,11 +301,11 @@ private fun SegmentedRow(
 @Composable
 private fun InfoRow(label: String, icon: ImageVector, value: String) {
     Row(
-        modifier          = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+        modifier          = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+        Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
         Text(
             text = label,
             style = MaterialTheme.typography.bodyLarge,
@@ -315,12 +314,11 @@ private fun InfoRow(label: String, icon: ImageVector, value: String) {
         )
         Surface(
             shape = RoundedCornerShape(8.dp),
-            color = MaterialTheme.colorScheme.tertiaryContainer
+            color = MaterialTheme.colorScheme.primaryContainer
         ) {
             Text(
                 text = value,
-                style    = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                color    = MaterialTheme.colorScheme.onTertiaryContainer,
+                style    = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
             )
         }
@@ -336,14 +334,14 @@ private fun ActionRow(
     onClick:       () -> Unit
 ) {
     Row(
-        modifier          = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        modifier          = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Icon(
             icon, null,
             tint     = if (isDestructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(20.dp)
+            modifier = Modifier.size(22.dp)
         )
         Text(
             text = label,
@@ -352,44 +350,33 @@ private fun ActionRow(
             modifier = Modifier.weight(1f)
         )
 
-        if (isDestructive) {
-            OutlinedButton(
-                onClick        = onClick,
-                shape          = RoundedCornerShape(8.dp),
-                colors         = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                border         = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
-                modifier       = Modifier.height(32.dp),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp)
-            ) {
-                Text(btnLabel, style = MaterialTheme.typography.labelMedium)
-            }
-        } else {
             FilledTonalButton(
                 onClick        = onClick,
                 shape          = RoundedCornerShape(8.dp),
-                modifier       = Modifier.height(32.dp),
+                modifier       = Modifier.height(32.dp).pointerHoverIcon(PointerIcon.Hand),
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp)
             ) {
                 Text(btnLabel, style = MaterialTheme.typography.labelMedium)
             }
-        }
+
     }
 }
 
 @Composable
 private fun RowDivider() {
     HorizontalDivider(
-        modifier = Modifier.padding(horizontal = 16.dp),
-        color    = MaterialTheme.colorScheme.outlineVariant
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+        color    = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
     )
 }
 
 @Composable
 private fun AboutCard() {
-    Surface(
+    Card(
         modifier = Modifier.fillMaxWidth(),
-        shape    = RoundedCornerShape(16.dp),
-        color    = MaterialTheme.colorScheme.surfaceContainer,
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
             modifier              = Modifier.padding(16.dp),

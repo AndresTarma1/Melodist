@@ -78,7 +78,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.example.melodist.data.AppPreferences
+import com.example.melodist.data.repository.UserPreferencesRepository
+import org.koin.compose.koinInject
 import com.example.melodist.navigation.Route
 import com.example.melodist.player.PlaybackState
 import com.example.melodist.ui.components.BlurredImageBackground
@@ -103,6 +104,9 @@ fun NowPlayingLayout(
     onCollapse: () -> Unit,
     onNavigate: ((Route) -> Unit)? = null,
 ) {
+    val playerViewModel = LocalPlayerViewModel.current
+    val highRes by playerViewModel.highResCoverArt.collectAsState(false)
+
     BlurredImageBackground(
         imageUrl = song.thumbnail,
         modifier = Modifier.fillMaxSize(),
@@ -118,9 +122,9 @@ fun NowPlayingLayout(
         ) {
 
             if (state.queueSource is QueueSource.Album) {
-                AlbumDiscLarge(url = song.thumbnail, title = song.title)
+                AlbumDiscLarge(url = song.thumbnail, title = song.title, highRes = highRes)
             } else {
-                CoverArt(url = song.thumbnail, title = song.title, size = 440)
+                CoverArt(url = song.thumbnail, title = song.title, size = 440, highRes = highRes)
             }
             Spacer(Modifier.height(24.dp))
             SongHeader(state = state, song = song, textAlign = TextAlign.Center, onNavigate = onNavigate, onCollapse = onCollapse)
@@ -129,8 +133,7 @@ fun NowPlayingLayout(
 }
 
 @Composable
-private fun AlbumDiscLarge(url: String?, title: String) {
-    val highRes by AppPreferences.highResCoverArt.collectAsState()
+private fun AlbumDiscLarge(url: String?, title: String, highRes: Boolean) {
     val highResUrl = if (highRes) upscaleThumbnailUrl(url, 1080) else url
     val rotation by rememberInfiniteTransition(label = "nowPlayingAlbumDisc").animateFloat(
         initialValue = 0f,
@@ -241,8 +244,7 @@ fun PlaybackQueuePanel(
 }
 
 @Composable
-fun CoverArt(url: String?, title: String, size: Int) {
-    val highRes by AppPreferences.highResCoverArt.collectAsState()
+fun CoverArt(url: String?, title: String, size: Int, highRes: Boolean) {
     val highResUrl = if (highRes) upscaleThumbnailUrl(url, 1080) else url
 
     val width = size.dp

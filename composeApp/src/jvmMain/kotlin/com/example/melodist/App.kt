@@ -25,7 +25,7 @@ import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.WindowState
 import androidx.compose.ui.window.rememberWindowState
-import com.example.melodist.data.ThemeMode
+import com.example.melodist.data.repository.ThemeMode
 import com.example.melodist.data.repository.UserPreferencesRepository
 import com.example.melodist.navigation.NavigationDesktop
 import com.example.melodist.navigation.RootComponent
@@ -178,6 +178,7 @@ fun ApplicationScope.App(
                 LocalArtworkColors provides artworkColors,
                 LocalPlayerViewModel provides playerViewModel,
                 LocalDownloadViewModel provides downloadViewModel,
+                com.example.melodist.utils.LocalUserPreferences provides userPreferences,
             ) {
                 DecoratedWindow(
                     onCloseRequest = { if (minimizeToTray) isVisible = false else handleExit() },

@@ -2,6 +2,7 @@ package com.example.melodist.utils
 
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.staticCompositionLocalOf
+import com.example.melodist.data.repository.UserPreferencesRepository
 import com.example.melodist.viewmodels.DownloadViewModel
 import com.example.melodist.viewmodels.PlayerViewModel
 
@@ -9,4 +10,8 @@ val LocalPlayerViewModel = staticCompositionLocalOf<PlayerViewModel> { error("No
 
 val LocalDownloadViewModel = staticCompositionLocalOf<DownloadViewModel> {
     error("No se ha proporcionado un DownloadViewModel")
+}
+
+val LocalUserPreferences = staticCompositionLocalOf<UserPreferencesRepository> {
+    error("No se ha proporcionado un UserPreferencesRepository")
 }

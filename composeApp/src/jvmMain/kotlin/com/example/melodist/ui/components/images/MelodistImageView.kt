@@ -30,7 +30,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.SubcomposeAsyncImage
-import com.example.melodist.data.AppPreferences
+import com.example.melodist.utils.LocalUserPreferences
 
 enum class PlaceholderType {
     SONG, ALBUM, ARTIST, PLAYLIST
@@ -75,7 +75,7 @@ fun MelodistImage(
 
     val placeholderTint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
     val placeholderBg = MaterialTheme.colorScheme.surfaceContainerHighest
-    val imagesEnabled by AppPreferences.imagesEnabled.collectAsState()
+    val imagesEnabled by LocalUserPreferences.current.imagesEnabled.collectAsState(true)
 
     if (url.isNullOrBlank() || !imagesEnabled) {
         Box(

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.melodist.data.repository.MusicRepository
 import com.metrolist.innertube.YouTube
 import com.metrolist.innertube.models.AlbumItem
+import com.metrolist.innertube.models.Artist
 import com.metrolist.innertube.models.ArtistItem
 import com.metrolist.innertube.models.PlaylistItem
 import com.metrolist.innertube.models.SongItem
@@ -17,6 +18,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlin.uuid.ExperimentalUuidApi
 
 enum class LibraryTab {
     SONGS, ALBUMS, ARTISTS, PLAYLISTS, DOWNLOADS
@@ -112,8 +114,6 @@ class LibraryViewModel(
         }
     }
 
-    fun refreshYtmLibrary() = loadYtmLibrary()
-
     // ── Tabs / local actions ────────────────────────────────
 
     fun selectTab(tab: LibraryTab) { _selectedTab.value = tab }
@@ -122,4 +122,27 @@ class LibraryViewModel(
     fun removeAlbum(browseId: String) { viewModelScope.launch { repository.removeAlbum(browseId) } }
     fun removeArtist(id: String) { viewModelScope.launch { repository.removeArtist(id) } }
     fun removePlaylist(id: String) { viewModelScope.launch { repository.removePlaylist(id) } }
+
+    /**
+     * Creates a new local playlist
+     */
+    @OptIn(ExperimentalUuidApi::class)
+    fun createLocalPlaylist(name: String) {
+        viewModelScope.launch {
+            val id = "LOCAL_${kotlin.uuid.Uuid.random()}"
+            val playlist = PlaylistItem(
+                id = id,
+                title = name,
+                author = Artist(name = "Local", id = null),
+                songCountText = "0 canciones",
+                thumbnail = null,
+                playEndpoint = null,
+                shuffleEndpoint = null,
+                radioEndpoint = null
+            )
+            repository.savePlaylist(playlist)
+        }
+    }
+
+    fun refreshYtmLibrary() = loadYtmLibrary()
 }
