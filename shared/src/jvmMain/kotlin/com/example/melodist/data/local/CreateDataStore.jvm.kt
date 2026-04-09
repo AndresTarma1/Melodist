@@ -7,8 +7,7 @@ import com.example.melodist.platform.AppPaths
 
 fun createDataStore(): DataStore<Preferences> = createDataStore(
     producePath = {
-        val userHome = System.getProperty("user.home")
-        val dir = File(userHome, ".melodist" + File.separator + "data")
+        val dir = File(AppPaths.dataRoot, "data")
         if (!dir.exists()) {
             dir.mkdirs()
         }

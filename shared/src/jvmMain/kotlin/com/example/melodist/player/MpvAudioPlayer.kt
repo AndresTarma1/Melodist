@@ -1,6 +1,7 @@
 package com.example.melodist.player
 
 import com.sun.jna.Pointer
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
@@ -8,27 +9,34 @@ class MpvAudioPlayer {
     private var handle: Pointer? = null
     private val _isPlaying = MutableStateFlow(false)
     val isPlaying = _isPlaying.asStateFlow()
+    private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
     fun init() {
         if (handle != null) return
         try {
             handle = MpvLib.INSTANCE.mpv_create()
             handle?.let {
+                // Configuraciones críticas para estabilidad
                 MpvLib.INSTANCE.mpv_set_property_string(it, "video", "no")
                 MpvLib.INSTANCE.mpv_set_property_string(it, "audio-channels", "stereo")
+                MpvLib.INSTANCE.mpv_set_property_string(it, "ao", "wasapi") // Forzar salida nativa de Windows
+                
                 MpvLib.INSTANCE.mpv_initialize(it)
             }
         } catch (e: Exception) {
-            // Error handling could be added here if needed
+            // Error silencioso
         }
     }
 
     fun openUri(uri: String) {
         init()
-        handle?.let {
-            MpvLib.INSTANCE.mpv_command(it, arrayOf("loadfile", uri, "replace"))
-            MpvLib.INSTANCE.mpv_set_property_string(it, "pause", "no")
-            _isPlaying.value = true
+        handle?.let { h ->
+            scope.launch {
+                MpvLib.INSTANCE.mpv_command(h, arrayOf("loadfile", uri, "replace", null))
+
+                MpvLib.INSTANCE.mpv_set_property_string(h, "pause", "no")
+                _isPlaying.value = true
+            }
         }
     }
 
@@ -48,7 +56,7 @@ class MpvAudioPlayer {
 
     fun stop() {
         handle?.let {
-            MpvLib.INSTANCE.mpv_command(it, arrayOf("stop"))
+            MpvLib.INSTANCE.mpv_command(it, arrayOf("stop", null))
             _isPlaying.value = false
         }
     }
@@ -56,7 +64,7 @@ class MpvAudioPlayer {
     fun seekTo(percent: Float) {
         handle?.let {
             val position = (percent * 100).coerceIn(0f, 100f)
-            MpvLib.INSTANCE.mpv_command(it, arrayOf("seek", "$position", "absolute-percent"))
+            MpvLib.INSTANCE.mpv_command(it, arrayOf("seek", "$position", "absolute-percent", null))
         }
     }
 
@@ -87,5 +95,6 @@ class MpvAudioPlayer {
             MpvLib.INSTANCE.mpv_terminate_destroy(it)
             handle = null
         }
+        scope.cancel()
     }
 }

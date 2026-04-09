@@ -12,6 +12,8 @@ plugins {
 kotlin {
     jvm()
 
+    jvmToolchain(21) // Esto fuerza a Gradle a buscar/descargar un JDK completo (v21)
+
     sourceSets {
         commonMain.dependencies {
             implementation(libs.compose.runtime)
@@ -90,7 +92,7 @@ compose.desktop {
         jvmArgs(
             "--add-modules=java.sql",
             "--enable-native-access=ALL-UNNAMED",
-            "-Dorg.sqlite.tmpdir=C:/Users/WinterOS/.melodist/tmp",
+            "-Dorg.sqlite.tmpdir=${System.getProperty("user.home")}/.melodist/tmp",
             "-XX:+EnableDynamicAgentLoading",
             "-Xmx512m",                           // 512MB es el "sweet spot" para apps ligeras
             "-Xms128m",                           // Iniciar con algo más de aire
@@ -117,8 +119,8 @@ compose.desktop {
 
             // Compose Desktop copia el contenido de windows/ (o common/) de este dir
             // a $APPDIR/resources/ durante el packaging.
-            // La carpeta vlc-resources/windows/ debe contener libvlc.dll, libvlccore.dll y plugins/
-            appResourcesRootDir.set(project.layout.projectDirectory.dir("../vlc-resources"))
+            // La carpeta mpv-resources/windows/ debe contener libmpv-2.dll
+            appResourcesRootDir.set(project.layout.projectDirectory.dir("../mpv-resources"))
 
             windows {
                 packageName = "Melodist Beta"
