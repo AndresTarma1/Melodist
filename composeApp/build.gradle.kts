@@ -111,11 +111,8 @@ compose.desktop {
             vendor = "Tarma"
             description = "Reproductor de música de escritorio"
 
-            // Incluir TODOS los módulos del JDK para evitar ClassNotFoundException
-            // en la app empaquetada. El JdbcSqliteDriver carga java.sql vía ServiceLoader
-            // y jlink no siempre lo detecta. Con includeAllModules se evitan todos los
-            // NoClassDefFoundError que aparecen solo en el runtime empaquetado.
-            includeAllModules = true
+            // Módulos específicos para evitar el peso excesivo de includeAllModules
+            modules("java.base", "java.desktop", "java.sql", "java.management", "java.naming", "java.prefs", "java.xml", "jdk.unsupported", "java.instrument", "jdk.jfr", "jdk.crypto.ec")
 
             // Compose Desktop copia el contenido de windows/ (o common/) de este dir
             // a $APPDIR/resources/ durante el packaging.
