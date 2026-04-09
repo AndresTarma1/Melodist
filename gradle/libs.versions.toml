@@ -84,8 +84,6 @@ sqldelight-coroutines = { module = "app.cash.sqldelight:coroutines-extensions-jv
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
 coil-network-ktor3 = { module = "io.coil-kt.coil3:coil-network-ktor3", version.ref = "coil" }
 
-#ComposeMediaPlayer
-composemediaplayer = { module = "io.github.kdroidfilter:composemediaplayer", version.ref = "composemediaplayer" }
 
 #JNativeHook (global media keys)
 jnativehook = { module = "com.github.kwhat:jnativehook", version.ref = "jnativehook" }

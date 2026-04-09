@@ -63,7 +63,6 @@ kotlin {
                     exclude(group = "org.jetbrains.compose.material")
                 }
                 implementation(libs.kotlinx.coroutinesSwing)
-                implementation(libs.composemediaplayer)
                 implementation(libs.jnativehook)
                 // Source: https://mvnrepository.com/artifact/net.java.dev.jna/jna
                 implementation("net.java.dev.jna:jna:5.18.1")
@@ -120,7 +119,7 @@ compose.desktop {
             appResourcesRootDir.set(project.layout.projectDirectory.dir("../mpv-resources"))
 
             windows {
-                packageName = "Melodist Beta"
+                packageName = "Melodist"
                 menu = true
                 menuGroup = "Melodist"
                 shortcut = true
