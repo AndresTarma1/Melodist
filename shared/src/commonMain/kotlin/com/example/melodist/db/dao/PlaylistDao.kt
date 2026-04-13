@@ -4,9 +4,11 @@ import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.coroutines.mapToOneOrNull
 import com.example.melodist.db.MelodistDatabase
+import com.example.melodist.db.Playlist
 import com.example.melodist.db.entities.PlaylistEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.time.LocalDateTime
@@ -39,10 +41,17 @@ class PlaylistDao(private val database: MelodistDatabase) {
             .asFlow()
             .mapToList(Dispatchers.IO)
 
+
     fun playlistById(id: String): Flow<PlaylistEntity?> =
         database.playlistQueries.playlistById(id, ::mapPlaylist)
             .asFlow()
             .mapToOneOrNull(Dispatchers.IO)
+
+    fun playlistsByNameAsc(): Flow<List<PlaylistEntity>> =
+        database.playlistQueries.playlistsByNameAsc(::mapPlaylist)
+            .asFlow()
+            .mapToList(Dispatchers.IO)
+
 
     suspend fun insertPlaylist(playlist: PlaylistEntity) = withContext(Dispatchers.IO) {
         database.playlistQueries.insertPlaylist(

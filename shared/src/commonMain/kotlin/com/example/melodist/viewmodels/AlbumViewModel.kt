@@ -51,7 +51,7 @@ class AlbumViewModel(
     val isLoadingMore: StateFlow<Boolean> = _isLoadingMore.asStateFlow()
 
     val hasMoreSongs: StateFlow<Boolean> = _continuation
-        .map { it != null }
+        .map { token -> token != null }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -98,7 +98,6 @@ class AlbumViewModel(
             YouTube.album(browseId)
                 .onSuccess { page ->
                     _songs.value = page.songs
-                    _continuation.value = null
                     val saved = repository.isAlbumSavedOnce(browseId)
                     _uiState.value = AlbumState.Success(
                         albumPage = page,
@@ -122,9 +121,9 @@ class AlbumViewModel(
             repeat(3) { attempt ->
                 if (success) return@repeat
                 YouTube.playlistContinuation(token)
-                    .onSuccess { page ->
+                .onSuccess { page ->
                         if (page.songs.isNotEmpty()) _songs.value += page.songs
-                        _continuation.value = page.continuation
+                        _continuation.value = page.continuation?.takeIf { it.isNotBlank() }
                         success = true
                     }
                     .onFailure { delay(500L * (attempt + 1)) }
@@ -146,7 +145,7 @@ class AlbumViewModel(
                 YouTube.playlistContinuation(token)
                     .onSuccess { page ->
                         if (page.songs.isNotEmpty()) _songs.value += page.songs
-                        nextToken = page.continuation
+                        nextToken = page.continuation?.takeIf { it.isNotBlank() }
                         fetched = true
                     }
                     .onFailure {

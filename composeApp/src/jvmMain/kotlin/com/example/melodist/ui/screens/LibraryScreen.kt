@@ -47,8 +47,14 @@ import com.example.melodist.ui.components.MelodistImage
 import com.example.melodist.ui.components.PlaceholderType
 import com.example.melodist.ui.components.SongContextMenu
 import com.example.melodist.utils.LocalPlayerViewModel
+import com.example.melodist.utils.SyncUtils
+import org.koin.compose.koinInject
 import com.example.melodist.viewmodels.DownloadViewModel
 import com.example.melodist.viewmodels.LibraryTab
+import com.example.melodist.viewmodels.LibraryAlbumsViewModel
+import com.example.melodist.viewmodels.LibraryArtistsViewModel
+import com.example.melodist.viewmodels.LibraryPlaylistsViewModel
+import com.example.melodist.viewmodels.LibrarySongsViewModel
 import com.example.melodist.viewmodels.LibraryViewModel
 import com.example.melodist.viewmodels.PlayerViewModel
 import com.example.melodist.viewmodels.YtmLibraryState
@@ -61,7 +67,7 @@ import com.example.melodist.ui.helpers.contextMenuArea
 import com.example.melodist.ui.screens.shared.formatDuration
 
 data class LibraryScreenState(
-    val selectedTab: LibraryTab = LibraryTab.SONGS,
+    val selectedTab: LibraryTab? = null,
     val songs: List<SongItem> = emptyList(),
     val albums: List<AlbumItem> = emptyList(),
     val artists: List<ArtistItem> = emptyList(),
@@ -77,6 +83,7 @@ data class LibraryActions(
     val onRemoveArtist: (String) -> Unit,
     val onRemovePlaylist: (String) -> Unit,
     val onRefreshYtm: () -> Unit,
+    val onSyncAll: () -> Unit,
     val onCreatePlaylist: (String) -> Unit
 )
 
@@ -91,12 +98,16 @@ fun LibraryScreenRoute(
 ) {
 
     val playerViewModel = LocalPlayerViewModel.current
-
+    val songsViewModel: LibrarySongsViewModel = koinInject()
+    val albumsViewModel: LibraryAlbumsViewModel = koinInject()
+    val artistsViewModel: LibraryArtistsViewModel = koinInject()
+    val playlistsViewModel: LibraryPlaylistsViewModel = koinInject()
+    val syncUtils: SyncUtils = koinInject()
     val selectedTab by viewModel.selectedTab.collectAsState()
-    val songs by viewModel.savedSongs.collectAsState()
-    val albums by viewModel.savedAlbums.collectAsState()
-    val artists by viewModel.savedArtists.collectAsState()
-    val playlists by viewModel.savedPlaylists.collectAsState()
+    val songs by songsViewModel.savedSongs.collectAsState()
+    val albums by albumsViewModel.savedAlbums.collectAsState()
+    val artists by artistsViewModel.savedArtists.collectAsState()
+    val playlists by playlistsViewModel.savedPlaylists.collectAsState()
     val ytmState by viewModel.ytmState.collectAsState()
 
     val state = LibraryScreenState(
@@ -117,7 +128,8 @@ fun LibraryScreenRoute(
             onRemoveArtist = { viewModel.removeArtist(it) },
             onRemovePlaylist = { viewModel.removePlaylist(it) },
             onRefreshYtm = { viewModel.refreshYtmLibrary() },
-            onCreatePlaylist = { viewModel.createLocalPlaylist(it)}
+            onSyncAll = { syncUtils.performFullSync() },
+            onCreatePlaylist = { playlistsViewModel.createLocalPlaylist(it) }
         )
     }
 
@@ -194,12 +206,12 @@ fun LibraryScreen(
                 .padding(innerPadding)
         ) {
             // ── Tab Row ──
-            LibraryTabRow(state.selectedTab, actions.onTabSelected)
+                LibraryTabRow(state.selectedTab, actions.onTabSelected)
 
             Spacer(Modifier.height(8.dp))
 
             // ── Content ──
-            when (state.selectedTab) {
+            when (state.selectedTab ?: LibraryTab.LIBRARY) {
                 LibraryTab.SONGS -> SongsTab(
                     songs = state.songs,
                     ytmSongs = if (state.ytmState is YtmLibraryState.Success) state.ytmState.likedSongs else emptyList(),
@@ -232,6 +244,17 @@ fun LibraryScreen(
                     onNavigate = actions.onNavigate,
                     playerViewModel = playerViewModel
                 )
+
+                LibraryTab.LIBRARY -> LibraryMixedTab(
+                    onNavigate = actions.onNavigate,
+                    onRemoveSong = actions.onRemoveSong,
+                    onRemoveAlbum = actions.onRemoveAlbum,
+                    onRemoveArtist = actions.onRemoveArtist,
+                    onRemovePlaylist = actions.onRemovePlaylist,
+                    onSyncAll = actions.onSyncAll,
+                    playerViewModel = playerViewModel
+                )
+
             }
         }
     }
@@ -273,7 +296,7 @@ fun LibraryScreen(
 // ────────────────────────────────────────────────────────
 
 @Composable
-private fun LibraryTabRow(selectedTab: LibraryTab, onTabSelected: (LibraryTab) -> Unit) {
+private fun LibraryTabRow(selectedTab: LibraryTab?, onTabSelected: (LibraryTab) -> Unit) {
     val tabs = listOf(
         LibraryTab.SONGS to "Canciones",
         LibraryTab.ALBUMS to "Álbumes",
@@ -547,14 +570,8 @@ private fun LibrarySongItem(
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.width(4.dp))
                     }
-                    IconButton(modifier = Modifier.contextMenuArea(
-                        enabled = true,
-                        onHoverChange = { isHovered = it },
-                        onMenuAction = { offset ->
-                            menuOffset = offset
-                            showMenu = true
-                        }
-                    ),onClick = {
+                    IconButton(onClick = {
+                        menuOffset = DpOffset(0.dp, 0.dp)
                         showMenu = true
                     }) {
                         Icon(Icons.Default.MoreVert, "Opciones", tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -787,6 +804,31 @@ private fun PlaylistsTab(
             state = gridState,
             modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(vertical = 4.dp, horizontal = 2.dp)
         )
+    }
+}
+
+// ────────────────────────────────────────────────────────
+// Mixed Tab
+// ────────────────────────────────────────────────────────
+
+@Composable
+private fun LibraryMixedTab(
+    onNavigate: (Route) -> Unit,
+    onRemoveSong: (String) -> Unit,
+    onRemoveAlbum: (String) -> Unit,
+    onRemoveArtist: (String) -> Unit,
+    onRemovePlaylist: (String) -> Unit,
+    onSyncAll: () -> Unit,
+    playerViewModel: PlayerViewModel? = null,
+) {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        LocalSectionHeader("Biblioteca")
+        Text("Canciones, álbumes, artistas y playlists locales")
+        Button(onClick = onSyncAll) { Text("Sincronizar todo") }
+        TextButton(onClick = { onNavigate(Route.Library) }) { Text("Ver sección completa") }
     }
 }
 

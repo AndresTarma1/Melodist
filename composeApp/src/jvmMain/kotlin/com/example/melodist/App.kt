@@ -229,16 +229,6 @@ fun ApplicationScope.App(
                     window.minimumSize = Dimension(1024, 600)
                     DisposableEffect(Unit) {
                         val startMaximized = windowState.placement == WindowPlacement.Maximized
-                        val awtColor = Color(
-                            surfaceColor.toArgb()
-                        )
-
-                        // Pintar TODA la cadena de contenedores Swing
-                        window.background = awtColor
-                        window.contentPane.background = awtColor
-                        window.rootPane.background = awtColor
-                        window.rootPane.contentPane.background = awtColor
-
                         val listener = object : ComponentAdapter() {
                             override fun componentResized(e: ComponentEvent) {
                                 window.removeComponentListener(this)
@@ -254,8 +244,6 @@ fun ApplicationScope.App(
 
                         window.addComponentListener(listener)
                         onDispose { window.removeComponentListener(listener) }
-
-
                     }
                     TitleBar {
                         MelodistTitleBar(

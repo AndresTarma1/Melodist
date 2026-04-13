@@ -234,7 +234,9 @@ class PlaylistRepository(
             .groupBy { it.songId }
             .mapValues { (_, rows) -> rows.map { row -> Artist(name = row.name, id = row.id) } }
 
-        songs.map { song -> dbSongToSongItem(song, artistsBySong[song.id] ?: emptyList()) }
+        return@withContext songs.map { song ->
+            dbSongToSongItem(song, artistsBySong[song.id] ?: emptyList())
+        }
     }
 
     fun getCachedPlaylistItem(playlistId: String): PlaylistItem? {

@@ -3,10 +3,12 @@ package com.example.melodist.ui.components.player
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.RepeatMode as InfiniteRepeatMode
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -20,6 +22,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -70,6 +73,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
@@ -96,6 +100,7 @@ import com.example.melodist.viewmodels.PlayerUiState
 import com.example.melodist.viewmodels.QueueSource
 import com.example.melodist.viewmodels.RepeatMode
 import com.metrolist.innertube.models.SongItem
+import org.jetbrains.jewel.foundation.modifier.onHover
 
 @Composable
 fun NowPlayingLayout(
@@ -180,67 +185,86 @@ private fun AlbumDiscLarge(url: String?, title: String, highRes: Boolean) {
 
 @Composable
 fun PlaybackQueuePanel(
-    state: PlayerUiState,
-    isVisible: Boolean,
+    state:     PlayerUiState,
     onDismiss: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier:  Modifier = Modifier
 ) {
     val playerViewModel = LocalPlayerViewModel.current
-    val panelWidth = 420.dp
-    val listState = rememberLazyListState()
+    val listState       = rememberLazyListState()
 
-    AnimatedVisibility(
-        visible = isVisible,
-        enter = expandHorizontally(tween(220), expandFrom = Alignment.End) + fadeIn(tween(180)),
-        exit = shrinkHorizontally(tween(180), shrinkTowards = Alignment.End) + fadeOut(tween(160)),
-        modifier = modifier
-    ) {
+
         Surface(
-            modifier = Modifier
-                .width(panelWidth)
-                .fillMaxHeight(),
-            color = MaterialTheme.colorScheme.surfaceContainerLow,
-            tonalElevation = 6.dp,
-            shadowElevation = 12.dp,
-            shape = RoundedCornerShape(topStart = 20.dp, bottomStart = 20.dp)
+            modifier       = Modifier.width(320.dp).fillMaxHeight(),
+            color          = MaterialTheme.colorScheme.surfaceContainerLow,
+            tonalElevation = 2.dp,
+            shape          = RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp)
         ) {
-            Column(modifier = Modifier.fillMaxSize().padding(18.dp)) {
+            Column(modifier = Modifier.fillMaxSize()) {
+
+                // ── Cabecera ──────────────────────────────────────────────────
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier              = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment     = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "Fila de reproduccion",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    IconButton(onClick = onDismiss, modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)) {
-                        Icon(Icons.Default.Close, contentDescription = "Cerrar fila")
+                    Column {
+                        Text(
+                            "Cola de reproducción",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            "${state.queue.size} canciones",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    IconButton(
+                        onClick  = onDismiss,
+                        modifier = Modifier.size(32.dp).pointerHoverIcon(PointerIcon.Hand)
+                    ) {
+                        Icon(
+                            Icons.Default.Close, "Cerrar",
+                            modifier = Modifier.size(18.dp),
+                            tint     = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
 
-                Spacer(Modifier.height(8.dp))
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                Spacer(Modifier.height(8.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
 
+                // ── Lista ─────────────────────────────────────────────────────
                 LazyColumn(
-                    state = listState,
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.fillMaxSize()
+                    state                 = listState,
+                    modifier              = Modifier.fillMaxSize(),
+                    contentPadding        = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
+                    verticalArrangement   = Arrangement.spacedBy(2.dp)
                 ) {
-                    itemsIndexed(state.queue, key = { index, item -> "${item.id}-$index" }) { index, queueSong ->
+                    itemsIndexed(
+                        items = state.queue,
+                        key   = { index, item -> "${item.id}-$index" }
+                    ) { index, queueSong ->
                         QueueItem(
-                            song = queueSong,
-                            index = index,
+                            song      = queueSong,
+                            index     = index,
                             isCurrent = index == state.currentIndex,
-                            onClick = { playerViewModel.playAtIndex(index) }
+                            onClick   = { playerViewModel.playAtIndex(index) },
+                            modifier  = Modifier.animateItem(
+                                fadeInSpec    = tween(200),
+                                fadeOutSpec   = tween(150),
+                                placementSpec = spring(
+                                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                                    stiffness    = Spring.StiffnessMediumLow
+                                )
+                            )
                         )
                     }
                 }
             }
         }
-    }
+
 }
 
 @Composable
@@ -374,128 +398,93 @@ fun SongHeader(
 
 
 @Composable
-private fun PlayerModeButtons(state: PlayerUiState) {
-    val playerViewModel = LocalPlayerViewModel.current
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = { playerViewModel.toggleShuffle() }, modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)) {
-            Icon(
-                Icons.Rounded.Shuffle,
-                contentDescription = "Shuffle",
-                tint = if (state.isShuffled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        IconButton(onClick = { playerViewModel.toggleRepeat() }, modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)) {
-            Icon(
-                imageVector = if (state.repeatMode == RepeatMode.ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
-                contentDescription = "Repeat",
-                tint = if (state.repeatMode != RepeatMode.OFF) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
-@Composable
-fun VolumeRow(state: PlayerUiState, onVolumeChange: (Int) -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth(0.52f),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        Icon(
-            imageVector = when {
-                state.volume == 0 -> Icons.AutoMirrored.Filled.VolumeOff
-                state.volume < 50 -> Icons.AutoMirrored.Filled.VolumeDown
-                else -> Icons.AutoMirrored.Filled.VolumeUp
-            },
-            contentDescription = "Volumen",
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(20.dp)
-        )
-        Slider(
-            value = state.volume / 100f,
-            onValueChange = { onVolumeChange((it * 100).toInt()) },
-            modifier = Modifier.weight(1f),
-            colors = SliderDefaults.colors(
-                thumbColor = MaterialTheme.colorScheme.primary,
-                activeTrackColor = MaterialTheme.colorScheme.primary,
-                inactiveTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.20f)
-            )
-        )
-    }
-}
-
-@Composable
 fun QueueItem(
-    song: SongItem,
-    index: Int,
+    song:      SongItem,
+    index:     Int,
     isCurrent: Boolean,
-    onClick: () -> Unit
+    onClick:   () -> Unit,
+    modifier:  Modifier = Modifier
 ) {
     val downloadViewModel = LocalDownloadViewModel.current
-    val downloadState by rememberSongDownloadState(song.id, downloadViewModel)
+    val downloadState     by rememberSongDownloadState(song.id, downloadViewModel)
 
-    val emphasis by animateFloatAsState(targetValue = if (isCurrent) 1f else 0f, animationSpec = tween(180), label = "queueCurrent")
-
+    var isHovered by remember { mutableStateOf(false) }
+    val bgColor = if(isHovered) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent
     Surface(
-        color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.45f + (0.2f * emphasis)),
-        shape = RoundedCornerShape(12.dp),
-        modifier = Modifier
+        color    = if (isCurrent)
+            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+        else
+            bgColor,
+        shape    = RoundedCornerShape(10.dp),
+        modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(10.dp))
             .clickable(onClick = onClick)
             .pointerHoverIcon(PointerIcon.Hand)
+            .onHover{isHovered = it}
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            modifier              = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+            verticalAlignment     = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Box(modifier = Modifier.width(20.dp), contentAlignment = Alignment.Center) {
+            // Número o ícono de reproducción
+            Box(modifier = Modifier.width(18.dp), contentAlignment = Alignment.Center) {
                 if (isCurrent) {
-                    Icon(Icons.Rounded.GraphicEq, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                    Icon(
+                        Icons.Rounded.GraphicEq, null,
+                        tint     = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(14.dp)
+                    )
                 } else {
                     Text(
-                        text = "${index + 1}",
+                        "${index + 1}",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                     )
                 }
             }
 
+            // Thumbnail
             MelodistImage(
-                url = song.thumbnail,
+                url                = song.thumbnail,
                 contentDescription = song.title,
-                modifier = Modifier.size(42.dp),
-                shape = RoundedCornerShape(8.dp),
-                placeholderType = PlaceholderType.SONG,
-                iconSize = 18.dp
+                modifier           = Modifier.size(38.dp),
+                shape              = RoundedCornerShape(7.dp),
+                placeholderType    = PlaceholderType.SONG,
+                iconSize           = 16.dp,
+                contentScale       = ContentScale.Crop
             )
 
+            // Título + artistas
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = song.title,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = if (isCurrent) FontWeight.SemiBold else FontWeight.Normal,
-                    color = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    song.title,
+                    style     = MaterialTheme.typography.bodySmall.copy(
+                        fontWeight = if (isCurrent) FontWeight.SemiBold else FontWeight.Normal
+                    ),
+                    color     = if (isCurrent) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurface,
+                    maxLines  = 1,
+                    overflow  = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = song.artists.joinToString(", ") { it.name },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    song.artists.joinToString(", ") { it.name },
+                    style    = MaterialTheme.typography.labelSmall,
+                    color    = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
 
-            DownloadIndicator(state = downloadState, modifier = Modifier.padding(end = 4.dp))
+            DownloadIndicator(state = downloadState)
 
+            // Duración
             song.duration?.let {
                 Text(
-                    text = formatPlayerTimeValue(it * 1000L),
+                    formatPlayerTimeValue(it * 1000L),
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                 )
             }
         }

@@ -12,6 +12,7 @@ import com.example.melodist.data.repository.savedAlbumToAlbumItem
 import com.example.melodist.data.repository.savedArtistToArtistItem
 import com.example.melodist.data.repository.savedPlaylistToPlaylistItem
 import com.example.melodist.data.repository.savedSongToSongItem
+import com.example.melodist.db.MusicDatabase
 import com.metrolist.innertube.YouTube
 import com.metrolist.innertube.models.AlbumItem
 import com.metrolist.innertube.models.Artist
@@ -26,11 +27,12 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.uuid.ExperimentalUuidApi
 
 enum class LibraryTab {
-    SONGS, ALBUMS, ARTISTS, PLAYLISTS, DOWNLOADS
+    LIBRARY, SONGS, ALBUMS, ARTISTS, PLAYLISTS, DOWNLOADS
 }
 
 // Estado para el contenido remoto de YTM
@@ -55,26 +57,12 @@ class LibraryViewModel(
     loginState: StateFlow<Boolean>? = null
 ) : ViewModel() {
 
-    private val _selectedTab = MutableStateFlow(LibraryTab.SONGS)
+    private val _selectedTab = MutableStateFlow<LibraryTab?>(null)
     val selectedTab = _selectedTab.asStateFlow()
 
+    val continuation = MutableStateFlow<String?>(null)
+
     // ── Local DB ────────────────────────────────────────────
-
-    val savedSongs = songRepository.getSavedSongs().map { it.map(::savedSongToSongItem) }
-        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
-
-    val savedAlbums = albumRepository.getSavedAlbums().map { it.map(::savedAlbumToAlbumItem) }
-        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
-
-    val savedArtists = artistRepository.getSavedArtists().map { it.map(::savedArtistToArtistItem) }
-        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
-
-    val savedPlaylists = playlistRepository.getSavedPlaylists().map { it.map(::savedPlaylistToPlaylistItem) }
-        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
-
-    val localPlaylists = savedPlaylists.map { playlists ->
-        playlists.filter { it.id.startsWith("LOCAL_") }
-    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     // ── Remote YTM (cuenta) ─────────────────────────────────
 
@@ -103,9 +91,6 @@ class LibraryViewModel(
                 val playlists = YouTube.library("FEmusic_liked_playlists")
                     .getOrNull()?.items?.filterIsInstance<PlaylistItem>() ?: emptyList()
 
-                // Canciones con "Me gusta" (liked songs — tabIndex 0)
-                val likedSongs = YouTube.library("FEmusic_liked_videos", tabIndex = 0)
-                    .getOrNull()?.items?.filterIsInstance<SongItem>() ?: emptyList()
 
                 // Álbumes guardados (tabIndex 1)
                 val ytmAlbums = YouTube.library("FEmusic_liked_albums", tabIndex = 0)
@@ -117,7 +102,7 @@ class LibraryViewModel(
 
                 _ytmState.value = YtmLibraryState.Success(
                     playlists = playlists,
-                    likedSongs = likedSongs,
+                    likedSongs = emptyList(),
                     albums = ytmAlbums,
                     artists = ytmArtists,
                 )
@@ -130,6 +115,8 @@ class LibraryViewModel(
     // ── Tabs / local actions ────────────────────────────────
 
     fun selectTab(tab: LibraryTab) { _selectedTab.value = tab }
+
+    fun selectMixedTab() { _selectedTab.value = LibraryTab.LIBRARY }
 
     fun removeSong(id: String) { viewModelScope.launch { songRepository.removeSong(id) } }
     fun removeAlbum(browseId: String) { viewModelScope.launch { albumRepository.removeAlbum(browseId) } }
@@ -175,6 +162,66 @@ class LibraryViewModel(
         }
     }
 
+    fun refreshYtmLibrary() = loadYtmLibrary()
+}
+
+
+class LibrarySongsViewModel(
+    private val songRepository: SongRepository,
+    private val albumRepository: AlbumRepository,
+    private val playlistRepository: PlaylistRepository,
+    private val artistRepository: ArtistRepository,
+) : ViewModel() {
+    val savedSongs = songRepository.getSavedSongs().map { it.map(::savedSongToSongItem) }
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+}
+
+class LibraryAlbumsViewModel(
+    private val albumRepository: AlbumRepository,
+) : ViewModel() {
+    val savedAlbums = albumRepository.getSavedAlbums().map { it.map(::savedAlbumToAlbumItem) }
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+}
+
+class LibraryArtistsViewModel(
+    private val artistRepository: ArtistRepository,
+) : ViewModel() {
+    val savedArtists = artistRepository.getSavedArtists().map { it.map(::savedArtistToArtistItem) }
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+}
+
+class LibraryPlaylistsViewModel(
+    private val playlistRepository: PlaylistRepository,
+) : ViewModel() {
+    val savedPlaylists = playlistRepository.getSavedPlaylists().map { it.map(::savedPlaylistToPlaylistItem) }
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    val localPlaylists = savedPlaylists.map { playlists ->
+        playlists.filter { it.id.startsWith("LOCAL_") }
+    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    @OptIn(ExperimentalUuidApi::class)
+    fun createLocalPlaylist(name: String, song: SongItem? = null) {
+        viewModelScope.launch {
+            val id = "LOCAL_${kotlin.uuid.Uuid.random()}"
+            val playlist = PlaylistItem(
+                id = id,
+                title = name,
+                author = Artist(name = "Local", id = null),
+                songCountText = null,
+                thumbnail = song?.thumbnail,
+                playEndpoint = null,
+                shuffleEndpoint = null,
+                radioEndpoint = null
+            )
+            if (song == null) {
+                playlistRepository.savePlaylist(playlist)
+            } else {
+                playlistRepository.savePlaylistWithSongs(playlist, listOf(song))
+            }
+        }
+    }
+
     fun addSongToLocalPlaylist(playlistId: String, song: SongItem) {
         viewModelScope.launch {
             playlistRepository.addSongToPlaylist(playlistId, song)
@@ -186,6 +233,16 @@ class LibraryViewModel(
             playlistRepository.removeSongFromPlaylist(playlistId, songId)
         }
     }
+}
 
-    fun refreshYtmLibrary() = loadYtmLibrary()
+class LibraryMixedViewModel(
+    musicDatabase: MusicDatabase
+) : ViewModel() {
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing
+
+    val database = musicDatabase.database
+
+    var albums = database.savedAlbumQueries.selectAll()
+    var playlists = database.playlistQueries.playlistsByNameAsc()
 }

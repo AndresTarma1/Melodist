@@ -1,6 +1,16 @@
 package com.example.melodist.navigation
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
@@ -70,7 +80,7 @@ fun NavigationDesktop(rootComponent: RootComponent) {
 
     // Estado para el ancho de la cola. Empieza en 300.dp
     var queueWidth by remember { mutableStateOf(300.dp) }
-// Necesitamos LocalDensity para convertir los píxeles del arrastre a Dp
+    val animatedWidth by animateDpAsState(queueWidth)
     val density = LocalDensity.current
 
     // Fondo global (el "océano" sobre el que flotan las islas)
@@ -107,6 +117,7 @@ fun NavigationDesktop(rootComponent: RootComponent) {
                             },
                             icon = { Icon(tab.icon, null) },
                             label = { Text(tab.label) },
+                            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                             alwaysShowLabel = false,
                             colors = navigationRailItemCustomColors()
                         )
@@ -124,6 +135,7 @@ fun NavigationDesktop(rootComponent: RootComponent) {
                             },
                             icon = { Icon(tab.icon, null) },
                             label = { Text(tab.label) },
+                            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                             alwaysShowLabel = false,
                             colors = navigationRailItemCustomColors()
                         )
@@ -145,14 +157,16 @@ fun NavigationDesktop(rootComponent: RootComponent) {
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
+                        .animateContentSize() // 🔥 suaviza cambios de layout
                 ) {
-                    // 🏝️ ISLA 1: Contenido Principal (Rutas hijas)
+
+                    // 🏝️ CONTENIDO PRINCIPAL
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
-                            .clip(RoundedCornerShape(16.dp)) // Redondeo completo
-                            .background(MaterialTheme.colorScheme.surfaceContainer) // Color de fondo aislado
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(MaterialTheme.colorScheme.surfaceContainer)
                     ) {
                         if (isNowPlayingExpanded && currentSong != null) {
                             NowPlayingLayout(
@@ -177,52 +191,87 @@ fun NavigationDesktop(rootComponent: RootComponent) {
                         }
                     }
 
-                    // 🎚️ DIVISOR ARRASTRABLE (Actúa como el 'gap' interactivo)
-                    if (isQueueVisible) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxHeight()
-                                .width(12.dp)
-                                .pointerHoverIcon(PointerIcon.Hand)
-                                .pointerInput(Unit) {
-                                    detectHorizontalDragGestures { _, dragAmount ->
-                                        val dragDp = with(density) { dragAmount.toDp() }
-                                        queueWidth = (queueWidth - dragDp).coerceIn(250.dp, 600.dp)
-                                    }
-                                },
-                            contentAlignment = Alignment.Center,
-                        ) {}
+                    // 🏝️ PANEL DERECHO COMPLETO (DIVISOR + QUEUE)
+                    androidx.compose.animation.AnimatedContent(
+                        modifier = Modifier
+                        .clip(RoundedCornerShape(16.dp)),
+                        targetState = isQueueVisible,
+                        transitionSpec = {
+                            slideInHorizontally(
+                                animationSpec = spring(dampingRatio = 0.85f),
+                                initialOffsetX = { it }
+                            ) + fadeIn() togetherWith
+                                    slideOutHorizontally(
+                                        animationSpec = spring(dampingRatio = 0.85f),
+                                        targetOffsetX = { it }
+                                    ) + fadeOut()
+                        }
+                    ) { visible ->
+
+                        if (visible) {
+                            Row(
+                                modifier = Modifier.fillMaxHeight()
+                            ) {
+
+                                // 🎚️ DIVISOR
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxHeight()
+                                        .width(12.dp)
+                                        .pointerHoverIcon(PointerIcon.Hand)
+                                        .pointerInput(Unit) {
+                                            detectHorizontalDragGestures { _, dragAmount ->
+                                                val dragDp = with(density) { dragAmount.toDp() }
+                                                queueWidth = (queueWidth - dragDp)
+                                                    .coerceIn(250.dp, 600.dp)
+                                            }
+                                        }
+                                )
+                                
+                                // 🎵 QUEUE PANEL
+                                PlaybackQueuePanel(
+                                    state = playerState,
+                                    onDismiss = { isQueueVisible = false },
+                                    modifier = Modifier
+                                        .fillMaxHeight()
+                                        .width(animatedWidth)
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceContainer)
+                                )
+                            }
+                        } else {
+                            Spacer(Modifier.width(0.dp)) // evita saltos raros
+                        }
                     }
 
-                    // 🏝️ ISLA 2: Cola de Reproducción
-                    // Animamos dinámicamente el gap para que aparezca suavemente al abrir la cola
-                    PlaybackQueuePanel(
-                        state = playerState,
-                        isVisible = isQueueVisible,
-                        onDismiss = { isQueueVisible = false },
-                        modifier = Modifier
-                            .fillMaxHeight()
-                            .width(queueWidth)
-                            .clip(RoundedCornerShape(16.dp)) // Redondeo individual
-                            .background(if (isQueueVisible) MaterialTheme.colorScheme.surfaceContainer else Color.Transparent)
-                    )
+
                 }
+                AnimatedVisibility(
+                    visible = currentSong != null,
+                    enter = slideInVertically(
+                        animationSpec = spring(dampingRatio = 0.8f),
+                        initialOffsetY = { it }
+                    ) + fadeIn(),
+                    exit = slideOutVertically(
+                        animationSpec = spring(dampingRatio = 0.8f),
+                        targetOffsetY = { it }
+                    ) + fadeOut()
+                ) {
+                    Column {
+                        Spacer(modifier = Modifier.height(16.dp))
 
-                // 🏝️ ISLA 3: MiniPlayer Inferior
-                if (currentSong != null) {
-                    Spacer(modifier = Modifier.height(16.dp)) // Separa verticalmente el reproductor del contenido
-
-                    MiniPlayer(
-                        progressState = progressState,
-                        onClickExpand = { isNowPlayingExpanded = true },
-                        onToggleNowPlaying = { isNowPlayingExpanded = !isNowPlayingExpanded },
-                        isNowPlayingExpanded = isNowPlayingExpanded,
-                        onToggleQueue = { isQueueVisible = !isQueueVisible },
-                        isQueueVisible = isQueueVisible,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(16.dp)) // Hace que el MiniPlayer no sea una simple barra pegada
-                    )
+                        MiniPlayer(
+                            progressState = progressState,
+                            onClickExpand = { isNowPlayingExpanded = true },
+                            onToggleNowPlaying = { isNowPlayingExpanded = !isNowPlayingExpanded },
+                            isNowPlayingExpanded = isNowPlayingExpanded,
+                            onToggleQueue = { isQueueVisible = !isQueueVisible },
+                            isQueueVisible = isQueueVisible,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(16.dp))
+                        )
+                    }
                 }
             }
         }

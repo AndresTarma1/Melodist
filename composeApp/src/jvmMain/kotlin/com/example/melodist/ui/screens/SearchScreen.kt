@@ -51,6 +51,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.*
@@ -67,6 +68,11 @@ import com.example.melodist.ui.components.MelodistImage
 import com.example.melodist.ui.components.PlaceholderType
 import com.example.melodist.ui.components.SongSkeleton
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.DpOffset
 import com.example.melodist.ui.helpers.contextMenuArea
 import com.example.melodist.utils.LocalPlayerViewModel
@@ -617,63 +623,70 @@ fun EmptyStateView(icon: ImageVector, message: String) {
 @OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun SearchResultItem(item: YTItem, onItemClick: (YTItem) -> Unit) {
+    // 1. Refinamiento de formas: Álbumes/Canciones con bordes ligeramente más suaves
     val shape = when (item) {
         is ArtistItem -> CircleShape
-        is PlaylistItem -> RoundedCornerShape(4.dp)
-        else -> RoundedCornerShape(8.dp)
+        is PlaylistItem -> RoundedCornerShape(8.dp)
+        else -> RoundedCornerShape(6.dp)
     }
 
+    // 2. Estandarización de tamaños para evitar que el ListItem se deforme verticalmente
     val imageSize = when (item) {
-        is PlaylistItem -> 64.dp // Un poco más grande para destacar
-        is ArtistItem -> 56.dp
-        else -> 52.dp
+        is PlaylistItem, is ArtistItem -> 56.dp
+        else -> 48.dp
     }
-
 
     var showMenu by remember { mutableStateOf(false) }
     var menuOffset by remember { mutableStateOf(DpOffset.Zero) }
-
     var isHovered by remember { mutableStateOf(false) }
 
-    Box {
+    // Variables para calcular la posición relativa correcta
+    var buttonPosition by remember { mutableStateOf(Offset.Zero) }
+    var rootCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
+
+    val density = LocalDensity.current
+
+    // 3. Movemos el Box para que envuelva todo el componente, permitiendo márgenes externos
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 2.dp) // Margen exterior para que el hover respire
+            .clip(RoundedCornerShape(8.dp))
+            .onGloballyPositioned { rootCoordinates = it } // Guardamos las coordenadas del contenedor padre
+            .background(if (isHovered) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f) else Color.Transparent)
+            .clickable { onItemClick(item) }
+            .pointerHoverIcon(PointerIcon.Hand)
+            .contextMenuArea(
+                enabled = item is SongItem,
+                onHoverChange = { isHovered = it },
+                onMenuAction = { offset ->
+                    menuOffset = offset
+                    showMenu = true
+                }
+            )
+    ) {
         ListItem(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(if (isHovered) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f) else Color.Transparent)
-                .clickable { onItemClick(item) }
-                .pointerHoverIcon(PointerIcon.Hand)
-                .contextMenuArea(
-                    enabled = item is SongItem,
-                    onHoverChange = { isHovered = it },
-                    onMenuAction = { offset ->
-                        menuOffset = offset
-                        showMenu = true
-                    }
-                )
-                .padding(vertical = 2.dp), // Espaciado sutil entre items
+            modifier = Modifier.fillMaxWidth(),
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
             headlineContent = {
                 Text(
                     text = item.title,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold)
+                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold)
                 )
             },
             supportingContent = {
-                // 2. Construimos un subtítulo rico en información
                 val subtitle = when (item) {
                     is SongItem -> {
                         val artists = item.artists.joinToString { it.name }
                         val album = item.album?.name?.let { " • $it" } ?: ""
                         "$artists$album"
                     }
-
                     is AlbumItem -> {
                         val artists = item.artists?.joinToString { it.name } ?: "Álbum"
                         "Álbum • $artists"
                     }
-
                     is ArtistItem -> "Artista"
                     is PlaylistItem -> {
                         val author = item.author?.name?.let { " • $it" } ?: ""
@@ -689,7 +702,6 @@ fun SearchResultItem(item: YTItem, onItemClick: (YTItem) -> Unit) {
                 )
             },
             leadingContent = {
-                // 3. Contenedor de imagen dinámico
                 MelodistImage(
                     url = item.thumbnail,
                     contentDescription = item.title,
@@ -702,15 +714,26 @@ fun SearchResultItem(item: YTItem, onItemClick: (YTItem) -> Unit) {
                         else -> PlaceholderType.SONG
                     },
                     contentScale = ContentScale.Crop,
-                    iconSize = if (item is PlaylistItem) 32.dp else 24.dp
+                    iconSize = if (item is PlaylistItem) 28.dp else 24.dp
                 )
             },
             trailingContent = {
                 if (item is SongItem) {
-                    IconButton(onClick = {
-                        menuOffset = DpOffset.Zero
-                        showMenu = true
-                    }) {
+                    IconButton(
+                        onClick = {
+                            menuOffset = with(density) {
+                                // Convertimos los píxeles a DpOffset de manera segura
+                                DpOffset(buttonPosition.x.toDp(), buttonPosition.y.toDp())
+                            }
+                            showMenu = true
+                        },
+                        modifier = Modifier.onGloballyPositioned { buttonCoords ->
+                            // LA SOLUCIÓN: Calculamos la posición del botón RELATIVA al Box padre, no a la ventana
+                            rootCoordinates.let { root ->
+                                buttonPosition = root?.localPositionOf(buttonCoords, Offset.Zero) ?: Offset.Zero
+                            }
+                        }
+                    ) {
                         Icon(
                             imageVector = Icons.Default.MoreVert,
                             contentDescription = "Más opciones",
@@ -718,17 +741,16 @@ fun SearchResultItem(item: YTItem, onItemClick: (YTItem) -> Unit) {
                         )
                     }
                 }
-            },
-            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+            }
         )
 
-    if (item is SongItem) {
-        SongContextMenu(
-            expanded = showMenu,
-            onDismiss = { showMenu = false },
-            song = item,
-            offset = menuOffset
-        )
-    }
+        if (item is SongItem) {
+            SongContextMenu(
+                expanded = showMenu,
+                onDismiss = { showMenu = false },
+                song = item,
+                offset = menuOffset
+            )
+        }
     }
 }

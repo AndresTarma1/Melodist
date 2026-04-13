@@ -57,11 +57,11 @@ class PlaylistViewModel(
     val isLoadingMore: StateFlow<Boolean> = _isLoadingMore.asStateFlow()
 
     val hasMoreSongs: StateFlow<Boolean> = _continuation
-        .map { it != null }
+        .map { token -> token != null }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
-            initialValue = _continuation.value != null
+            initialValue = false
         )
 
     /** Actualiza un campo de PlaylistState.Success de forma segura; no-op si el estado no es Success */
@@ -155,14 +155,17 @@ class PlaylistViewModel(
             log.info("Playlist no cacheada, cargando desde YouTube: $playlistId")
             YouTube.playlist(playlistId)
                 .onSuccess { page ->
+                    if(page.songs.isNotEmpty()){
+
                     _songs.value = page.songs
-                    _continuation.value = page.songsContinuation ?: page.continuation
+                    _continuation.value = if (page.songsContinuation != null) page.songsContinuation else null
                     val saved = repository.isPlaylistSavedOnce(playlistId)
                     _uiState.value = PlaylistState.Success(
                         playlistPage = page,
                         isFromCache = false,
                         isSaved = saved,
                     )
+                    }
                 }
                 .onFailure {
                     _uiState.value = PlaylistState.Error(it.message ?: "Error desconocido")
@@ -181,11 +184,11 @@ class PlaylistViewModel(
             repeat(3) { attempt ->
                 if (success) return@repeat
                 YouTube.playlistContinuation(token)
-                    .onSuccess { page ->
+                .onSuccess { page ->
                         if (page.songs.isNotEmpty()) {
                             _songs.value += page.songs
                         }
-                        _continuation.value = page.continuation
+                        _continuation.value = page.continuation?.takeIf { it.isNotBlank() }
                         success = true
                     }
                     .onFailure {
@@ -200,7 +203,6 @@ class PlaylistViewModel(
 
     suspend fun fetchAllRemainingPages(): List<SongItem> {
         var token = _continuation.value
-        // Usamos una lista local para no disparar recomposiciones constantes del StateFlow
         val accumulatedSongs = _songs.value.toMutableList()
 
         while (token != null) {
@@ -215,7 +217,7 @@ class PlaylistViewModel(
                             // Actualizamos el flujo de canciones para que el usuario vea progreso
                             _songs.value = accumulatedSongs.toList()
                         }
-                        token = page.continuation
+                        token = page.continuation?.takeIf { it.isNotBlank() }
                         _continuation.value = token
                         fetched = true
                     }

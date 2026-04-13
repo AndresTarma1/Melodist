@@ -253,9 +253,10 @@ fun HomeScreenContent(
 @Composable
 fun MusicItem(item: YTItem, onClick: (YTItem) -> Unit) {
     val isArtist = item is ArtistItem
-    val imageShape = if (isArtist) CircleShape else RoundedCornerShape(12.dp)
+    val imageShape = if (isArtist) CircleShape else RoundedCornerShape(8.dp)
     val alignment = if (isArtist) Alignment.CenterHorizontally else Alignment.Start
     val titleTextAlign: TextAlign = if (isArtist) TextAlign.Center else TextAlign.Start
+
     val placeholderType = when (item) {
         is ArtistItem -> PlaceholderType.ARTIST
         is AlbumItem -> PlaceholderType.ALBUM
@@ -265,14 +266,14 @@ fun MusicItem(item: YTItem, onClick: (YTItem) -> Unit) {
 
     val cardWidth = item.musicItemCardWidth()
     val aspectRatio = item.thumbnailAspectRatio()
-
     val downloadViewModel = LocalDownloadViewModel.current
 
     var showMenu by remember { mutableStateOf(false) }
     var menuOffset by remember { mutableStateOf(DpOffset.Zero) }
-
     var isHovered by remember { mutableStateOf(false) }
-    val color = if (isHovered) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f) else Color.Transparent
+
+    // Material 3: Usamos surfaceVariant para el hover en lugar de modificar alphas a mano
+    val hoverColor = if (isHovered) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f) else Color.Transparent
 
     val downloadState by if (item is SongItem) {
         rememberSongDownloadState(item.id, downloadViewModel)
@@ -280,23 +281,25 @@ fun MusicItem(item: YTItem, onClick: (YTItem) -> Unit) {
         remember { mutableStateOf(null) }
     }
 
-    Box {
+    // Movemos los modificadores de interacción al Box raíz
+    Box(
+        modifier = Modifier
+            .width(cardWidth)
+            .clip(RoundedCornerShape(12.dp))
+            .background(hoverColor)
+            .clickable { onClick(item) }
+            .pointerHoverIcon(PointerIcon.Hand)
+            .contextMenuArea(
+                enabled = item is SongItem,
+                onHoverChange = { isHovered = it },
+                onMenuAction = { offset ->
+                    menuOffset = offset
+                    showMenu = true
+                }
+            )
+            .padding(10.dp) // Padding interno para que actúe como una tarjeta
+    ) {
         Column(
-            modifier = Modifier
-                .width(cardWidth)
-                .clip(RoundedCornerShape(12.dp))
-                .background(color)
-                .clickable { onClick(item) }
-                .pointerHoverIcon(PointerIcon.Hand)
-                .contextMenuArea(
-                    enabled = item is SongItem,
-                    onHoverChange = { isHovered = it },
-                    onMenuAction = { offset ->
-                        menuOffset = offset
-                        showMenu = true
-                    }
-                )
-                .padding(8.dp),
             horizontalAlignment = alignment
         ) {
             Box {
@@ -309,7 +312,8 @@ fun MusicItem(item: YTItem, onClick: (YTItem) -> Unit) {
                     shape = imageShape,
                     placeholderType = placeholderType,
                     iconSize = if (isArtist) 56.dp else 40.dp,
-                    contentScale = ContentScale.Fit,
+                    // Crop suele verse más premium en portadas de álbumes para evitar bordes negros
+                    contentScale = ContentScale.Crop,
                     alignment = if (isArtist) Alignment.TopCenter else Alignment.Center
                 )
 
@@ -318,19 +322,19 @@ fun MusicItem(item: YTItem, onClick: (YTItem) -> Unit) {
                         state = downloadState,
                         modifier = Modifier
                             .align(Alignment.TopEnd)
-                            .padding(4.dp)
-                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f), CircleShape)
+                            .padding(6.dp)
+                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f), CircleShape)
                             .padding(4.dp)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             Text(
                 text = item.title,
                 style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.SemiBold, // SemiBold es más limpio que Bold para títulos
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.fillMaxWidth(),
@@ -345,11 +349,12 @@ fun MusicItem(item: YTItem, onClick: (YTItem) -> Unit) {
             }
 
             if (artistText.isNotBlank()) {
-                Spacer(modifier = Modifier.height(2.dp))
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = artistText,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
+                    style = MaterialTheme.typography.bodyMedium,
+                    // Semántica de Material 3 para textos secundarios
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.fillMaxWidth(),
@@ -368,7 +373,6 @@ fun MusicItem(item: YTItem, onClick: (YTItem) -> Unit) {
         }
     }
 }
-
 @Composable
 fun HomeScreenLoading() {
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {

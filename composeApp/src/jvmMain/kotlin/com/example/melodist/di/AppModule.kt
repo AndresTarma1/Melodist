@@ -14,6 +14,11 @@ import com.example.melodist.viewmodels.AlbumViewModel
 import com.example.melodist.viewmodels.ArtistViewModel
 import com.example.melodist.viewmodels.DownloadViewModel
 import com.example.melodist.viewmodels.HomeViewModel
+import com.example.melodist.viewmodels.LibraryAlbumsViewModel
+import com.example.melodist.viewmodels.LibraryArtistsViewModel
+import com.example.melodist.viewmodels.LibraryMixedViewModel
+import com.example.melodist.viewmodels.LibraryPlaylistsViewModel
+import com.example.melodist.viewmodels.LibrarySongsViewModel
 import com.example.melodist.viewmodels.LibraryViewModel
 import com.example.melodist.viewmodels.PlayerViewModel
 import com.example.melodist.viewmodels.PlaylistViewModel
@@ -27,6 +32,7 @@ import com.example.melodist.player.AudioStreamResolver
 import com.example.melodist.player.DownloadService
 import com.example.melodist.player.PlayerService
 import com.example.melodist.player.WindowsMediaSession
+import com.example.melodist.utils.SyncUtils
 import org.koin.dsl.module
 import java.util.logging.Logger
 
@@ -47,6 +53,7 @@ val appModule = module {
     single<SongRepository> { SongRepository(get()) }
     single<PlaylistRepository> { PlaylistRepository(get()) }
     single<SearchRepository> { SearchRepository(get()) }
+    single<SyncUtils> { SyncUtils(get(), get(), get(), get(), get()) }
 
     // Player (singletons — shared across entire app)
     single<PlayerService> { PlayerService() }
@@ -54,13 +61,18 @@ val appModule = module {
     single<WindowsMediaSession> { WindowsMediaSession() }
     single<DownloadService> { DownloadService(get(), get()) }
     single<PlayerViewModel> { PlayerViewModel(get(), get(), get(), get()) }
-    single<DownloadViewModel> { DownloadViewModel(get(), get()) }
+    single<DownloadViewModel> { DownloadViewModel(get(), get(), get()) }
 
     // ViewModels — loginState de AccountManager para reaccionar a cambios de sesión
     factory { AccountViewModel() }
     factory { HomeViewModel(loginState = AccountManager.loginState) }
     factory { SearchViewModel(get()) }
     factory { LibraryViewModel(get(), get(), get(), get(), get(), loginState = AccountManager.loginState) }
+    factory { LibrarySongsViewModel(get(), get(), get(), get()) }
+    factory { LibraryAlbumsViewModel(get()) }
+    factory { LibraryArtistsViewModel(get()) }
+    factory { LibraryPlaylistsViewModel(get()) }
+    factory { LibraryMixedViewModel(get()) }
     factory { AlbumViewModel(get(), get()) }
     factory { PlaylistViewModel(get(), get(), get()) }
     factory { ArtistViewModel(get(), get()) }

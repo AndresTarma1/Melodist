@@ -1,5 +1,6 @@
 package com.example.melodist.db
 
+import app.cash.sqldelight.Query
 import com.example.melodist.db.dao.AlbumDao
 import com.example.melodist.db.dao.ArtistDao
 import com.example.melodist.db.dao.FormatDao
@@ -75,7 +76,9 @@ class DatabaseDao(private val database: MelodistDatabase) {
     fun albumWithSongs(albumId: String): Flow<AlbumWithSongs?> = albums.albumWithSongs(albumId)
     fun countDownloadedByAlbum(albumId: String): Long = albums.countDownloadedByAlbum(albumId)
 
+    // Playlist DAO
     fun allPlaylists(): Flow<List<PlaylistEntity>> = playlists.allPlaylists()
+    fun playlistsByNameAsc(): Flow<List<PlaylistEntity>> = playlists.playlistsByNameAsc()
     fun playlistById(id: String): Flow<PlaylistEntity?> = playlists.playlistById(id)
     suspend fun insertPlaylist(playlist: PlaylistEntity) = playlists.insertPlaylist(playlist)
     suspend fun deletePlaylist(id: String) = playlists.deletePlaylist(id)

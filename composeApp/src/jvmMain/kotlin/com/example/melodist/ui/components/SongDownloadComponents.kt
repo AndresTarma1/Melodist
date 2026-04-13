@@ -1,5 +1,6 @@
 package com.example.melodist.ui.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -9,6 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
+import androidx.compose.material.icons.filled.AddCircleOutline
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteOutline
@@ -16,9 +18,11 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.DownloadDone
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.HourglassTop
+import androidx.compose.material.icons.filled.RemoveCircleOutline
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -41,6 +45,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerMoveFilter
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -48,10 +53,12 @@ import com.example.melodist.player.DownloadState
 import com.example.melodist.ui.helpers.rememberSongDownloadState
 import com.example.melodist.utils.LocalSnackbarHostState
 import com.example.melodist.utils.LocalDownloadViewModel
-import com.example.melodist.utils.LocalPlayerViewModel
 import com.example.melodist.utils.LocalLibraryViewModel
+import com.example.melodist.utils.LocalPlayerViewModel
+import com.example.melodist.viewmodels.LibraryPlaylistsViewModel
 import com.metrolist.innertube.models.SongItem
 import kotlinx.coroutines.launch
+import org.koin.compose.koinInject
 
 @Composable
 fun DownloadIndicator(
@@ -91,7 +98,6 @@ fun DownloadIndicator(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SongContextMenu(
     expanded: Boolean,
@@ -106,183 +112,83 @@ fun SongContextMenu(
     val downloadViewModel = LocalDownloadViewModel.current
     val downloadState by rememberSongDownloadState(song.id, downloadViewModel)
     val playerViewModel = LocalPlayerViewModel.current
-    val libraryViewModel = LocalLibraryViewModel.current
-    val localPlaylists by libraryViewModel.localPlaylists.collectAsState()
+    val playlistsViewModel: LibraryPlaylistsViewModel = koinInject()
+
     var showPlaylistDialog by remember { mutableStateOf(false) }
-    var playlistName by remember { mutableStateOf("") }
-    val snackbarHostState = LocalSnackbarHostState.current
-    val snackbarScope = rememberCoroutineScope()
 
-    MaterialTheme(
-        shapes = MaterialTheme.shapes.copy(extraSmall = RoundedCornerShape(24.dp))
+    DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = onDismiss,
+        offset = offset,
+        modifier = Modifier
+            .background(MaterialTheme.colorScheme.surface)
     ) {
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = onDismiss,
-            offset = offset,
+        @Composable
+        fun StyledMenuItem(
+            text: String,
+            icon: ImageVector,
+            iconTint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+            onClick: () -> Unit
         ) {
-            @Composable
-            fun StyledMenuItem(
-                text: String,
-                icon: ImageVector,
-                iconTint: Color,
-                onClick: () -> Unit
-            ) {
-                DropdownMenuItem(
-                    modifier = Modifier
-                        .padding(horizontal = 8.dp, vertical = 2.dp)
-                        .clip(RoundedCornerShape(12.dp)),
-                    text = { Text(text) },
-                    onClick = { onClick(); onDismiss() },
-                    leadingIcon = { Icon(icon, null, tint = iconTint) }
-                )
+            DropdownMenuItem(
+                modifier = Modifier
+                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                    .clip(RoundedCornerShape(8.dp)),
+                text = { Text(text, style = MaterialTheme.typography.bodyMedium) },
+                onClick = {
+                    onClick()
+                    onDismiss()
+                },
+                leadingIcon = { Icon(icon, null, tint = iconTint, modifier = Modifier.size(20.dp)) }
+            )
+        }
+
+        // --- SECCIÓN DE DESCARGAS ---
+        when (downloadState) {
+            is DownloadState.Completed -> StyledMenuItem(
+                "Eliminar descarga", Icons.Default.DeleteOutline, MaterialTheme.colorScheme.error
+            ) { downloadViewModel.removeDownload(song.id) }
+
+            is DownloadState.Downloading, is DownloadState.Queued -> StyledMenuItem(
+                "Cancelar descarga", Icons.Default.Cancel, MaterialTheme.colorScheme.error
+            ) { downloadViewModel.cancelDownload(song.id) }
+
+            else -> StyledMenuItem(
+                "Descargar", Icons.Default.Download, MaterialTheme.colorScheme.primary
+            ) { downloadViewModel.downloadSong(song) }
+        }
+
+        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp, horizontal = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+
+        // --- SECCIÓN DE COLA ---
+        if (showQueueActions) {
+            StyledMenuItem("Reproducir a continuación", Icons.AutoMirrored.Filled.PlaylistAdd) {
+                playerViewModel.playNext(song)
             }
-
-            when (downloadState) {
-                is DownloadState.Completed -> StyledMenuItem(
-                    "Eliminar descarga",
-                    Icons.Default.DeleteOutline,
-                    MaterialTheme.colorScheme.error
-                ) { downloadViewModel.removeDownload(song.id) }
-
-                is DownloadState.Downloading, is DownloadState.Queued -> StyledMenuItem(
-                    "Cancelar descarga",
-                    Icons.Default.Cancel,
-                    MaterialTheme.colorScheme.error
-                ) { downloadViewModel.cancelDownload(song.id) }
-
-                else -> StyledMenuItem(
-                    "Descargar",
-                    Icons.Default.Download,
-                    MaterialTheme.colorScheme.primary
-                ) { downloadViewModel.downloadSong(song) }
-            }
-
-            if (showQueueActions) {
-                StyledMenuItem(
-                    "Reproducir a continuación",
-                    Icons.AutoMirrored.Filled.PlaylistAdd,
-                    MaterialTheme.colorScheme.primary
-                ) { playerViewModel.playNext(song) }
-
-                StyledMenuItem(
-                    "Agregar al final de la cola",
-                    Icons.AutoMirrored.Filled.QueueMusic,
-                    MaterialTheme.colorScheme.primary
-                ) { playerViewModel.addToQueue(song) }
-            }
-
-            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp, horizontal = 12.dp))
-            StyledMenuItem(
-                "Añadir a playlist",
-                Icons.AutoMirrored.Filled.PlaylistAdd,
-                MaterialTheme.colorScheme.primary
-            ) { showPlaylistDialog = true }
-
-            onRemoveFromLibrary?.let { remove ->
-                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp, horizontal = 12.dp))
-                StyledMenuItem(
-                    "Eliminar de la biblioteca",
-                    Icons.Default.Delete,
-                    MaterialTheme.colorScheme.error,
-                    remove
-                )
-            }
-
-            if (isLocalPlaylist) {
-                onRemoveFromPlaylist?.let { remove ->
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp, horizontal = 12.dp))
-                    StyledMenuItem(
-                        "Quitar de playlist",
-                        Icons.Default.DeleteOutline,
-                        MaterialTheme.colorScheme.error,
-                        remove
-                    )
-                }
+            StyledMenuItem("Agregar al final de la cola", Icons.AutoMirrored.Filled.QueueMusic) {
+                playerViewModel.addToQueue(song)
             }
         }
 
-        if (showPlaylistDialog) {
-            Dialog(onDismissRequest = {
-                playlistName = ""
-                showPlaylistDialog = false
-            }) {
-                MaterialTheme(
-                    shapes = MaterialTheme.shapes.copy(extraSmall = RoundedCornerShape(24.dp))
-                ) {
-                    androidx.compose.material3.Card(
-                        shape = RoundedCornerShape(24.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(20.dp),
-                            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(14.dp)
-                        ) {
-                            Text("Añadir a playlist", style = MaterialTheme.typography.titleLarge)
-
-                            OutlinedTextField(
-                                value = playlistName,
-                                onValueChange = { playlistName = it },
-                                modifier = Modifier.fillMaxWidth(),
-                                label = { Text("Nueva playlist") },
-                                singleLine = true
-                            )
-
-                            Button(
-                                onClick = {
-                                    val name = playlistName.trim()
-                                    if (name.isNotEmpty()) {
-                                        libraryViewModel.createLocalPlaylistWithSong(name, song)
-                                        playlistName = ""
-                                        showPlaylistDialog = false
-                                        snackbarScope.launch {
-                                            snackbarHostState.showSnackbar("Playlist creada y canción añadida")
-                                        }
-                                    }
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text("Crear y añadir")
-                            }
-
-                            HorizontalDivider()
-
-                            Text("Playlists locales", style = MaterialTheme.typography.labelLarge)
-
-                            if (localPlaylists.isNotEmpty()) {
-                                Column(verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
-                                    localPlaylists.forEach { playlist ->
-                                        TextButton(
-                                            onClick = {
-                                                libraryViewModel.addSongToLocalPlaylist(playlist.id, song)
-                                                showPlaylistDialog = false
-                                                snackbarScope.launch {
-                                                    snackbarHostState.showSnackbar("Añadida a ${playlist.title}")
-                                                }
-                                            },
-                                            modifier = Modifier.fillMaxWidth()
-                                        ) {
-                                            Text(playlist.title)
-                                        }
-                                    }
-                                }
-                            } else {
-                                Text("No hay playlists locales todavía.")
-                            }
-
-                            TextButton(
-                                onClick = {
-                                    playlistName = ""
-                                    showPlaylistDialog = false
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text("Cerrar")
-                            }
-                        }
-                    }
-                }
-            }
+        // --- SECCIÓN DE BIBLIOTECA/PLAYLIST ---
+        StyledMenuItem("Añadir a playlist", Icons.Default.AddCircleOutline) {
+            showPlaylistDialog = true
         }
+
+        onRemoveFromLibrary?.let {
+            StyledMenuItem("Eliminar de biblioteca", Icons.Default.Delete, MaterialTheme.colorScheme.error, it)
+        }
+
+        if (isLocalPlaylist && onRemoveFromPlaylist != null) {
+            StyledMenuItem("Quitar de esta playlist", Icons.Default.RemoveCircleOutline, MaterialTheme.colorScheme.error, onRemoveFromPlaylist)
+        }
+    }
+
+    if (showPlaylistDialog) {
+//        AddToPlaylistDialog(
+//            song = song,
+//            playlistsViewModel = playlistsViewModel,
+//            onDismiss = { showPlaylistDialog = false }
+//        )
     }
 }

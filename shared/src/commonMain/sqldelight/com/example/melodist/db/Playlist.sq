@@ -18,11 +18,14 @@ CREATE TABLE IF NOT EXISTS Playlist (
 selectAllPlaylists:
 SELECT * FROM Playlist;
 
-playlistById:
-SELECT * FROM Playlist WHERE id = ?;
+playlistsByNameAsc:
+SELECT * FROM Playlist WHERE bookmarkedAt IS NOT NULL ORDER BY name ASC;
 
 bookmarkedPlaylists:
 SELECT * FROM Playlist WHERE bookmarkedAt IS NOT NULL ORDER BY bookmarkedAt DESC;
+
+playlistById:
+SELECT * FROM Playlist WHERE id = ?;
 
 insertPlaylist:
 INSERT OR REPLACE INTO Playlist (id, name, browseId, createdAt, lastUpdateTime, isEditable, bookmarkedAt, remoteSongCount, playEndpointParams, thumbnailUrl, shuffleEndpointParams, radioEndpointParams, isLocal, isAutoSync)

@@ -28,6 +28,10 @@ kotlin {
 
             api(libs.sqldelight.coroutines)
 
+
+            implementation("io.github.aakira:napier:2.7.1")
+
+
             // DataStore library
             api("androidx.datastore:datastore:1.2.1")
             // The Preferences DataStore library
