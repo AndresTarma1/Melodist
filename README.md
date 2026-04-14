@@ -1,6 +1,6 @@
 # Melodist (Beta)
 
-> Estado: **En desarrollo** · **Beta 1.0.4** · Orientado a **Windows** · Basado en **Metrolist** · Construido con amplio uso de **IA (IAPS)**
+> Estado: **En desarrollo** · **Beta 1.0.5** · Orientado a **Windows** · Basado en **Metrolist** · Construido con amplio uso de **IA (IAPS)**
 
 Este proyecto es una app de escritorio de streaming de música (Compose Multiplatform) enfocada a Windows, inspirada en [Metrolist](https://github.com/MetrolistGroup/Metrolist) y acelerada con herramientas de IA para iterar el diseño y la lógica.
 

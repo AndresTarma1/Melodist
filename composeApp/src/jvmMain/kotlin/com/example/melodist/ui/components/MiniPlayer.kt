@@ -39,6 +39,7 @@ import com.example.melodist.player.PlaybackState
 import com.example.melodist.utils.LocalPlayerViewModel
 import com.example.melodist.viewmodels.PlayerProgressState
 import com.example.melodist.viewmodels.QueueSource
+import com.example.melodist.viewmodels.RepeatMode
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -70,7 +71,7 @@ fun MiniPlayer(
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
             animation = tween(12000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
+            repeatMode = androidx.compose.animation.core.RepeatMode.Restart
         ),
         label = "miniAlbumDiscRotation"
     )
@@ -164,9 +165,8 @@ fun MiniPlayer(
 
                 // —─ CENTRO: Controles y Progreso (Espaciado corregido) —─—─—─—─—─
                 Column(
-                    modifier = Modifier.weight(1.6f), // Un poco más de peso para acomodar más botones
+                    modifier = Modifier.weight(1.6f),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    // Añadimos un espaciado vertical mayor entre botones y slider
                     verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterVertically)
                 ) {
                     Row(
@@ -176,12 +176,16 @@ fun MiniPlayer(
                         // Botón Aleatorio
                         IconButton(
                             onClick = { playerViewModel.toggleShuffle() },
-                            modifier = Modifier.size(36.dp).pointerHoverIcon(PointerIcon.Hand)
+                            modifier = Modifier.size(36.dp).pointerHoverIcon(PointerIcon.Hand),
+                            colors = IconButtonDefaults.iconButtonColors(
+                                containerColor = if (state.isShuffled) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                                else Color.Transparent,
+                            )
                         ) {
                             Icon(
                                 Icons.Rounded.Shuffle, "Aleatorio",
                                 modifier = Modifier.size(20.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                tint = if (state.isShuffled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
 
@@ -206,7 +210,11 @@ fun MiniPlayer(
                             )
                         ) {
                             if (state.playbackState == PlaybackState.LOADING) {
-                                CircularProgressIndicator(modifier = Modifier.size(20.dp), color = MaterialTheme.colorScheme.surface, strokeWidth = 2.dp)
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    color = MaterialTheme.colorScheme.surface,
+                                    strokeWidth = 2.dp
+                                )
                             } else {
                                 Icon(
                                     if (state.playbackState == PlaybackState.PLAYING) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
@@ -229,12 +237,21 @@ fun MiniPlayer(
                         // Botón Repetir
                         IconButton(
                             onClick = { playerViewModel.toggleRepeat() },
-                            modifier = Modifier.size(36.dp).pointerHoverIcon(PointerIcon.Hand)
+                            modifier = Modifier.size(36.dp).pointerHoverIcon(PointerIcon.Hand),
+                            colors = IconButtonDefaults.iconButtonColors(
+                                containerColor = if (state.repeatMode != RepeatMode.OFF) MaterialTheme.colorScheme.primary.copy(
+                                    alpha = 0.12f
+                                )
+                                else Color.Transparent
+                            )
                         ) {
+                            val isRepeatOff = state.repeatMode == RepeatMode.OFF
+                            val repeatIcon =
+                                if (state.repeatMode == RepeatMode.ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat
                             Icon(
-                                Icons.Rounded.Repeat, "Repetir",
+                                repeatIcon, "Repetir",
                                 modifier = Modifier.size(20.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                tint = if (isRepeatOff) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary
                             )
                         }
                     }
@@ -246,7 +263,8 @@ fun MiniPlayer(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            formatMs(seekValue?.let { (it * progressState.durationMs).toLong() } ?: progressState.positionMs),
+                            formatMs(seekValue?.let { (it * progressState.durationMs).toLong() }
+                                ?: progressState.positionMs),
                             style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.width(32.dp)
@@ -277,35 +295,101 @@ fun MiniPlayer(
                     horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    // Botón Extra (Diseño pendiente)
-                    IconButton(
-                        onClick = onToggleNowPlaying,
-                        modifier = Modifier.size(40.dp).pointerHoverIcon(PointerIcon.Hand)
+                    var isVolumeHovered by remember { mutableStateOf(false) }
+
+                    Row(
+                        modifier = Modifier
+                            .pointerInput(Unit) {
+                                awaitPointerEventScope {
+                                    while (true) {
+                                        val event = awaitPointerEvent()
+                                        when (event.type) {
+                                            PointerEventType.Enter -> isVolumeHovered = true
+                                            PointerEventType.Exit -> isVolumeHovered = false
+                                            else -> {}
+                                        }
+                                    }
+                                }
+                            }
+                            .pointerHoverIcon(PointerIcon.Hand),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            if( isNowPlayingExpanded) Icons.Default.ArrowDropDown else Icons.Default.ArrowDropUp  ,
-                            "Opciones",
-                            modifier = Modifier.size(24.dp),
-                            tint = if (isNowPlayingExpanded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                        val volumeFloat = (state.volume.coerceIn(0, 100)) / 100f
+
+                        val sliderWidth by animateDpAsState(
+                            if (isVolumeHovered) 80.dp else 0.dp,
+                            tween(200, easing = FastOutSlowInEasing),
+                            label = "volWidth"
                         )
+                        val sliderAlpha by animateFloatAsState(
+                            if (isVolumeHovered) 1f else 0f,
+                            tween(180), label = "volAlpha"
+                        )
+
+                        if (sliderWidth > 0.dp) {
+                            CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
+                                Slider(
+                                    value = volumeFloat,
+                                    onValueChange = { playerViewModel.setVolume((it * 100).toInt()) },
+                                    modifier = Modifier
+                                        .width(sliderWidth)
+                                        .height(16.dp)
+                                        .graphicsLayer { alpha = sliderAlpha },
+                                    colors = SliderDefaults.colors(
+                                        thumbColor = MaterialTheme.colorScheme.onSurface,
+                                        activeTrackColor = MaterialTheme.colorScheme.onSurface,
+                                        inactiveTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.18f),
+                                        activeTickColor = Color.Transparent,
+                                        inactiveTickColor = Color.Transparent
+                                    )
+                                )
+                            }
+                        }
+
+                        IconButton(
+                            onClick = { playerViewModel.setVolume(if (volumeFloat > 0f) 0 else 80) },
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Icon(
+                                when {
+                                    volumeFloat == 0f -> Icons.AutoMirrored.Rounded.VolumeOff
+                                    volumeFloat < 0.4f -> Icons.AutoMirrored.Rounded.VolumeDown
+                                    else -> Icons.AutoMirrored.Rounded.VolumeUp
+                                },
+                                "Volumen",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
                     }
 
                     IconButton(
                         onClick = onToggleQueue,
                         modifier = Modifier.size(40.dp).pointerHoverIcon(PointerIcon.Hand),
                         colors = IconButtonDefaults.iconButtonColors(
-                            contentColor = if (isQueueVisible) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                            contentColor = if (isQueueVisible) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            containerColor = if (isQueueVisible) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                            else Color.Transparent
                         )
                     ) {
                         Icon(Icons.AutoMirrored.Filled.QueueMusic, "Cola", modifier = Modifier.size(24.dp))
                     }
 
-                    Spacer(Modifier.width(4.dp))
-
-                    HoverVolumeControl(
-                        volume = (state.volume.coerceIn(0, 100)) / 100f,
-                        onVolumeChange = { playerViewModel.setVolume((it * 100).toInt()) }
-                    )
+                    IconButton(
+                        onClick = onToggleNowPlaying,
+                        modifier = Modifier.size(40.dp).pointerHoverIcon(PointerIcon.Hand),
+                        colors = IconButtonDefaults.iconButtonColors(
+                            containerColor = if (isNowPlayingExpanded) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                            else Color.Transparent
+                        )
+                    ) {
+                        Icon(
+                            if (isNowPlayingExpanded) Icons.Default.ArrowDropDown else Icons.Default.ArrowDropUp,
+                            "Opciones",
+                            modifier = Modifier.size(24.dp),
+                            tint = if (isNowPlayingExpanded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
         }
@@ -350,84 +434,6 @@ private fun CompactSlider(
                 inactiveTickColor = trackColor
             )
         )
-    }
-}
-
-// —————————————————————————————————————————————————————————————————————————————
-// Volumen: ícono y slider compactados
-// —————————————————————————————————————————————————————————————————————————————
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun HoverVolumeControl(
-    volume: Float,
-    onVolumeChange: (Float) -> Unit
-) {
-    var expanded by remember { mutableStateOf(false) }
-
-    val sliderWidth by animateDpAsState(
-        if (expanded) 80.dp else 0.dp,
-        tween(200, easing = FastOutSlowInEasing),
-        label = "volWidth"
-    )
-    val sliderAlpha by animateFloatAsState(
-        if (expanded) 1f else 0f,
-        tween(180), label = "volAlpha"
-    )
-
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(2.dp),
-        modifier = Modifier
-            .pointerInput(Unit) {
-                awaitPointerEventScope {
-                    while (true) {
-                        val event = awaitPointerEvent()
-                        when (event.type) {
-                            PointerEventType.Enter -> expanded = true
-                            PointerEventType.Exit -> expanded = false
-                            else -> {}
-                        }
-                    }
-                }
-            }
-            .pointerHoverIcon(PointerIcon.Hand)
-    ) {
-        IconButton(
-            onClick = { onVolumeChange(if (volume > 0f) 0f else 0.8f) },
-            modifier = Modifier.size(40.dp) // Botón más grande
-        ) {
-            Icon(
-                when {
-                    volume == 0f -> Icons.AutoMirrored.Rounded.VolumeOff
-                    volume < 0.4f -> Icons.AutoMirrored.Rounded.VolumeDown
-                    else -> Icons.AutoMirrored.Rounded.VolumeUp
-                },
-                "Volumen",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(24.dp) // Icono más grande
-            )
-        }
-
-        if (sliderWidth > 0.dp) {
-            CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
-                Slider(
-                    value = volume,
-                    onValueChange = onVolumeChange,
-                    modifier = Modifier
-                        .width(sliderWidth)
-                        .height(16.dp)
-                        .graphicsLayer { alpha = sliderAlpha },
-                    colors = SliderDefaults.colors(
-                        thumbColor = MaterialTheme.colorScheme.onSurface,
-                        activeTrackColor = MaterialTheme.colorScheme.onSurface,
-                        inactiveTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.18f),
-                        activeTickColor = Color.Transparent,
-                        inactiveTickColor = Color.Transparent
-                    )
-                )
-            }
-        }
     }
 }
 

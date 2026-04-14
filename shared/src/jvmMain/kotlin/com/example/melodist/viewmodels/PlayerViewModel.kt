@@ -29,7 +29,7 @@ class PlayerViewModel(
     private val playerService: PlayerService,
     private val streamResolver: AudioStreamResolver,
     private val mediaSession: WindowsMediaSession,
-    private val userPreferences: UserPreferencesRepository
+    userPreferences: UserPreferencesRepository
 ) : ViewModel() {
 
     val highResCoverArt = userPreferences.highResCoverArt
@@ -48,16 +48,12 @@ class PlayerViewModel(
     private var resolveJob: Job? = null
 
     init {
-        // Sync audio quality preference → stream resolver
-//        viewModelScope.launch {
-//            AppPreferences.audioQuality.collect { pref ->
-//                streamResolver.quality = when (pref) {
-//                    AudioQuality.LOW -> StreamQuality.LOW
-//                    AudioQuality.NORMAL -> StreamQuality.NORMAL
-//                    AudioQuality.HIGH -> StreamQuality.HIGH
-//                }
-//            }
-//        }
+        // Sync equalizer preferences
+        viewModelScope.launch {
+            userPreferences.equalizerBands.collect { bands ->
+                playerService.setEqualizer(bands)
+            }
+        }
         viewModelScope.launch {
             playerService.playbackState.collect { state ->
                 _uiState.update { it.copy(playbackState = state) }
@@ -416,6 +412,32 @@ class PlayerViewModel(
         _uiState.update { it.copy(queue = newOrder.mapNotNull { idx -> newItems.getOrNull(idx) }, currentIndex = newIndex, queueSession = session.copy(order = newOrder, currentIndex = newIndex)) }
     }
 
+    fun moveQueueItem(fromIndex: Int, toIndex: Int) {
+        _uiState.update { state ->
+            val session = state.queueSession
+            if (fromIndex < 0 || fromIndex >= session.order.size || toIndex < 0 || toIndex >= session.order.size) return@update state
+
+            val newOrder = session.order.toMutableList()
+            val movedItem = newOrder.removeAt(fromIndex)
+            newOrder.add(toIndex, movedItem)
+
+            val curIndex = state.currentIndex
+            val newCurrentIndex = when {
+                fromIndex == curIndex -> toIndex
+                curIndex in (fromIndex + 1)..toIndex -> curIndex - 1
+                curIndex in toIndex..<fromIndex -> curIndex + 1
+                else -> curIndex
+            }
+
+            val newSession = session.copy(order = newOrder, currentIndex = newCurrentIndex)
+            state.copy(
+                queueSession = newSession,
+                queue = newSession.queueItems(),
+                currentIndex = newCurrentIndex
+            )
+        }
+    }
+
     fun playAtIndex(index: Int) {
         val state = _uiState.value
         if (index < 0 || index >= state.queueSession.order.size) return
@@ -488,7 +510,7 @@ class PlayerViewModel(
                     val suggestedCurrent = result.items.find { it.id == originalSongId }
                     val related = result.items.filter { it.id != originalSongId }
                     val items = listOfNotNull(
-                        state.currentSong?.let {
+                        state.currentSong.let {
                             if (it.duration == null && suggestedCurrent?.duration != null) it.copy(duration = suggestedCurrent.duration) else it
                         }
                     ) + related
@@ -517,6 +539,10 @@ class PlayerViewModel(
         super.onCleared()
     }
 }
+
+
+
+
 
 
 

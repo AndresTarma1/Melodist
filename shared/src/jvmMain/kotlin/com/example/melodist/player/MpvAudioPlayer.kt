@@ -30,7 +30,6 @@ class MpvAudioPlayer {
             throw e
         }
     }
-
     fun openUri(uri: String) {
         init()
         handle?.let { h ->
@@ -82,6 +81,29 @@ class MpvAudioPlayer {
                 MpvLib.INSTANCE.mpv_set_property_string(it, "volume", "$vol")
             }
         }
+
+    fun setEqualizer(bands: List<Float>) {
+        if (bands.size != 10) return
+        handle?.let { mpv ->
+            // En MPV, el filtro equalizer necesita la ganancia en formato:
+            // f=frecuencia:width=ancho:g=ganancia
+            // Es más simple usar firequalizer con ganancia:
+            // af="lavfi=[firequalizer=gain='cubic_interpolate(f)':gain_entry='entry(32,gain1);entry(64,gain2)...']"
+
+            val freqs = listOf(32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000)
+            val entries = bands.mapIndexed { index, gain ->
+                "entry(${freqs[index]},$gain)"
+            }.joinToString(";")
+
+            // Si todos son cero, limpiamos el filtro.
+            if (bands.all { it == 0f }) {
+                MpvLib.INSTANCE.mpv_set_property_string(mpv, "af", "")
+            } else {
+                val filter = "lavfi=[firequalizer=gain='cubic_interpolate(f)':gain_entry='$entries']"
+                MpvLib.INSTANCE.mpv_set_property_string(mpv, "af", filter)
+            }
+        }
+    }
 
     fun getDuration(): Long {
         val durStr = handle?.let { MpvLib.INSTANCE.mpv_get_property_string(it, "duration") } ?: "0"

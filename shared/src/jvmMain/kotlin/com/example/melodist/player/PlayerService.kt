@@ -31,6 +31,9 @@ class PlayerService {
     @Volatile
     private var isTransitioning = false
 
+    @Volatile
+    private var endNotified = false
+
     fun init() {
         if (initAttempted) return
         initAttempted = true
@@ -44,6 +47,7 @@ class PlayerService {
             try {
                 _playbackState.value = PlaybackState.LOADING
                 isTransitioning = false
+                endNotified = false
                 mpvPlayer.openUri(url)
             } catch (e: Exception) {
                 _playbackState.value = PlaybackState.ERROR
@@ -65,6 +69,7 @@ class PlayerService {
 
     fun stop() {
         isTransitioning = false
+        endNotified = false
         _playbackState.value = PlaybackState.IDLE
         _position.value = 0L
         _duration.value = 0L
@@ -74,6 +79,10 @@ class PlayerService {
     fun seekTo(millis: Long) {
         val dur = _duration.value
         if (dur > 0) {
+            val endThresholdMs = 1000L
+            if (millis < dur - endThresholdMs) {
+                endNotified = false
+            }
             mpvPlayer.seekTo(millis.toFloat() / dur.toFloat())
         }
     }
@@ -81,6 +90,11 @@ class PlayerService {
     fun setVolume(value: Int) {
         _volume.value = value
         mpvPlayer.volume = value.toFloat() / 100f
+    }
+
+    fun setEqualizer(bands: List<Float>) {
+        // Send values to mpv
+        mpvPlayer.setEqualizer(bands)
     }
 
     fun release() {
@@ -100,8 +114,23 @@ class PlayerService {
                     _position.value = pos
 
                     val playing = mpvPlayer.isPlaying.value
+                    val endThresholdMs = 1000L
+                    val looksEnded =
+                        !endNotified &&
+                        dur > endThresholdMs &&
+                        pos >= (dur - endThresholdMs) &&
+                        _playbackState.value != PlaybackState.LOADING
+
+                    if (looksEnded) {
+                        endNotified = true
+                        _playbackState.value = PlaybackState.ENDED
+                        delay(500)
+                        continue
+                    }
+
                     if (!isTransitioning) {
                         if (playing && _playbackState.value != PlaybackState.PLAYING) {
+                            endNotified = false
                             _playbackState.value = PlaybackState.PLAYING
                         } else if (!playing && _playbackState.value == PlaybackState.PLAYING) {
                             _playbackState.value = PlaybackState.PAUSED

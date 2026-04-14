@@ -38,6 +38,12 @@ class SettingsViewModel(
     val minimizeToTray: StateFlow<Boolean> = preferencesRepository.minimizeToTray
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
+    val queueLocked: StateFlow<Boolean> = preferencesRepository.queueLocked
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val equalizerBands: StateFlow<List<Float>> = preferencesRepository.equalizerBands
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), List(10) { 0f })
+
     fun setAudioQuality(quality: AudioQuality) {
         viewModelScope.launch { preferencesRepository.setAudioQuality(quality) }
     }
@@ -68,5 +74,13 @@ class SettingsViewModel(
 
     fun setMinimizeToTray(enabled: Boolean) {
         viewModelScope.launch { preferencesRepository.setMinimizeToTray(enabled) }
+    }
+
+    fun setQueueLocked(locked: Boolean) {
+        viewModelScope.launch { preferencesRepository.setQueueLocked(locked) }
+    }
+
+    fun setEqualizerBands(bands: List<Float>) {
+        viewModelScope.launch { preferencesRepository.setEqualizerBands(bands) }
     }
 }

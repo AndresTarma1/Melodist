@@ -39,6 +39,7 @@ import com.example.melodist.utils.LocalSnackbarHostState
 import com.example.melodist.utils.LocalDownloadViewModel
 import com.example.melodist.utils.LocalLibraryViewModel
 import com.example.melodist.utils.LocalPlayerViewModel
+import com.example.melodist.utils.LocalUserPreferences
 import com.example.melodist.viewmodels.DownloadViewModel
 import com.example.melodist.viewmodels.LibraryViewModel
 import com.example.melodist.viewmodels.PlayerViewModel
@@ -161,7 +162,7 @@ fun ApplicationScope.App(
             TitleBarStyle.dark(
                 colors = TitleBarColors.dark(
                     backgroundColor = surfaceColor,
-                    inactiveBackground = surfaceColor.copy(alpha = 0.85f),
+                    inactiveBackground = surfaceColor,
                     borderColor = surfaceColor,
                 )
             )
@@ -169,7 +170,7 @@ fun ApplicationScope.App(
             TitleBarStyle.light(
                 colors = TitleBarColors.light(
                     backgroundColor = surfaceColor,
-                    inactiveBackground = surfaceColor.copy(alpha = 0.85f),
+                    inactiveBackground = surfaceColor,
                     borderColor = surfaceColor,
                 )
             )
@@ -187,7 +188,7 @@ fun ApplicationScope.App(
                 LocalLibraryViewModel provides libraryViewModel,
                 LocalPlayerViewModel provides playerViewModel,
                 LocalDownloadViewModel provides downloadViewModel,
-                com.example.melodist.utils.LocalUserPreferences provides userPreferences,
+                LocalUserPreferences provides userPreferences,
             ) {
                 DecoratedWindow(
                     onCloseRequest = { if (minimizeToTray) isVisible = false else handleExit() },

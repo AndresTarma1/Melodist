@@ -28,7 +28,7 @@ kotlin {
             implementation(projects.shared)
 
 
-            implementation("io.github.kdroidfilter:composenativetray:1.1.0")
+            implementation(libs.compose.native.tray)
 
             implementation(libs.koin.core)
             implementation(libs.koin.compose.viewmodel)
@@ -51,32 +51,30 @@ kotlin {
             implementation(libs.kmpalette.extensions.file)
             implementation(libs.conveyor.control)
 
+            implementation(libs.reorderable)
+
+            implementation(libs.heze)
+
+
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
         }
         jvmMain {
-            // NOTA: los DLLs de VLC no van como resources del JAR;
-            // se incluyen via appResourcesRootDir para que queden junto al .exe
             dependencies {
                 implementation(compose.desktop.currentOs){
                     exclude(group = "org.jetbrains.compose.material")
                 }
                 implementation(libs.kotlinx.coroutinesSwing)
                 implementation(libs.jnativehook)
-                // Source: https://mvnrepository.com/artifact/net.java.dev.jna/jna
-                implementation("net.java.dev.jna:jna:5.18.1")
 
-                // Source: https://mvnrepository.com/artifact/net.java.dev.jna/jna-platform-jpms
-                implementation("net.java.dev.jna:jna-platform-jpms:5.18.1")
+                implementation(libs.jna)
+                implementation(libs.jna.platform.jpms)
 
-                implementation("org.jetbrains.jewel:jewel-int-ui-standalone:0.34.0-253.31033.149")
 
-                // Source: https://mvnrepository.com/artifact/org.jetbrains.runtime/jbr-api
-                implementation("org.jetbrains.runtime:jbr-api:1.10.1")
-//
-//                // Optional, for custom decorated windows:
-                implementation("org.jetbrains.jewel:jewel-int-ui-decorated-window:0.34.0-253.31033.149")
+                implementation(libs.jewel.ui.standalone)
+                implementation(libs.jewel.ui.decorated.window)
+                implementation(libs.jbr)
 
             }
         }
@@ -106,7 +104,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Msi)
             packageName = "Melodist"
-            packageVersion = "1.0.4"
+            packageVersion = "1.0.5"
             vendor = "Tarma"
             description = "Reproductor de música de escritorio"
 

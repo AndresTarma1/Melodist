@@ -65,6 +65,7 @@ import com.metrolist.innertube.models.SongItem
 import com.example.melodist.ui.helpers.rememberSongDownloadState
 import com.example.melodist.ui.helpers.contextMenuArea
 import com.example.melodist.ui.screens.shared.formatDuration
+import com.example.melodist.utils.LocalDownloadViewModel
 
 data class LibraryScreenState(
     val selectedTab: LibraryTab? = null,
@@ -242,7 +243,6 @@ fun LibraryScreen(
                 )
                 LibraryTab.DOWNLOADS -> DownloadsTab(
                     onNavigate = actions.onNavigate,
-                    playerViewModel = playerViewModel
                 )
 
                 LibraryTab.LIBRARY -> LibraryMixedTab(
@@ -839,9 +839,8 @@ private fun LibraryMixedTab(
 @Composable
 private fun DownloadsTab(
     onNavigate: (Route) -> Unit,
-    playerViewModel: PlayerViewModel? = null
 ) {
-    val downloadViewModel: DownloadViewModel = org.koin.compose.koinInject()
+    val downloadViewModel: DownloadViewModel = LocalDownloadViewModel.current
     val downloadedSongs by downloadViewModel.downloadedSongs.collectAsState()
     val downloadedCount by downloadViewModel.downloadedCount.collectAsState()
     val fullyDownloadedAlbums by downloadViewModel.fullyDownloadedAlbums.collectAsState()
@@ -1033,7 +1032,7 @@ private fun LibraryGridItem(
                     url = thumbnailUrl, contentDescription = title,
                     modifier = Modifier.aspectRatio(1f).fillMaxWidth(),
                     shape = shape, placeholderType = placeholderType, iconSize = 40.dp,
-                    contentScale = ContentScale.Crop,
+                    contentScale = ContentScale.Fit,
                     alignment = if (isCircle) Alignment.TopCenter else Alignment.Center
                 )
                 if (isRemovable) {
@@ -1043,6 +1042,13 @@ private fun LibraryGridItem(
                     ) {
                         Icon(Icons.Default.MoreVert, "Opciones",
                             modifier = Modifier.size(18.dp), tint = Color.White.copy(alpha = 0.9f))
+                        DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                            DropdownMenuItem(
+                                text = { Text("Eliminar de la biblioteca") },
+                                onClick = { onRemove(); showMenu = false },
+                                leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) }
+                            )
+                        }
                     }
                 }
             }
@@ -1054,15 +1060,6 @@ private fun LibraryGridItem(
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.fillMaxWidth(), textAlign = textAlign)
-        }
-        if (isRemovable) {
-            DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                DropdownMenuItem(
-                    text = { Text("Eliminar de la biblioteca") },
-                    onClick = { onRemove(); showMenu = false },
-                    leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) }
-                )
-            }
         }
     }
 }

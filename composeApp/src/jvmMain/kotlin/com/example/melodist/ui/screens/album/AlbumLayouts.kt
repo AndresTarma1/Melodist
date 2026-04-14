@@ -58,10 +58,17 @@ internal fun AlbumScreenLayout(
     val onSurfaceColor = MaterialTheme.colorScheme.onSurface
     val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
 
-    Row(modifier = Modifier.fillMaxSize().padding(start = 48.dp, end = 24.dp, top = 16.dp)) {
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val isCompact = maxWidth < 980.dp
+        val startPadding = if (isCompact) 18.dp else 48.dp
+        val endPadding = if (isCompact) 18.dp else 24.dp
+        val sidePanelWidth = if (isCompact) 250.dp else 320.dp
+        val coverSize = if (isCompact) 190.dp else 240.dp
+
+        Row(modifier = Modifier.fillMaxSize().padding(start = startPadding, end = endPadding, top = if (isCompact) 12.dp else 16.dp)) {
         Column(
             modifier = Modifier
-                .width(320.dp)
+                .width(sidePanelWidth)
                 .fillMaxHeight()
                 .verticalScroll(rememberScrollState())
                 .padding(top = 8.dp, bottom = 24.dp),
@@ -73,7 +80,7 @@ internal fun AlbumScreenLayout(
                 songs = state.songs,
                 onSurfaceColor = onSurfaceColor,
                 onSurfaceVariant = onSurfaceVariant,
-                coverSize = 240.dp,
+                coverSize = coverSize,
                 actions = actions,
                 controls = AlbumInfoPanelControls(
                     isSaved = state.isSaved,
@@ -83,7 +90,7 @@ internal fun AlbumScreenLayout(
             )
         }
 
-        Spacer(Modifier.width(32.dp))
+        Spacer(Modifier.width(if (isCompact) 16.dp else 32.dp))
 
         Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
             AlbumSongsList(
@@ -94,6 +101,7 @@ internal fun AlbumScreenLayout(
                     playerViewModel.playAlbum(state.songs, index, albumPage.album.browseId, albumPage.album.title)
                 },
             )
+        }
         }
     }
 }

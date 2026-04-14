@@ -57,7 +57,7 @@ class LibraryViewModel(
     loginState: StateFlow<Boolean>? = null
 ) : ViewModel() {
 
-    private val _selectedTab = MutableStateFlow<LibraryTab?>(null)
+    private val _selectedTab = MutableStateFlow<LibraryTab?>(LibraryTab.DOWNLOADS)
     val selectedTab = _selectedTab.asStateFlow()
 
     val continuation = MutableStateFlow<String?>(null)
@@ -116,7 +116,7 @@ class LibraryViewModel(
 
     fun selectTab(tab: LibraryTab) { _selectedTab.value = tab }
 
-    fun selectMixedTab() { _selectedTab.value = LibraryTab.LIBRARY }
+    fun selectMixedTab() { _selectedTab.value = LibraryTab.SONGS }
 
     fun removeSong(id: String) { viewModelScope.launch { songRepository.removeSong(id) } }
     fun removeAlbum(browseId: String) { viewModelScope.launch { albumRepository.removeAlbum(browseId) } }

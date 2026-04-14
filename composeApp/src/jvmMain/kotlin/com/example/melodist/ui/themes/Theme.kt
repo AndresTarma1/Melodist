@@ -1,5 +1,7 @@
 package com.example.melodist.ui.themes
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.Color
@@ -32,8 +34,6 @@ fun MelodistTheme(
         else -> isSystemInDarkTheme()
     }
 
-    // Usar colores de la carátula si el color dinámico está habilitado, 
-    // de lo contrario usar los colores por defecto definidos arriba.
     val seedPrimary = if (dynamicEnabled && artworkColors != null && artworkColors != ArtworkColors.Default) {
         artworkColors.vibrant
     } else {
@@ -57,5 +57,9 @@ fun MelodistTheme(
         state = dynamicThemeState,
         animate = true,
         content = content,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy, // Sin rebote para que no distraiga
+            stiffness = Spring.StiffnessLow // Movimiento lento y elegante
+        )
     )
 }

@@ -94,14 +94,6 @@ fun NavigationDesktop(rootComponent: RootComponent) {
             NavigationRail(
                 modifier = Modifier.width(90.dp),
                 containerColor = Color.Transparent,
-                header = {
-                    Icon(
-                        Icons.Default.MusicNote,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(vertical = 24.dp).size(32.dp)
-                    )
-                }
             ) {
                 Column(
                     modifier = Modifier.fillMaxHeight(),
@@ -227,7 +219,7 @@ fun NavigationDesktop(rootComponent: RootComponent) {
                                             }
                                         }
                                 )
-                                
+
                                 // 🎵 QUEUE PANEL
                                 PlaybackQueuePanel(
                                     state = playerState,

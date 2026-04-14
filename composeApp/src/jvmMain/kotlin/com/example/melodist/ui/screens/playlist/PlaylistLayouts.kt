@@ -59,8 +59,6 @@ internal fun PlaylistLayout(
 
     val songIds = remember(state.songs) { state.songs.map { it.id } }
 
-    // OPTIMIZACIÓN 1: Recolectamos el estado como un objeto State, NO usamos "by".
-    // Esto evita que PlaylistWide lea el valor booleano directamente y se recomponga.
     val isAnyDownloadingState = remember(songIds, downloadViewModel) {
         downloadViewModel.isAnyDownloadingFlow(songIds)
     }.collectAsState(initial = false)
@@ -69,14 +67,20 @@ internal fun PlaylistLayout(
         downloadViewModel.isFullyDownloadedFlow(songIds)
     }.collectAsState(initial = false)
 
-    Row(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(top = 32.dp, end = 48.dp, start = 48.dp, bottom = 16.dp)
-    ) {
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val isCompact = maxWidth < 980.dp
+        val horizontalPadding = if (isCompact) 18.dp else 48.dp
+        val sidePanelWidth = if (isCompact) 240.dp else 300.dp
+        val coverSize = if (isCompact) 190.dp else 240.dp
+
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = if (isCompact) 20.dp else 32.dp, end = horizontalPadding, start = horizontalPadding, bottom = 16.dp)
+        ) {
         Column(
             modifier = Modifier
-                .width(300.dp)
+                .width(sidePanelWidth)
                 .fillMaxHeight()
                 .verticalScroll(rememberScrollState())
                 .padding(top = 8.dp, bottom = 24.dp),
@@ -85,7 +89,7 @@ internal fun PlaylistLayout(
         ) {
             PlaylistInfoPanel(
                 playlistPage = playlistPage,
-                coverSize = 240.dp,
+                coverSize = coverSize,
                 controls = PlaylistInfoPanelControls(
                     isSaved = state.isSaved,
                     isSaving = state.isSaving,
@@ -97,7 +101,7 @@ internal fun PlaylistLayout(
             )
         }
 
-        Spacer(Modifier.width(32.dp))
+        Spacer(Modifier.width(if (isCompact) 16.dp else 32.dp))
 
         Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
             val lazyListState = rememberLazyListState()
@@ -135,6 +139,7 @@ internal fun PlaylistLayout(
                 state = lazyListState,
                 modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(12.dp)
             )
+        }
         }
     }
 }
@@ -178,6 +183,7 @@ internal fun PlaylistInfoPanel(
                         contentDescription = null,
                         modifier = Modifier.fillMaxSize(),
                         shape = CircleShape,
+                        contentScale = ContentScale.FillBounds,
                         placeholderType = PlaceholderType.ARTIST,
                         iconSize = 14.dp
                     )
@@ -205,7 +211,7 @@ internal fun PlaylistInfoPanel(
             contentDescription = playlistPage.playlist.title,
             modifier = Modifier.fillMaxSize(),
             placeholderType = PlaceholderType.PLAYLIST,
-            contentScale = ContentScale.Crop,
+            contentScale = ContentScale.Fit,
             iconSize = coverSize * 0.33f
         )
     }

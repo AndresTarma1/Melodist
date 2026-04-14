@@ -34,3 +34,4 @@ fun YTItem.thumbnailAspectRatio(): Float = if (isWideThumbnail()) 16f / 9f else 
  */
 fun YTItem.musicItemCardWidth(): Dp = if (isWideThumbnail()) 280.dp else 200.dp
 
+

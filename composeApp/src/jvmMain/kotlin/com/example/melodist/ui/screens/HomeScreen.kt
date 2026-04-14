@@ -35,7 +35,6 @@ import com.example.melodist.ui.components.MelodistImage
 import com.example.melodist.ui.components.PlaceholderType
 import com.example.melodist.ui.components.SectionSkeleton
 import com.example.melodist.utils.LocalPlayerViewModel
-import com.example.melodist.utils.musicItemCardWidth
 import com.example.melodist.utils.thumbnailAspectRatio
 import com.example.melodist.viewmodels.HomeState
 import com.example.melodist.viewmodels.HomeViewModel
@@ -264,8 +263,10 @@ fun MusicItem(item: YTItem, onClick: (YTItem) -> Unit) {
         else -> PlaceholderType.SONG
     }
 
-    val cardWidth = item.musicItemCardWidth()
+    val cardHeight = 180.dp
     val aspectRatio = item.thumbnailAspectRatio()
+    val cardWidth = cardHeight * aspectRatio
+    val contentPadding = 10.dp
     val downloadViewModel = LocalDownloadViewModel.current
 
     var showMenu by remember { mutableStateOf(false) }
@@ -284,7 +285,7 @@ fun MusicItem(item: YTItem, onClick: (YTItem) -> Unit) {
     // Movemos los modificadores de interacción al Box raíz
     Box(
         modifier = Modifier
-            .width(cardWidth)
+            .width(cardWidth + contentPadding + contentPadding)
             .clip(RoundedCornerShape(12.dp))
             .background(hoverColor)
             .clickable { onClick(item) }
@@ -297,7 +298,7 @@ fun MusicItem(item: YTItem, onClick: (YTItem) -> Unit) {
                     showMenu = true
                 }
             )
-            .padding(10.dp) // Padding interno para que actúe como una tarjeta
+            .padding(contentPadding) // Padding interno para que actúe como una tarjeta
     ) {
         Column(
             horizontalAlignment = alignment
@@ -307,8 +308,8 @@ fun MusicItem(item: YTItem, onClick: (YTItem) -> Unit) {
                     url = item.thumbnail,
                     contentDescription = item.title,
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(aspectRatio),
+                        .height(cardHeight)
+                        .width(cardWidth),
                     shape = imageShape,
                     placeholderType = placeholderType,
                     iconSize = if (isArtist) 56.dp else 40.dp,

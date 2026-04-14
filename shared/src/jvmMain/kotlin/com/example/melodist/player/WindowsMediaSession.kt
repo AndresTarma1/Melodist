@@ -59,7 +59,6 @@ class WindowsMediaSession {
             it.setSupportedMimeTypes(listOf("audio/mpeg", "audio/x-m4a", "audio/ogg", "audio/webm"))
             it.setEnabled(true)
         }
-        log.info("MediaSession (dev.toastbits) inicializada")
     }
 
     private fun attachCallbacks(session: MediaSession) {
@@ -98,6 +97,5 @@ class WindowsMediaSession {
     fun release() {
         session?.setEnabled(false)
         session = null
-        log.info("MediaSession liberada")
     }
 }

@@ -15,11 +15,13 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
@@ -35,6 +37,8 @@ import com.example.melodist.ui.screens.shared.openFolder
 import com.example.melodist.utils.LocalDownloadViewModel
 import org.koin.compose.koinInject
 import com.example.melodist.viewmodels.SettingsViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsScreen(
@@ -51,6 +55,7 @@ fun SettingsScreen(
     val cacheImages    by viewModel.cacheImages.collectAsState()
     val imagesEnabled  by viewModel.imagesEnabled.collectAsState()
     val minimizeToTray by viewModel.minimizeToTray.collectAsState()
+    val equalizerBands by viewModel.equalizerBands.collectAsState()
     val cacheSizeText  by downloadViewModel.cacheSizeText.collectAsState()
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
@@ -86,6 +91,11 @@ fun SettingsScreen(
                         options  = AudioQuality.entries.map { it.label },
                         selected = AudioQuality.entries.indexOf(audioQuality),
                         onSelect = { viewModel.setAudioQuality(AudioQuality.entries[it]) }
+                    )
+                    RowDivider()
+                    EqualizerBandsRow(
+                        bands = equalizerBands,
+                        onBandsChange = { viewModel.setEqualizerBands(it) }
                     )
                 }
 
@@ -238,6 +248,100 @@ private fun SettingsCard(content: @Composable ColumnScope.() -> Unit) {
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), content = content)
+    }
+}
+
+@Composable
+private fun EqualizerBandsRow(
+    bands: List<Float>,
+    onBandsChange: (List<Float>) -> Unit
+) {
+    val coroutineScope = rememberCoroutineScope()
+    // Local state to avoid lag while dragging sliders
+    var localBands by remember(bands) { mutableStateOf(bands) }
+
+    // Auto-save debouncer
+    LaunchedEffect(localBands, bands) {
+        if (localBands != bands) {
+            delay(400) // Debounce period
+            onBandsChange(localBands)
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Icon(Icons.Rounded.GraphicEq, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
+                Text(
+                    text = "Ecualizador de 10 bandas",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            TextButton(
+                onClick = { localBands = List(10) { 0f } },
+                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)
+            ) {
+                Text("Restablecer", color = MaterialTheme.colorScheme.primary)
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        val freqs = listOf("32", "64", "125", "250", "500", "1K", "2K", "4K", "8K", "16K")
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            localBands.forEachIndexed { i, gain ->
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = if (gain > 0) "+${gain.toInt()}" else "${gain.toInt()}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    // Slider Vertical para ganar o reducir ganancia entre -15 y 15
+                    Slider(
+                        value = gain,
+                        onValueChange = { newVal ->
+                            val newBands = localBands.toMutableList()
+                            newBands[i] = newVal
+                            localBands = newBands
+                        },
+                        valueRange = -15f..15f,
+                        modifier = Modifier
+                            // Hack simple para Slider vertical en Compose sin lib de terceros
+                            .height(120.dp)
+                            .graphicsLayer {
+                                rotationZ = 270f
+                                transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 0.5f)
+                            }
+                            .pointerHoverIcon(PointerIcon.Hand)
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = freqs[i],
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -441,7 +545,7 @@ private fun AboutCard() {
             // Badge corregido utilizando tokens correctos de M3
             Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer) {
                 Text(
-                    text = "v1.0.4",
+                    text = "v1.0.5",
                     style    = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                     color    = MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)

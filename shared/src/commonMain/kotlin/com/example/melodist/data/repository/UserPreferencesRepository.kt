@@ -35,6 +35,8 @@ class UserPreferencesRepository(private val dataStore: DataStore<Preferences>) {
         val WINDOW_WIDTH = intPreferencesKey("window_width")
         val WINDOW_HEIGHT = intPreferencesKey("window_height")
         val WINDOW_MAXIMIZED = booleanPreferencesKey("window_maximized")
+        val QUEUE_LOCKED = booleanPreferencesKey("queue_locked")
+        val EQUALIZER_BANDS = stringPreferencesKey("equalizer_bands")
     }
 
     val audioQuality: Flow<AudioQuality> = dataStore.data.map { preferences ->
@@ -63,6 +65,17 @@ class UserPreferencesRepository(private val dataStore: DataStore<Preferences>) {
     val windowWidth: Flow<Int> = dataStore.data.map { it[PreferencesKeys.WINDOW_WIDTH] ?: 1200 }
     val windowHeight: Flow<Int> = dataStore.data.map { it[PreferencesKeys.WINDOW_HEIGHT] ?: 800 }
     val windowMaximized: Flow<Boolean> = dataStore.data.map { it[PreferencesKeys.WINDOW_MAXIMIZED] ?: false }
+    val queueLocked: Flow<Boolean> = dataStore.data.map { it[PreferencesKeys.QUEUE_LOCKED] ?: false }
+
+    // Almacenamos 10 bandas separadas por coma, default a 0.0
+    val equalizerBands: Flow<List<Float>> = dataStore.data.map { pref ->
+        val str = pref[PreferencesKeys.EQUALIZER_BANDS] ?: "0,0,0,0,0,0,0,0,0,0"
+        try {
+            str.split(",").map { it.toFloat() }
+        } catch(e: Exception) {
+            List(10) { 0f }
+        }
+    }
 
     suspend fun setAudioQuality(quality: AudioQuality) {
         dataStore.edit { it[PreferencesKeys.AUDIO_QUALITY] = quality.name }
@@ -105,5 +118,13 @@ class UserPreferencesRepository(private val dataStore: DataStore<Preferences>) {
 
     suspend fun setWindowMaximized(maximized: Boolean) {
         dataStore.edit { it[PreferencesKeys.WINDOW_MAXIMIZED] = maximized }
+    }
+
+    suspend fun setQueueLocked(locked: Boolean) {
+        dataStore.edit { it[PreferencesKeys.QUEUE_LOCKED] = locked }
+    }
+
+    suspend fun setEqualizerBands(bands: List<Float>) {
+        dataStore.edit { it[PreferencesKeys.EQUALIZER_BANDS] = bands.joinToString(",") }
     }
 }
