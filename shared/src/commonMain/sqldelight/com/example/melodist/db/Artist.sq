@@ -41,3 +41,36 @@ DELETE FROM Artist WHERE id = ?;
 artistExists:
 SELECT COUNT(*) > 0 FROM Artist WHERE id = ?;
 
+artistsByPlayTime:
+SELECT Artist.*, 
+       (SELECT COUNT(1) FROM SongArtistMap JOIN Song ON SongArtistMap.songId = Song.id WHERE artistId = Artist.id AND Song.inLibrary IS NOT NULL) AS songCount,
+       artistTotalPlayTime.totalPlayTime AS timeListened
+FROM Artist
+LEFT JOIN (
+    SELECT artistId, SUM(playTime) AS totalPlayTime
+    FROM SongArtistMap
+    JOIN Event ON SongArtistMap.songId = Event.songId
+    GROUP BY artistId
+) AS artistTotalPlayTime ON Artist.id = artistTotalPlayTime.artistId
+WHERE (SELECT COUNT(1) FROM SongArtistMap JOIN Song ON SongArtistMap.songId = Song.id WHERE artistId = Artist.id AND Song.inLibrary IS NOT NULL) > 0
+OR Artist.bookmarkedAt IS NOT NULL
+ORDER BY 
+    CASE WHEN artistTotalPlayTime.totalPlayTime IS NULL THEN 1 ELSE 0 END,
+    artistTotalPlayTime.totalPlayTime DESC;
+
+artistsByCreateDate:
+SELECT Artist.*, 
+       (SELECT COUNT(1) FROM SongArtistMap JOIN Song ON SongArtistMap.songId = Song.id WHERE artistId = Artist.id AND Song.inLibrary IS NOT NULL) AS songCount,
+       0 AS timeListened
+FROM Artist
+WHERE (SELECT COUNT(1) FROM SongArtistMap JOIN Song ON SongArtistMap.songId = Song.id WHERE artistId = Artist.id AND Song.inLibrary IS NOT NULL) > 0
+ORDER BY rowid DESC;
+
+artistsByName:
+SELECT Artist.*, 
+       (SELECT COUNT(1) FROM SongArtistMap JOIN Song ON SongArtistMap.songId = Song.id WHERE artistId = Artist.id AND Song.inLibrary IS NOT NULL) AS songCount,
+       0 AS timeListened
+FROM Artist
+WHERE (SELECT COUNT(1) FROM SongArtistMap JOIN Song ON SongArtistMap.songId = Song.id WHERE artistId = Artist.id AND Song.inLibrary IS NOT NULL) > 0
+ORDER BY name ASC;
+

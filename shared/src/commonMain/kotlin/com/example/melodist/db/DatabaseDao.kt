@@ -12,6 +12,7 @@ import com.example.melodist.db.dao.SongDao
 import com.example.melodist.db.entities.AlbumEntity
 import com.example.melodist.db.entities.AlbumWithSongs
 import com.example.melodist.db.entities.ArtistEntity
+import com.example.melodist.db.entities.ArtistWithStats
 import com.example.melodist.db.entities.FormatEntity
 import com.example.melodist.db.entities.PlaylistEntity
 import com.example.melodist.db.entities.SearchHistoryEntry
@@ -60,6 +61,9 @@ class DatabaseDao(private val database: MelodistDatabase) {
     suspend fun deleteSong(id: String) = songs.deleteSong(id)
 
     fun allArtists(): Flow<List<ArtistEntity>> = artists.allArtists()
+    fun artistsByPlayTime(): Flow<List<ArtistWithStats>> = artists.artistsByPlayTime()
+    fun artistsByCreateDate(): Flow<List<ArtistWithStats>> = artists.artistsByCreateDate()
+    fun artistsByName(): Flow<List<ArtistWithStats>> = artists.artistsByName()
     fun artistById(id: String): Flow<ArtistEntity?> = artists.artistById(id)
     fun bookmarkedArtists(): Flow<List<ArtistEntity>> = artists.bookmarkedArtists()
     suspend fun insertArtist(artist: ArtistEntity) = artists.insertArtist(artist)
@@ -101,6 +105,9 @@ class DatabaseDao(private val database: MelodistDatabase) {
     fun downloadedSongs(): Flow<List<SongEntity>> = songs.downloadedSongs()
     fun downloadedSongsCount(): Flow<Long> = songs.downloadedSongsCount()
     suspend fun updateSongDownloadStatus(songId: String, isDownloaded: Boolean, dateDownload: Long?) = songs.updateSongDownloadStatus(songId, isDownloaded, dateDownload)
+
+    fun quickPicks(now: Long = System.currentTimeMillis()): Flow<List<SongEntity>> = songs.quickPicks(now)
+    fun searchSongs(query: String, limit: Long = 20): Flow<List<SongEntity>> = songs.searchSongs(query, limit)
 
     suspend fun insertFormat(format: FormatEntity) = formats.insertFormat(format)
 

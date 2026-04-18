@@ -91,7 +91,7 @@ compose.desktop {
             "--enable-native-access=ALL-UNNAMED",
             "-Dorg.sqlite.tmpdir=${System.getProperty("user.home")}/.melodist/tmp",
             "-XX:+EnableDynamicAgentLoading",
-            "-Xmx512m",                           // 512MB es el "sweet spot" para apps ligeras
+            "-Xmx512m",                           // 512 MB son el "sweet spot" para apps ligeras
             "-Xms128m",                           // Iniciar con algo más de aire
             "-XX:+UseG1GC",
             "-XX:MaxGCPauseMillis=50",            // Un poco más de margen para que el GC termine

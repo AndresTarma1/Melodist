@@ -109,3 +109,47 @@ SELECT COUNT(1) FROM Song WHERE isDownloaded = 1;
 countDownloadedByAlbum:
 SELECT COUNT(*) FROM Song WHERE albumId = ? AND isDownloaded = 1;
 
+quickPicks:
+SELECT Song.*
+FROM (
+    SELECT *, COUNT(1) AS referredCount
+    FROM RelatedSongMap
+    GROUP BY relatedSongId
+) AS Map
+JOIN Song ON Song.id = Map.relatedSongId
+WHERE Song.id IN (
+    SELECT songId
+    FROM (
+        SELECT songId
+        FROM Event
+        ORDER BY id DESC
+        LIMIT 5
+    )
+    UNION
+    SELECT songId
+    FROM (
+        SELECT songId
+        FROM Event
+        WHERE timestamp > :now - 604800000
+        GROUP BY songId
+        ORDER BY SUM(playTime) DESC
+        LIMIT 5
+    )
+    UNION
+    SELECT id
+    FROM (
+        SELECT id
+        FROM Song
+        ORDER BY totalPlayTime DESC
+        LIMIT 10
+    )
+)
+ORDER BY referredCount DESC
+LIMIT 100;
+
+searchSongs:
+SELECT * FROM Song
+WHERE title LIKE ('%' || :query || '%')
+OR albumName LIKE ('%' || :query || '%')
+LIMIT :limit;
+

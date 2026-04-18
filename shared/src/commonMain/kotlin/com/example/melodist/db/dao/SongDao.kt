@@ -150,4 +150,14 @@ class SongDao(private val database: MelodistDatabase) {
                 id = songId
             )
         }
+
+    fun quickPicks(now: Long = System.currentTimeMillis()): Flow<List<SongEntity>> =
+        database.songQueries.quickPicks(now, ::buildSongEntity)
+            .asFlow()
+            .mapToList(Dispatchers.IO)
+
+    fun searchSongs(query: String, limit: Long = 20): Flow<List<SongEntity>> =
+        database.songQueries.searchSongs(query, limit, ::buildSongEntity)
+            .asFlow()
+            .mapToList(Dispatchers.IO)
 }

@@ -34,7 +34,6 @@ kotlin {
 
             // DataStore library
             api("androidx.datastore:datastore:1.2.1")
-            // The Preferences DataStore library
             api("androidx.datastore:datastore-preferences:1.2.1")
 
         }

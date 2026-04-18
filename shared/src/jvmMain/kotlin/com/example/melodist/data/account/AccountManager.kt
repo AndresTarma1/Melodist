@@ -10,12 +10,8 @@ import java.util.logging.Logger
 
 /**
  * Persiste la cookie de YouTube Music en un archivo de texto plano en AppData/Local.
- * Esto evita el límite de 8 KB de java.util.prefs.Preferences y los problemas de
- * registro de Windows que causan que la sesión se pierda entre reinicios.
- *
- * Expone [loginState] para que ViewModels reaccionen a cambios de sesión.
  */
-object AccountManager {
+actual object AccountManager {
 
     private val log = Logger.getLogger("AccountManager")
 
@@ -28,7 +24,7 @@ object AccountManager {
 
     private val _loginState = MutableStateFlow(false)
     /** Emite `true` cuando hay sesión activa, `false` cuando no. */
-    val loginState: StateFlow<Boolean> = _loginState.asStateFlow()
+    actual val loginState: StateFlow<Boolean> = _loginState.asStateFlow()
 
     // ── Diagnóstico ──────────────────────────────────────────────────────────
 
@@ -38,7 +34,7 @@ object AccountManager {
      * cookies de sesión de Google.
      * Devuelve una lista de advertencias (vacía = todo correcto).
      */
-    fun diagnose(cookie: String): List<String> {
+    actual fun diagnose(cookie: String): List<String> {
         val warnings = mutableListOf<String>()
         val keys = cookie.split(";").mapNotNull { part ->
             val eq = part.indexOf('=')
@@ -63,7 +59,7 @@ object AccountManager {
     // ── API pública ──────────────────────────────────────────────────────────
 
     /** Inicializa: si hay cookie guardada en disco, la carga en YouTube. */
-    fun init() {
+    actual fun init() {
         // Migración desde java.util.prefs (sistema anterior, límite 8 KB)
         migrateFromPrefsIfNeeded()
 
@@ -101,7 +97,7 @@ object AccountManager {
     }
 
     /** Guarda la cookie en disco y la aplica a YouTube. */
-    fun setCookie(cookie: String) {
+    actual fun setCookie(cookie: String) {
         val trimmed = cookie.trim()
         val warnings = diagnose(trimmed)
         warnings.forEach { log.warning("AccountManager [setCookie]: $it") }
@@ -113,7 +109,7 @@ object AccountManager {
     }
 
     /** Elimina la cookie de disco y de YouTube. */
-    fun clearCookie() {
+    actual fun clearCookie() {
         try { cookieFile.delete() } catch (e: Exception) { log.warning("No se pudo borrar cookie: ${e.message}") }
         YouTube.cookie = null
         YouTube.useLoginForBrowse = false
@@ -122,10 +118,10 @@ object AccountManager {
     }
 
     /** Devuelve la cookie almacenada, o null. */
-    fun getCookie(): String? = readFromDisk()?.takeIf { it.isNotBlank() }
+    actual fun getCookie(): String? = readFromDisk()?.takeIf { it.isNotBlank() }
 
     /** true si hay sesión activa. */
-    val isLoggedIn: Boolean get() = getCookie() != null
+    actual val isLoggedIn: Boolean get() = getCookie() != null
 
     // ── Helpers privados ─────────────────────────────────────────────────────
 
@@ -152,7 +148,3 @@ object AccountManager {
         YouTube.useLoginForBrowse = true
     }
 }
-
-
-
-

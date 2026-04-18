@@ -5,6 +5,7 @@ import com.example.melodist.db.DatabaseDao
 import com.example.melodist.db.entities.ArtistEntity
 import com.example.melodist.db.entities.FormatEntity
 import com.example.melodist.db.entities.SongEntity
+import com.metrolist.innertube.YouTube
 import com.metrolist.innertube.models.SongItem
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -76,6 +77,7 @@ class DownloadRepository(
         private const val USER_AGENT =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:140.0) Gecko/20100101 Firefox/140.0"
         private const val REFERER = "https://music.youtube.com/"
+        private const val ORIGIN = "https://music.youtube.com"
 
         private val cacheDir: File by lazy {
             AppDirs.songsDir.also { if (!it.exists()) it.mkdirs() }
@@ -150,11 +152,12 @@ class DownloadRepository(
 
                     val totalBytes = stream.format.contentLength ?: probeContentLength(stream.streamUrl)
 
-                    if (totalBytes == null || totalBytes <= 0) {
-                        downloadSingleRequest(stream.streamUrl, partFile, songId)
-                    } else {
-                        downloadChunked(stream.streamUrl, partFile, songId, totalBytes)
-                    }
+                    downloadWithFallback(
+                        streamUrl = stream.streamUrl,
+                        partFile = partFile,
+                        songId = songId,
+                        totalBytes = totalBytes,
+                    )
 
                     if (!isActive) throw CancellationException("Scope cancelado")
 
@@ -331,8 +334,7 @@ class DownloadRepository(
     ): Long {
         val connection = URI(url).toURL().openConnection() as HttpURLConnection
         try {
-            connection.setRequestProperty("User-Agent", USER_AGENT)
-            connection.setRequestProperty("Referer", REFERER)
+            applyDownloadHeaders(connection)
             connection.setRequestProperty("Range", "bytes=$rangeStart-$rangeEnd")
             connection.connectTimeout = 15_000
             connection.readTimeout = 30_000
@@ -340,7 +342,7 @@ class DownloadRepository(
 
             val code = connection.responseCode
             if (code !in listOf(200, 206)) {
-                throw Exception("HTTP $code for Range bytes=$rangeStart-$rangeEnd")
+                throw httpException(connection, "Range bytes=$rangeStart-$rangeEnd")
             }
 
             var totalRead = 0L
@@ -364,14 +366,13 @@ class DownloadRepository(
         withContext(Dispatchers.IO) {
             val connection = URI(url).toURL().openConnection() as HttpURLConnection
             try {
-                connection.setRequestProperty("User-Agent", USER_AGENT)
-                connection.setRequestProperty("Referer", REFERER)
+                applyDownloadHeaders(connection)
                 connection.connectTimeout = 15_000
                 connection.readTimeout = 30_000
                 connection.connect()
 
                 if (connection.responseCode !in 200..299) {
-                    throw Exception($$"HTTP ${connection.responseCode}: ${connection.responseMessage}")
+                    throw httpException(connection)
                 }
 
                 val totalBytes = connection.contentLengthLong
@@ -399,6 +400,66 @@ class DownloadRepository(
         }
     }
 
+    /**
+     * Intenta primero la descarga por rangos y, si el servidor rechaza `Range`
+     * con 403/416, cae a una descarga completa sin fragmentar.
+     */
+    private suspend fun downloadWithFallback(
+        streamUrl: String,
+        partFile: File,
+        songId: String,
+        totalBytes: Long?,
+    ) {
+        if (totalBytes == null || totalBytes <= 0) {
+            downloadSingleRequest(streamUrl, partFile, songId)
+            return
+        }
+
+        try {
+            downloadChunked(streamUrl, partFile, songId, totalBytes)
+        } catch (e: Exception) {
+            val message = e.message.orEmpty()
+            val rangeRejected = message.contains("403") || message.contains("416")
+
+            if (!rangeRejected) throw e
+
+            log.warning("Range rechazado para $songId, reintentando sin fragmentar: $message")
+            if (partFile.exists()) partFile.delete()
+
+            val refreshedStream = runCatching { streamResolver.resolveAudioStream(songId) }
+                .getOrNull()
+
+            val fallbackUrl = refreshedStream?.streamUrl ?: streamUrl
+            downloadSingleRequest(fallbackUrl, partFile, songId)
+        }
+    }
+
+    private fun applyDownloadHeaders(connection: HttpURLConnection) {
+        connection.instanceFollowRedirects = true
+        connection.setRequestProperty("User-Agent", USER_AGENT)
+        connection.setRequestProperty("Referer", REFERER)
+        connection.setRequestProperty("Origin", ORIGIN)
+        connection.setRequestProperty("Accept", "*/*")
+        connection.setRequestProperty("Accept-Language", "en-US,en;q=0.9")
+        connection.setRequestProperty("Cache-Control", "no-cache")
+
+        YouTube.cookie?.takeIf { it.isNotBlank() }?.let { cookie ->
+            print(cookie)
+            connection.setRequestProperty("Cookie", cookie)
+        }
+    }
+
+    private fun httpException(connection: HttpURLConnection, rangeInfo: String? = null): Exception {
+        val body = runCatching {
+            connection.errorStream?.bufferedReader()?.use { it.readText().take(500) }
+        }.getOrNull()?.takeIf { it.isNotBlank() }
+
+        val prefix = if (rangeInfo != null) "HTTP ${connection.responseCode} for $rangeInfo" else "HTTP ${connection.responseCode}: ${connection.responseMessage}"
+        return Exception(
+            if (body == null) prefix else "$prefix. Body: $body"
+        )
+    }
+
     // ─── Helpers ───────────────────────────────────────────
 
     private fun probeContentLength(url: String): Long? {
@@ -406,8 +467,7 @@ class DownloadRepository(
             val connection = URI(url).toURL().openConnection() as HttpURLConnection
             try {
                 connection.requestMethod = "HEAD"
-                connection.setRequestProperty("User-Agent", USER_AGENT)
-                connection.setRequestProperty("Referer", REFERER)
+                applyDownloadHeaders(connection)
                 connection.connectTimeout = 10_000
                 connection.connect()
                 val length = connection.contentLengthLong
