@@ -32,7 +32,7 @@ import kotlinx.coroutines.launch
 import kotlin.uuid.ExperimentalUuidApi
 
 enum class LibraryTab {
-    LIBRARY, SONGS, ALBUMS, ARTISTS, PLAYLISTS, DOWNLOADS
+    LIBRARY, ALBUMS, ARTISTS, PLAYLISTS
 }
 
 // Estado para el contenido remoto de YTM
@@ -57,8 +57,20 @@ class LibraryViewModel(
     loginState: StateFlow<Boolean>? = null
 ) : ViewModel() {
 
-    private val _selectedTab = MutableStateFlow<LibraryTab?>(LibraryTab.DOWNLOADS)
+    private val _selectedTab = MutableStateFlow<LibraryTab?>(LibraryTab.LIBRARY)
     val selectedTab = _selectedTab.asStateFlow()
+
+    val savedSongs = songRepository.getSavedSongs().map { it.map(::savedSongToSongItem) }
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    val savedAlbums = albumRepository.getSavedAlbums().map { it.map(::savedAlbumToAlbumItem) }
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    val savedArtists = artistRepository.getSavedArtists().map { it.map(::savedArtistToArtistItem) }
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    val savedPlaylists = playlistRepository.getSavedPlaylists().map { it.map(::savedPlaylistToPlaylistItem) }
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     val continuation = MutableStateFlow<String?>(null)
 
@@ -116,7 +128,7 @@ class LibraryViewModel(
 
     fun selectTab(tab: LibraryTab) { _selectedTab.value = tab }
 
-    fun selectMixedTab() { _selectedTab.value = LibraryTab.SONGS }
+    fun selectMixedTab() { _selectedTab.value = LibraryTab.LIBRARY }
 
     fun removeSong(id: String) { viewModelScope.launch { songRepository.removeSong(id) } }
     fun removeAlbum(browseId: String) { viewModelScope.launch { albumRepository.removeAlbum(browseId) } }

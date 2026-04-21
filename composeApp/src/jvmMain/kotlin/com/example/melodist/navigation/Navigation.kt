@@ -36,6 +36,7 @@ import com.example.melodist.ui.components.player.PlaybackQueuePanel
 import com.example.melodist.viewmodels.PlayerViewModel
 import com.example.melodist.ui.screens.*
 import com.example.melodist.ui.screens.home.HomeScreenRoute
+import com.example.melodist.ui.screens.library.LibraryScreenRoute
 import com.example.melodist.utils.LocalPlayerViewModel
 
 // ─── Rail tab definitions ──────────────────────────────
@@ -92,6 +93,8 @@ fun NavigationDesktop(rootComponent: RootComponent) {
                     modifier = Modifier.fillMaxHeight(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    Spacer(Modifier.height(20.dp))
+                        
                     mainTabs.forEach { tab ->
                         NavigationRailItem(
                             selected = activeConfig == tab.config,

@@ -310,17 +310,17 @@ private fun TitleBarScope.MelodistTitleBar(
     currentSong: String?,
     isPlaying: Boolean,
 ) {
-    Row(
-        modifier = Modifier.align(Alignment.Start).padding(start = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Text(
-            text = "Melodist",
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-    }
+     Row(
+         modifier = Modifier.align(Alignment.Start).padding(start = 12.dp),
+         verticalAlignment = Alignment.CenterVertically,
+         horizontalArrangement = Arrangement.spacedBy(6.dp),
+     ) {
+         Text(
+             text = "Melodist",
+             fontWeight = FontWeight.SemiBold,
+             color = MaterialTheme.colorScheme.onSurface,
+         )
+     }
 
     AnimatedContent(
         targetState = currentSong,

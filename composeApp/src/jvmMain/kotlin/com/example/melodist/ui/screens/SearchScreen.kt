@@ -18,13 +18,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.NorthWest
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
@@ -51,12 +49,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.melodist.db.entities.SearchHistoryEntry
@@ -64,16 +60,11 @@ import com.example.melodist.navigation.Route
 import com.example.melodist.ui.components.layout.AppVerticalScrollbar
 import com.example.melodist.ui.components.ChipRowSkeleton
 import com.example.melodist.ui.components.layout.HorizontalScrollableRow
-import com.example.melodist.ui.components.MelodistImage
-import com.example.melodist.ui.components.PlaceholderType
+import com.example.melodist.ui.components.ItemContentSource
 import com.example.melodist.ui.components.SongSkeleton
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.LayoutCoordinates
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.DpOffset
-import com.example.melodist.ui.components.context.SongContextMenu
-import com.example.melodist.ui.helpers.contextMenuArea
+import com.example.melodist.ui.components.YoutubeListItem
+import com.example.melodist.ui.helpers.rememberSongDownloadState
+import com.example.melodist.utils.LocalDownloadViewModel
 import com.example.melodist.utils.LocalPlayerViewModel
 import com.example.melodist.viewmodels.PlayerViewModel
 import com.example.melodist.viewmodels.SearchState
@@ -569,7 +560,22 @@ fun ResultsList(
                         }
 
                         items(items) { item ->
-                            SearchResultItem(item, onItemClick)
+                            val downloadViewModel = LocalDownloadViewModel.current
+                            val downloadState by if (item is SongItem) {
+                                rememberSongDownloadState(item.id, downloadViewModel)
+                            } else {
+                                remember { mutableStateOf(null) }
+                            }
+                            val source = if (item is SongItem && downloadState != null) {
+                                ItemContentSource.LOCAL
+                            } else {
+                                ItemContentSource.YOUTUBE
+                            }
+                            YoutubeListItem(
+                                item = item,
+                                source = source,
+                                onItemClick = onItemClick
+                            )
                         }
 
                         if (uiState is SearchState.Success && uiState.isLoadingMore) {
@@ -618,137 +624,3 @@ fun EmptyStateView(icon: ImageVector, message: String) {
     }
 }
 
-@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
-@Composable
-fun SearchResultItem(item: YTItem, onItemClick: (YTItem) -> Unit) {
-    // 1. Refinamiento de formas: Álbumes/Canciones con bordes ligeramente más suaves
-    val shape = when (item) {
-        is ArtistItem -> CircleShape
-        is PlaylistItem -> RoundedCornerShape(8.dp)
-        else -> RoundedCornerShape(6.dp)
-    }
-
-    // 2. Estandarización de tamaños para evitar que el ListItem se deforme verticalmente
-    val imageSize = when (item) {
-        is PlaylistItem, is ArtistItem -> 56.dp
-        else -> 48.dp
-    }
-
-    var showMenu by remember { mutableStateOf(false) }
-    var menuOffset by remember { mutableStateOf(DpOffset.Zero) }
-    var isHovered by remember { mutableStateOf(false) }
-
-    // Variables para calcular la posición relativa correcta
-    var buttonPosition by remember { mutableStateOf(Offset.Zero) }
-    var rootCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
-
-    val density = LocalDensity.current
-
-    // 3. Movemos el Box para que envuelva todo el componente, permitiendo márgenes externos
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 2.dp) // Margen exterior para que el hover respire
-            .clip(RoundedCornerShape(8.dp))
-            .onGloballyPositioned { rootCoordinates = it } // Guardamos las coordenadas del contenedor padre
-            .background(if (isHovered) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f) else Color.Transparent)
-            .clickable { onItemClick(item) }
-            .pointerHoverIcon(PointerIcon.Hand)
-            .contextMenuArea(
-                enabled = item is SongItem,
-                onHoverChange = { isHovered = it },
-                onMenuAction = { offset ->
-                    menuOffset = offset
-                    showMenu = true
-                }
-            )
-    ) {
-        ListItem(
-            modifier = Modifier.fillMaxWidth(),
-            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-            headlineContent = {
-                Text(
-                    text = item.title,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold)
-                )
-            },
-            supportingContent = {
-                val subtitle = when (item) {
-                    is SongItem -> {
-                        val artists = item.artists.joinToString { it.name }
-                        val album = item.album?.name?.let { " • $it" } ?: ""
-                        "$artists$album"
-                    }
-                    is AlbumItem -> {
-                        val artists = item.artists?.joinToString { it.name } ?: "Álbum"
-                        "Álbum • $artists"
-                    }
-                    is ArtistItem -> "Artista"
-                    is PlaylistItem -> {
-                        val author = item.author?.name?.let { " • $it" } ?: ""
-                        "Playlist$author"
-                    }
-                }
-                Text(
-                    text = subtitle,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            },
-            leadingContent = {
-                MelodistImage(
-                    url = item.thumbnail,
-                    contentDescription = item.title,
-                    modifier = Modifier.size(imageSize),
-                    shape = shape,
-                    placeholderType = when (item) {
-                        is ArtistItem -> PlaceholderType.ARTIST
-                        is AlbumItem -> PlaceholderType.ALBUM
-                        is PlaylistItem -> PlaceholderType.PLAYLIST
-                        else -> PlaceholderType.SONG
-                    },
-                    contentScale = ContentScale.Crop,
-                    iconSize = if (item is PlaylistItem) 28.dp else 24.dp
-                )
-            },
-            trailingContent = {
-                if (item is SongItem) {
-                    IconButton(
-                        onClick = {
-                            menuOffset = with(density) {
-                                // Convertimos los píxeles a DpOffset de manera segura
-                                DpOffset(buttonPosition.x.toDp(), buttonPosition.y.toDp())
-                            }
-                            showMenu = true
-                        },
-                        modifier = Modifier.onGloballyPositioned { buttonCoords ->
-                            // LA SOLUCIÓN: Calculamos la posición del botón RELATIVA al Box padre, no a la ventana
-                            rootCoordinates.let { root ->
-                                buttonPosition = root?.localPositionOf(buttonCoords, Offset.Zero) ?: Offset.Zero
-                            }
-                        }
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.MoreVert,
-                            contentDescription = "Más opciones",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
-        )
-
-        if (item is SongItem) {
-            SongContextMenu(
-                expanded = showMenu,
-                onDismiss = { showMenu = false },
-                song = item,
-                offset = menuOffset
-            )
-        }
-    }
-}
