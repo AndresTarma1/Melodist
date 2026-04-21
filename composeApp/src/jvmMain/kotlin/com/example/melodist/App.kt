@@ -148,7 +148,7 @@ fun ApplicationScope.App(
 
     // ── Theme ─────────────────────────────────────────────────────────────────
     val playerState by playerViewModel.uiState.collectAsState()
-    val artworkColors = rememberArtworkColors(playerState.currentSong?.thumbnail)
+    val artworkColors = rememberArtworkColors(playerState.currentSong?.thumbnailUrl)
     val themeMode by remember { userPreferences.themeMode }.collectAsState(ThemeMode.SYSTEM)
     val isDark = when (themeMode) {
         ThemeMode.DARK -> true

@@ -102,7 +102,7 @@ fun MiniPlayer(
                             contentAlignment = Alignment.Center
                         ) {
                             MelodistImage(
-                                url = song.thumbnail,
+                                url = song.thumbnailUrl,
                                 contentDescription = song.title,
                                 modifier = Modifier
                                     .size(36.dp),
@@ -113,7 +113,7 @@ fun MiniPlayer(
                         }
                     } else {
                         MelodistImage(
-                            url = song.thumbnail,
+                            url = song.thumbnailUrl,
                             contentDescription = song.title,
                             modifier = Modifier
                                 .width(72.dp)

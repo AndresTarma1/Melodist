@@ -32,9 +32,21 @@ fun YTItem.thumbnailAspectRatio(): Float = if (isWideThumbnail()) 16f / 9f else 
 fun String?.resize(width: Int, height: Int): String? {
     if (this == null) return null
     return if (this.contains("=w") || this.contains("-w")) {
-        this.replaceFirst(Regex("([=–-])w\\d+"), "$1w$width")
-            .replaceFirst(Regex("([=–-])h\\d+"), "$1h$height")
+        this.replaceFirst(Regex("([=-])w\\d+"), "$1w$width")
+            .replaceFirst(Regex("([=-])h\\d+"), "$1h$height")
     } else {
         "$this=w$width-h$height"
     }
+}
+
+/**
+ * Upscales a YouTube thumbnail URL to a target size.
+ * Handles `w226-h226`, `=w120-h120` and `=s120` formats.
+ */
+fun upscaleThumbnailUrl(url: String?, targetSize: Int): String? {
+    if (url == null) return null
+    return url
+        .replace(Regex("w\\d+-h\\d+"), "w${targetSize}-h${targetSize}")
+        .replace(Regex("=w\\d+-h\\d+"), "=w${targetSize}-h${targetSize}")
+        .replace(Regex("=s\\d+"), "=s${targetSize}")
 }

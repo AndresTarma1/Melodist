@@ -3,24 +3,23 @@ package com.example.melodist.viewmodels
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 
-import com.example.melodist.data.repository.AudioQuality
+import com.example.melodist.models.MediaMetadata
+import com.example.melodist.models.toMediaMetadata
 import com.example.melodist.player.AudioStreamResolver
-import com.example.melodist.player.DownloadService
 import com.example.melodist.player.PlaybackState
 import com.example.melodist.player.PlayerService
 import com.example.melodist.player.WindowsMediaSession
 import com.metrolist.innertube.YouTube
 import com.metrolist.innertube.models.SongItem
 import com.metrolist.innertube.models.WatchEndpoint
-import com.metrolist.innertube.models.YTItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.jvm.JvmName
 import java.net.HttpURLConnection
 import java.net.URI
-import java.net.URL
 import java.util.logging.Logger
 
 import com.example.melodist.data.repository.UserPreferencesRepository
@@ -96,11 +95,11 @@ class PlayerViewModel(
                     if (song != null) {
                         // Descargar thumbnail en IO, luego actualizar SMTC con file:// URI
                         viewModelScope.launch(Dispatchers.IO) {
-                            val thumbUri = downloadThumbToTemp(song.thumbnail)
+                            val thumbUri = downloadThumbToTemp(song.thumbnailUrl)
                             mediaSession.updateMetadata(
                                 title        = song.title,
                                 artist       = song.artists.joinToString(", ") { it.name },
-                                album        = song.album?.name ?: "",
+                                album        = song.album?.title ?: "",
                                 thumbnailUrl = thumbUri
                             )
                         }
@@ -139,7 +138,9 @@ class PlayerViewModel(
 
     // ─── Play actions ──────────────────────────────────────
 
-    fun playSingle(song: SongItem) {
+    fun playSingle(song: SongItem) = playSingle(song.toMediaMetadata())
+
+    fun playSingle(song: MediaMetadata) {
         val session = QueueSession(
             source = QueueSource.Single(song.id),
             items = listOf(song),
@@ -161,7 +162,11 @@ class PlayerViewModel(
         fetchRelatedQueue(song, session)
     }
 
-    fun playAlbum(songs: List<SongItem>, startIndex: Int = 0, browseId: String, title: String) {
+    @JvmName("playAlbumFromSongItems")
+    fun playAlbum(songs: List<SongItem>, startIndex: Int = 0, browseId: String, title: String) =
+        playAlbum(songs.map { it.toMediaMetadata() }, startIndex, browseId, title)
+
+    fun playAlbum(songs: List<MediaMetadata>, startIndex: Int = 0, browseId: String, title: String) {
         if (songs.isEmpty()) return
         val source = QueueSource.Album(browseId, title)
         val idx = startIndex.coerceIn(0, songs.lastIndex)
@@ -185,7 +190,11 @@ class PlayerViewModel(
         resolveAndPlay(songs[idx])
     }
 
-    fun playPlaylist(songs: List<SongItem>, startIndex: Int = 0, playlistId: String, title: String) {
+    @JvmName("playPlaylistFromSongItems")
+    fun playPlaylist(songs: List<SongItem>, startIndex: Int = 0, playlistId: String, title: String) =
+        playPlaylist(songs.map { it.toMediaMetadata() }, startIndex, playlistId, title)
+
+    fun playPlaylist(songs: List<MediaMetadata>, startIndex: Int = 0, playlistId: String, title: String) {
         if (songs.isEmpty()) return
         val source = QueueSource.Playlist(playlistId, title)
         val idx = startIndex.coerceIn(0, songs.lastIndex)
@@ -209,7 +218,11 @@ class PlayerViewModel(
         resolveAndPlay(songs[idx])
     }
 
-    fun playCustom(songs: List<SongItem>, startIndex: Int = 0) {
+    @JvmName("playCustomFromSongItems")
+    fun playCustom(songs: List<SongItem>, startIndex: Int = 0) =
+        playCustom(songs.map { it.toMediaMetadata() }, startIndex)
+
+    fun playCustom(songs: List<MediaMetadata>, startIndex: Int = 0) {
         if (songs.isEmpty()) return
         val idx = startIndex.coerceIn(0, songs.lastIndex)
         val session = QueueSession(
@@ -358,7 +371,9 @@ class PlayerViewModel(
 
     // ─── Queue manipulation ────────────────────────────────
 
-    fun addToQueue(song: SongItem) {
+    fun addToQueue(song: SongItem) = addToQueue(song.toMediaMetadata())
+
+    fun addToQueue(song: MediaMetadata) {
         _uiState.update { state ->
             if (state.queueSession.items.isEmpty()) return@update state.copy(queueSession = QueueSession(source = QueueSource.Custom, items = listOf(song), order = listOf(0), currentIndex = 0), queue = listOf(song))
             val session = state.queueSession
@@ -372,7 +387,10 @@ class PlayerViewModel(
     }
 
     /** Insert song right after the currently playing song (play next). */
-    fun playNext(song: SongItem) {
+    fun playNext(song: SongItem) = playNext(song.toMediaMetadata())
+
+    /** Insert song right after the currently playing song (play next). */
+    fun playNext(song: MediaMetadata) {
         _uiState.update { state ->
             if (state.queueSession.items.isEmpty()) return@update state.copy(queueSession = QueueSession(source = QueueSource.Custom, items = listOf(song), order = listOf(0), currentIndex = 0), queue = listOf(song))
             val session = state.queueSession
@@ -449,7 +467,7 @@ class PlayerViewModel(
 
     // ─── Internal ──────────────────────────────────────────
 
-    private fun resolveAndPlay(song: SongItem) {
+    private fun resolveAndPlay(song: MediaMetadata) {
         resolveJob?.cancel()
 
         resolveJob = viewModelScope.launch {
@@ -497,7 +515,7 @@ class PlayerViewModel(
         }
     }
 
-    private fun fetchRelatedQueue(song: SongItem, sessionSeed: QueueSession) {
+    private fun fetchRelatedQueue(song: MediaMetadata, sessionSeed: QueueSession) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val endpoint = WatchEndpoint(videoId = song.id)
@@ -507,11 +525,17 @@ class PlayerViewModel(
                 _uiState.update { state ->
                     if (state.currentSong?.id != originalSongId || sessionSeed.source !is QueueSource.Single) return@update state
 
-                    val suggestedCurrent = result.items.find { it.id == originalSongId }
-                    val related = result.items.filter { it.id != originalSongId }
+                    val suggestedCurrent = result.items.find { it.id == originalSongId }?.toMediaMetadata()
+                    val related = result.items
+                        .filter { it.id != originalSongId }
+                        .map { it.toMediaMetadata() }
                     val items = listOfNotNull(
                         state.currentSong.let {
-                            if (it.duration == null && suggestedCurrent?.duration != null) it.copy(duration = suggestedCurrent.duration) else it
+                            if (it.duration <= 0 && suggestedCurrent != null && suggestedCurrent.duration > 0) {
+                                it.copy(duration = suggestedCurrent.duration)
+                            } else {
+                                it
+                            }
                         }
                     ) + related
                     val order = items.indices.toList()

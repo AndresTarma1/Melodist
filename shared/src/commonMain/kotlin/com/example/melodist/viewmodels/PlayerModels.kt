@@ -1,7 +1,7 @@
 package com.example.melodist.viewmodels
 
 import com.example.melodist.player.PlaybackState
-import com.metrolist.innertube.models.SongItem
+import com.example.melodist.models.MediaMetadata
 
 /**
  * Describes how the queue was built.
@@ -22,20 +22,20 @@ sealed class QueueSource {
 
 data class QueueSession(
     val source: QueueSource = QueueSource.Custom,
-    val items: List<SongItem> = emptyList(),
+    val items: List<MediaMetadata> = emptyList(),
     val order: List<Int> = emptyList(),
     val currentIndex: Int = -1,
 ) {
-    fun currentSong(): SongItem? = order.getOrNull(currentIndex)?.let(items::getOrNull)
+    fun currentSong(): MediaMetadata? = order.getOrNull(currentIndex)?.let(items::getOrNull)
 
-    fun queueItems(): List<SongItem> = order.mapNotNull { items.getOrNull(it) }
+    fun queueItems(): List<MediaMetadata> = order.mapNotNull { items.getOrNull(it) }
 
     fun naturalOrder(): List<Int> = items.indices.toList()
 }
 
 data class PlayerUiState(
-    val currentSong: SongItem? = null,
-    val queue: List<SongItem> = emptyList(),
+    val currentSong: MediaMetadata? = null,
+    val queue: List<MediaMetadata> = emptyList(),
     val currentIndex: Int = -1,
     val playbackState: PlaybackState = PlaybackState.IDLE,
     // positionMs y durationMs se mantienen aquí para compatibilidad con

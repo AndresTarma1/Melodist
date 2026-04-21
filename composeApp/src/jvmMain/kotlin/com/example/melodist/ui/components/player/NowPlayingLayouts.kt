@@ -31,8 +31,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.melodist.navigation.Route
+import com.example.melodist.models.MediaMetadata
 import com.example.melodist.ui.components.*
-import com.example.melodist.ui.components.images.upscaleThumbnailUrl
+import com.example.melodist.utils.upscaleThumbnailUrl
 import com.example.melodist.ui.components.song.DownloadIndicator
 import com.example.melodist.ui.helpers.rememberSongDownloadState
 import com.example.melodist.utils.LocalDownloadViewModel
@@ -40,7 +41,6 @@ import com.example.melodist.utils.LocalPlayerViewModel
 import com.example.melodist.utils.LocalUserPreferences
 import com.example.melodist.viewmodels.PlayerUiState
 import com.example.melodist.viewmodels.QueueSource
-import com.metrolist.innertube.models.SongItem
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.jetbrains.jewel.foundation.modifier.onHover
@@ -52,7 +52,7 @@ import androidx.compose.animation.core.RepeatMode as InfiniteRepeatMode
 @Composable
 fun NowPlayingLayout(
     state: PlayerUiState,
-    song: SongItem,
+    song: MediaMetadata,
     onCollapse: () -> Unit,
     onNavigate: ((Route) -> Unit)? = null,
 ) {
@@ -60,7 +60,7 @@ fun NowPlayingLayout(
     val highRes by playerViewModel.highResCoverArt.collectAsState(false)
 
     BlurredImageBackground(
-        imageUrl = song.thumbnail,
+        imageUrl = song.thumbnailUrl,
         modifier = Modifier.fillMaxSize(),
         darkOverlayAlpha = 0.62f,
         gradientFraction = 0.52f
@@ -74,9 +74,9 @@ fun NowPlayingLayout(
         ) {
 
             if (state.queueSource is QueueSource.Album) {
-                AlbumDiscLarge(url = song.thumbnail, title = song.title, highRes = highRes)
+                AlbumDiscLarge(url = song.thumbnailUrl, title = song.title, highRes = highRes)
             } else {
-                CoverArt(url = song.thumbnail, title = song.title, size = 440, highRes = highRes)
+                CoverArt(url = song.thumbnailUrl, title = song.title, size = 440, highRes = highRes)
             }
             Spacer(Modifier.height(24.dp))
             SongHeader(
@@ -284,7 +284,7 @@ fun CoverArt(url: String?, title: String, size: Int, highRes: Boolean) {
 @Composable
 fun SongHeader(
     state: PlayerUiState,
-    song: SongItem,
+    song: MediaMetadata,
     textAlign: TextAlign,
     onNavigate: ((Route) -> Unit)? = null,
     onCollapse: (() -> Unit)? = null
@@ -372,7 +372,7 @@ fun SongHeader(
                 )
                 Spacer(Modifier.width(4.dp))
                 Text(
-                    text = album.name,
+                    text = album.title,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -394,7 +394,7 @@ fun SongHeader(
 
 @Composable
 fun QueueItem(
-    song: SongItem,
+    song: MediaMetadata,
     index: Int,
     isCurrent: Boolean,
     isDragging: Boolean = false,
@@ -459,7 +459,7 @@ fun QueueItem(
 
             // Thumbnail
             MelodistImage(
-                url = song.thumbnail,
+                url = song.thumbnailUrl,
                 contentDescription = song.title,
                 modifier = Modifier.size(48.dp), // Imagen de carátula más grande
                 shape = RoundedCornerShape(8.dp),
@@ -492,9 +492,9 @@ fun QueueItem(
             DownloadIndicator(state = downloadState)
 
             // Duración
-            song.duration?.let {
+            if (song.duration > 0) {
                 Text(
-                    formatPlayerTimeValue(it * 1000L),
+                    formatPlayerTimeValue(song.duration * 1000L),
                     style = MaterialTheme.typography.labelMedium, // Texto un poco más grande
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                 )

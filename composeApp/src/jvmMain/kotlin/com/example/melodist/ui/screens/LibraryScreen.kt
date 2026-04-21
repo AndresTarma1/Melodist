@@ -31,6 +31,7 @@ import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -81,6 +82,8 @@ data class LibraryActions(
     val onRemoveAlbum: (String) -> Unit,
     val onRemoveArtist: (String) -> Unit,
     val onRemovePlaylist: (String) -> Unit,
+    val onQuickPlayAlbum: (browseId: String, title: String, onFallback: () -> Unit) -> Unit,
+    val onQuickPlayPlaylist: (playlistId: String, title: String, onFallback: () -> Unit) -> Unit,
     val onRefreshYtm: () -> Unit,
     val onSyncAll: () -> Unit,
     val onCreatePlaylist: (String) -> Unit
@@ -126,6 +129,34 @@ fun LibraryScreenRoute(
             onRemoveAlbum = { viewModel.removeAlbum(it) },
             onRemoveArtist = { viewModel.removeArtist(it) },
             onRemovePlaylist = { viewModel.removePlaylist(it) },
+            onQuickPlayAlbum = { browseId, title, onFallback ->
+                viewModel.resolveAlbumSongsForPlayback(
+                    browseId = browseId,
+                    onResolved = { songs ->
+                        playerViewModel?.playAlbum(
+                            songs = songs,
+                            startIndex = 0,
+                            browseId = browseId,
+                            title = title
+                        )
+                    },
+                    onFallback = onFallback
+                )
+            },
+            onQuickPlayPlaylist = { playlistId, title, onFallback ->
+                viewModel.resolvePlaylistSongsForPlayback(
+                    playlistId = playlistId,
+                    onResolved = { songs ->
+                        playerViewModel?.playPlaylist(
+                            songs = songs,
+                            startIndex = 0,
+                            playlistId = playlistId,
+                            title = title
+                        )
+                    },
+                    onFallback = onFallback
+                )
+            },
             onRefreshYtm = { viewModel.refreshYtmLibrary() },
             onSyncAll = { syncUtils.performFullSync() },
             onCreatePlaylist = { playlistsViewModel.createLocalPlaylist(it) }
@@ -223,7 +254,9 @@ fun LibraryScreen(
                     ytmAlbums = if (state.ytmState is YtmLibraryState.Success) state.ytmState.albums else emptyList(),
                     isLoadingYtm = state.ytmState is YtmLibraryState.Loading,
                     onNavigate = actions.onNavigate,
-                    onRemove = actions.onRemoveAlbum
+                    onRemove = actions.onRemoveAlbum,
+                    playerViewModel = playerViewModel,
+                    onQuickPlayAlbum = actions.onQuickPlayAlbum
                 )
                 LibraryTab.ARTISTS -> ArtistsTab(
                     artists = state.artists,
@@ -237,10 +270,15 @@ fun LibraryScreen(
                     ytmPlaylists = if (state.ytmState is YtmLibraryState.Success) state.ytmState.playlists else emptyList(),
                     isLoadingYtm = state.ytmState is YtmLibraryState.Loading,
                     onNavigate = actions.onNavigate,
-                    onRemove = actions.onRemovePlaylist
+                    onRemove = actions.onRemovePlaylist,
+                    playerViewModel = playerViewModel,
+                    onQuickPlayPlaylist = actions.onQuickPlayPlaylist
                 )
                 LibraryTab.DOWNLOADS -> DownloadsTab(
                     onNavigate = actions.onNavigate,
+                    playerViewModel = playerViewModel,
+                    onQuickPlayAlbum = actions.onQuickPlayAlbum,
+                    onQuickPlayPlaylist = actions.onQuickPlayPlaylist,
                 )
 
                 LibraryTab.LIBRARY -> LibraryMixedTab(
@@ -600,8 +638,11 @@ private fun AlbumsTab(
     ytmAlbums: List<AlbumItem> = emptyList(),
     isLoadingYtm: Boolean = false,
     onNavigate: (Route) -> Unit,
-    onRemove: (String) -> Unit
+    onRemove: (String) -> Unit,
+    playerViewModel: PlayerViewModel? = null,
+    onQuickPlayAlbum: (browseId: String, title: String, onFallback: () -> Unit) -> Unit,
 ) {
+    // playerViewModel se mantiene para compatibilidad de firma existente.
     val isEmpty = albums.isEmpty() && ytmAlbums.isEmpty() && !isLoadingYtm
     if (isEmpty) {
         LibraryEmptyState(Icons.Default.Album, "No hay álbumes guardados", "Guarda álbumes y aparecerán aquí")
@@ -614,6 +655,12 @@ private fun AlbumsTab(
         }
         return
     }
+    val mergedAlbums = remember(albums, ytmAlbums) {
+        buildList {
+            ytmAlbums.forEach { add(it to LibraryItemSource.YTM) }
+            albums.forEach { add(it to LibraryItemSource.LOCAL) }
+        }
+    }
     val gridState = rememberLazyGridState()
     Box(modifier = Modifier.fillMaxSize()) {
         LazyVerticalGrid(
@@ -623,37 +670,26 @@ private fun AlbumsTab(
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            if (ytmAlbums.isNotEmpty()) {
-                item(span = { GridItemSpan(maxLineSpan) }) {
-                    YtmSectionHeader("Álbumes en YouTube Music")
-                }
-                items(ytmAlbums, key = { "ytm_${it.browseId}" }) { album ->
-                    LibraryGridItem(
-                        title = album.title,
-                        subtitle = album.artists?.firstOrNull()?.name ?: album.year?.toString() ?: "Álbum",
-                        thumbnailUrl = album.thumbnail, placeholderType = PlaceholderType.ALBUM,
-                        shape = RoundedCornerShape(12.dp),
-                        onClick = { onNavigate(Route.Album(album.browseId)) },
-                        onRemove = {}, isRemovable = false
-                    )
-                }
-            }
-            if (albums.isNotEmpty()) {
-                if (ytmAlbums.isNotEmpty()) {
-                    item(span = { GridItemSpan(maxLineSpan) }) {
-                        LocalSectionHeader("Guardados localmente")
-                    }
-                }
-                items(albums, key = { it.browseId }) { album ->
-                    LibraryGridItem(
-                        title = album.title,
-                        subtitle = album.artists?.firstOrNull()?.name ?: album.year?.toString() ?: "Álbum",
-                        thumbnailUrl = album.thumbnail, placeholderType = PlaceholderType.ALBUM,
-                        shape = RoundedCornerShape(12.dp),
-                        onClick = { onNavigate(Route.Album(album.browseId)) },
-                        onRemove = { onRemove(album.browseId) }
-                    )
-                }
+            items(
+                items = mergedAlbums,
+                key = { (album, source) -> "${source.name.lowercase()}_${album.browseId}" }
+            ) { (album, source) ->
+                LibraryGridItem(
+                    title = album.title,
+                    subtitle = album.artists?.firstOrNull()?.name ?: album.year?.toString() ?: "Álbum",
+                    thumbnailUrl = album.thumbnail,
+                    placeholderType = PlaceholderType.ALBUM,
+                    shape = RoundedCornerShape(12.dp),
+                    onClick = { onNavigate(Route.Album(album.browseId)) },
+                    onPlay = {
+                        onQuickPlayAlbum(album.browseId, album.title) {
+                            onNavigate(Route.Album(album.browseId))
+                        }
+                    },
+                    onRemove = { onRemove(album.browseId) },
+                    isRemovable = source == LibraryItemSource.LOCAL,
+                    source = source
+                )
             }
         }
         AppVerticalScrollbar(
@@ -687,6 +723,12 @@ private fun ArtistsTab(
         }
         return
     }
+    val mergedArtists = remember(artists, ytmArtists) {
+        buildList {
+            ytmArtists.forEach { add(it to LibraryItemSource.YTM) }
+            artists.forEach { add(it to LibraryItemSource.LOCAL) }
+        }
+    }
     val gridState = rememberLazyGridState()
     Box(modifier = Modifier.fillMaxSize()) {
         LazyVerticalGrid(
@@ -696,33 +738,21 @@ private fun ArtistsTab(
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            if (ytmArtists.isNotEmpty()) {
-                item(span = { GridItemSpan(maxLineSpan) }) {
-                    YtmSectionHeader("Artistas suscritos")
-                }
-                items(ytmArtists, key = { "ytm_${it.id}" }) { artist ->
-                    LibraryGridItem(
-                        title = artist.title, subtitle = "Artista",
-                        thumbnailUrl = artist.thumbnail, placeholderType = PlaceholderType.ARTIST,
-                        shape = CircleShape, onClick = { onNavigate(Route.Artist(artist.id)) },
-                        onRemove = {}, isRemovable = false
-                    )
-                }
-            }
-            if (artists.isNotEmpty()) {
-                if (ytmArtists.isNotEmpty()) {
-                    item(span = { GridItemSpan(maxLineSpan) }) {
-                        LocalSectionHeader("Guardados localmente")
-                    }
-                }
-                items(artists, key = { it.id }) { artist ->
-                    LibraryGridItem(
-                        title = artist.title, subtitle = "Artista",
-                        thumbnailUrl = artist.thumbnail, placeholderType = PlaceholderType.ARTIST,
-                        shape = CircleShape, onClick = { onNavigate(Route.Artist(artist.id)) },
-                        onRemove = { onRemove(artist.id) }
-                    )
-                }
+            items(
+                items = mergedArtists,
+                key = { (artist, source) -> "${source.name.lowercase()}_${artist.id}" }
+            ) { (artist, source) ->
+                LibraryGridItem(
+                    title = artist.title,
+                    subtitle = "Artista",
+                    thumbnailUrl = artist.thumbnail,
+                    placeholderType = PlaceholderType.ARTIST,
+                    shape = CircleShape,
+                    onClick = { onNavigate(Route.Artist(artist.id)) },
+                    onRemove = { onRemove(artist.id) },
+                    isRemovable = source == LibraryItemSource.LOCAL,
+                    source = source
+                )
             }
         }
         AppVerticalScrollbar(
@@ -742,8 +772,11 @@ private fun PlaylistsTab(
     ytmPlaylists: List<PlaylistItem> = emptyList(),
     isLoadingYtm: Boolean = false,
     onNavigate: (Route) -> Unit,
-    onRemove: (String) -> Unit
+    onRemove: (String) -> Unit,
+    playerViewModel: PlayerViewModel? = null,
+    onQuickPlayPlaylist: (playlistId: String, title: String, onFallback: () -> Unit) -> Unit,
 ) {
+    // playerViewModel se mantiene para compatibilidad de firma existente.
     val isEmpty = playlists.isEmpty() && ytmPlaylists.isEmpty() && !isLoadingYtm
     if (isEmpty) {
         LibraryEmptyState(Icons.AutoMirrored.Filled.PlaylistPlay, "No hay playlists guardadas", "Guarda playlists y aparecerán aquí")
@@ -756,6 +789,12 @@ private fun PlaylistsTab(
         }
         return
     }
+    val mergedPlaylists = remember(playlists, ytmPlaylists) {
+        buildList {
+            ytmPlaylists.forEach { add(it to LibraryItemSource.YTM) }
+            playlists.forEach { add(it to LibraryItemSource.LOCAL) }
+        }
+    }
     val gridState = rememberLazyGridState()
     Box(modifier = Modifier.fillMaxSize()) {
         LazyVerticalGrid(
@@ -765,37 +804,26 @@ private fun PlaylistsTab(
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            if (ytmPlaylists.isNotEmpty()) {
-                item(span = { GridItemSpan(maxLineSpan) }) {
-                    YtmSectionHeader("Playlists de YouTube Music")
-                }
-                items(ytmPlaylists, key = { "ytm_${it.id}" }) { playlist ->
-                    LibraryGridItem(
-                        title = playlist.title,
-                        subtitle = playlist.author?.name ?: playlist.songCountText ?: "Playlist",
-                        thumbnailUrl = playlist.thumbnail, placeholderType = PlaceholderType.PLAYLIST,
-                        shape = RoundedCornerShape(12.dp),
-                        onClick = { onNavigate(Route.Playlist(playlist.id)) },
-                        onRemove = {}, isRemovable = false
-                    )
-                }
-            }
-            if (playlists.isNotEmpty()) {
-                if (ytmPlaylists.isNotEmpty()) {
-                    item(span = { GridItemSpan(maxLineSpan) }) {
-                        LocalSectionHeader("Guardadas localmente")
-                    }
-                }
-                items(playlists, key = { it.id }) { playlist ->
-                    LibraryGridItem(
-                        title = playlist.title,
-                        subtitle = playlist.author?.name ?: playlist.songCountText ?: "Playlist",
-                        thumbnailUrl = playlist.thumbnail, placeholderType = PlaceholderType.PLAYLIST,
-                        shape = RoundedCornerShape(12.dp),
-                        onClick = { onNavigate(Route.Playlist(playlist.id)) },
-                        onRemove = { onRemove(playlist.id) }
-                    )
-                }
+            items(
+                items = mergedPlaylists,
+                key = { (playlist, source) -> "${source.name.lowercase()}_${playlist.id}" }
+            ) { (playlist, source) ->
+                LibraryGridItem(
+                    title = playlist.title,
+                    subtitle = playlist.author?.name ?: playlist.songCountText ?: "Playlist",
+                    thumbnailUrl = playlist.thumbnail,
+                    placeholderType = PlaceholderType.PLAYLIST,
+                    shape = RoundedCornerShape(12.dp),
+                    onClick = { onNavigate(Route.Playlist(playlist.id)) },
+                    onPlay = {
+                        onQuickPlayPlaylist(playlist.id, playlist.title) {
+                            onNavigate(Route.Playlist(playlist.id))
+                        }
+                    },
+                    onRemove = { onRemove(playlist.id) },
+                    isRemovable = source == LibraryItemSource.LOCAL,
+                    source = source
+                )
             }
         }
         AppVerticalScrollbar(
@@ -837,6 +865,9 @@ private fun LibraryMixedTab(
 @Composable
 private fun DownloadsTab(
     onNavigate: (Route) -> Unit,
+    playerViewModel: PlayerViewModel? = null,
+    onQuickPlayAlbum: (browseId: String, title: String, onFallback: () -> Unit) -> Unit,
+    onQuickPlayPlaylist: (playlistId: String, title: String, onFallback: () -> Unit) -> Unit,
 ) {
     val downloadViewModel: DownloadViewModel = LocalDownloadViewModel.current
     val downloadedSongs by downloadViewModel.downloadedSongs.collectAsState()
@@ -855,6 +886,78 @@ private fun DownloadsTab(
         return
     }
 
+    data class DownloadGridEntry(
+        val key: String,
+        val title: String,
+        val subtitle: String,
+        val thumbnailUrl: String?,
+        val placeholderType: PlaceholderType,
+        val shape: Shape,
+        val onClick: () -> Unit,
+        val onPlay: (() -> Unit)? = null,
+    )
+
+    val mergedDownloads = remember(downloadedCount, downloadedSongs, fullyDownloadedPlaylists, fullyDownloadedAlbums) {
+        buildList {
+            add(
+                DownloadGridEntry(
+                    key = "local_downloads",
+                    title = "Descargas",
+                    subtitle = "$downloadedCount canciones",
+                    thumbnailUrl = downloadedSongs.firstOrNull()?.thumbnail,
+                    placeholderType = PlaceholderType.PLAYLIST,
+                    shape = RoundedCornerShape(12.dp),
+                    onClick = { onNavigate(Route.Playlist("LOCAL_DOWNLOADS")) },
+                    onPlay = {
+                        if (downloadedSongs.isNotEmpty()) {
+                            playerViewModel?.playCustom(downloadedSongs, 0)
+                        } else {
+                            onNavigate(Route.Playlist("LOCAL_DOWNLOADS"))
+                        }
+                    }
+                )
+            )
+
+            fullyDownloadedPlaylists.forEach { playlistInfo ->
+                add(
+                    DownloadGridEntry(
+                        key = "dlpl_${playlistInfo.playlistId}",
+                        title = playlistInfo.playlistName,
+                        subtitle = "${playlistInfo.downloadedSongCount} canciones",
+                        thumbnailUrl = playlistInfo.thumbnail,
+                        placeholderType = PlaceholderType.PLAYLIST,
+                        shape = RoundedCornerShape(12.dp),
+                        onClick = { onNavigate(Route.Playlist(playlistInfo.playlistId)) },
+                        onPlay = {
+                            onQuickPlayPlaylist(playlistInfo.playlistId, playlistInfo.playlistName) {
+                                onNavigate(Route.Playlist(playlistInfo.playlistId))
+                            }
+                        }
+                    )
+                )
+            }
+
+            fullyDownloadedAlbums.forEach { albumInfo ->
+                add(
+                    DownloadGridEntry(
+                        key = "dlal_${albumInfo.albumId}",
+                        title = albumInfo.albumName,
+                        subtitle = "${albumInfo.songs.size} canciones",
+                        thumbnailUrl = albumInfo.thumbnail,
+                        placeholderType = PlaceholderType.ALBUM,
+                        shape = RoundedCornerShape(12.dp),
+                        onClick = { onNavigate(Route.Album(albumInfo.albumId)) },
+                        onPlay = {
+                            onQuickPlayAlbum(albumInfo.albumId, albumInfo.albumName) {
+                                onNavigate(Route.Album(albumInfo.albumId))
+                            }
+                        }
+                    )
+                )
+            }
+        }
+    }
+
     val gridState = rememberLazyGridState()
     Box(modifier = Modifier.fillMaxSize()) {
         LazyVerticalGrid(
@@ -864,53 +967,18 @@ private fun DownloadsTab(
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // ── Playlists section ──
-            item(span = { GridItemSpan(maxLineSpan) }) {
-                LocalSectionHeader("Playlists")
-            }
-
-            // "Descargas" card — navigates to PlaylistScreen with LOCAL_DOWNLOADS
-            item {
+            items(mergedDownloads, key = { it.key }) { entry ->
                 LibraryGridItem(
-                    title = "Descargas",
-                    subtitle = "$downloadedCount canciones",
-                    thumbnailUrl = downloadedSongs.firstOrNull()?.thumbnail,
-                    placeholderType = PlaceholderType.PLAYLIST,
-                    shape = RoundedCornerShape(12.dp),
-                    onClick = { onNavigate(Route.Playlist("LOCAL_DOWNLOADS")) },
-                    isRemovable = false
+                    title = entry.title,
+                    subtitle = entry.subtitle,
+                    thumbnailUrl = entry.thumbnailUrl,
+                    placeholderType = entry.placeholderType,
+                    shape = entry.shape,
+                    onClick = entry.onClick,
+                    onPlay = entry.onPlay,
+                    isRemovable = false,
+                    source = LibraryItemSource.LOCAL
                 )
-            }
-
-            // Fully downloaded playlists
-            items(fullyDownloadedPlaylists, key = { "dlpl_${it.playlistId}" }) { playlistInfo ->
-                LibraryGridItem(
-                    title = playlistInfo.playlistName,
-                    subtitle = "${playlistInfo.downloadedSongCount} canciones",
-                    thumbnailUrl = playlistInfo.thumbnail,
-                    placeholderType = PlaceholderType.PLAYLIST,
-                    shape = RoundedCornerShape(12.dp),
-                    onClick = { onNavigate(Route.Playlist(playlistInfo.playlistId)) },
-                    isRemovable = false
-                )
-            }
-
-            // ── Albums section ──
-            if (fullyDownloadedAlbums.isNotEmpty()) {
-                item(span = { GridItemSpan(maxLineSpan) }) {
-                    LocalSectionHeader("Álbumes")
-                }
-                items(fullyDownloadedAlbums, key = { "dlal_${it.albumId}" }) { albumInfo ->
-                    LibraryGridItem(
-                        title = albumInfo.albumName,
-                        subtitle = "${albumInfo.songs.size} canciones",
-                        thumbnailUrl = albumInfo.thumbnail,
-                        placeholderType = PlaceholderType.ALBUM,
-                        shape = RoundedCornerShape(12.dp),
-                        onClick = { onNavigate(Route.Album(albumInfo.albumId)) },
-                        isRemovable = false
-                    )
-                }
             }
         }
         AppVerticalScrollbar(
@@ -1003,29 +1071,49 @@ private fun LibraryGridItem(
     placeholderType: PlaceholderType,
     shape: Shape,
     onClick: () -> Unit,
+    onPlay: (() -> Unit)? = null,
     onRemove: () -> Unit = {},
-    isRemovable: Boolean = true
+    isRemovable: Boolean = true,
+    source: LibraryItemSource = LibraryItemSource.LOCAL
 ) {
     val isCircle = shape == CircleShape
     val alignment = if (isCircle) Alignment.CenterHorizontally else Alignment.Start
     val textAlign = if (isCircle) TextAlign.Center else TextAlign.Start
-    var isHovered by remember { mutableStateOf(false) }
+    var isImageHovered by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
+    val showImageActions = placeholderType == PlaceholderType.ALBUM || placeholderType == PlaceholderType.PLAYLIST
+    val overlayAlpha by animateFloatAsState(
+        targetValue = if (isImageHovered && showImageActions) 0.32f else 0f,
+        animationSpec = tween(140),
+        label = "libraryOverlay"
+    )
+    val menuAlpha by animateFloatAsState(
+        targetValue = if (isImageHovered && showImageActions) 1f else 0f,
+        animationSpec = tween(120),
+        label = "libraryMenu"
+    )
+    val playAlpha by animateFloatAsState(
+        targetValue = if (isImageHovered && onPlay != null && showImageActions) 1f else 0f,
+        animationSpec = tween(120),
+        label = "libraryPlay"
+    )
+    val sourceIcon = if (source == LibraryItemSource.LOCAL) Icons.Default.PhoneAndroid else Icons.Default.CloudDone
 
     Box {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
-                .background(if (isHovered) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f) else Color.Transparent)
                 .clickable(onClick = onClick)
                 .pointerHoverIcon(PointerIcon.Hand)
-                .onPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Enter) { isHovered = true }
-                .onPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Exit) { isHovered = false }
                 .padding(8.dp),
             horizontalAlignment = alignment
         ) {
-            Box {
+            Box(
+                modifier = Modifier
+                    .onPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Enter) { isImageHovered = true }
+                    .onPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Exit) { isImageHovered = false }
+            ) {
                 MelodistImage(
                     url = thumbnailUrl, contentDescription = title,
                     modifier = Modifier.aspectRatio(1f).fillMaxWidth(),
@@ -1033,20 +1121,74 @@ private fun LibraryGridItem(
                     contentScale = ContentScale.Fit,
                     alignment = if (isCircle) Alignment.TopCenter else Alignment.Center
                 )
-                if (isRemovable) {
+
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .background(Color.Black.copy(alpha = overlayAlpha))
+                )
+
+                Surface(
+                    shape = CircleShape,
+                    color = Color.Black.copy(alpha = 0.50f),
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(6.dp)
+                        .size(24.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = sourceIcon,
+                            contentDescription = if (source == LibraryItemSource.LOCAL) "Local" else "YouTube Music",
+                            tint = Color.White,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                }
+
+                if (showImageActions) {
                     IconButton(
                         onClick = { showMenu = true },
-                        modifier = Modifier.align(Alignment.TopEnd).size(32.dp).padding(4.dp)
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .size(32.dp)
+                            .padding(4.dp)
+                            .graphicsLayer { alpha = menuAlpha }
                     ) {
                         Icon(Icons.Default.MoreVert, "Opciones",
                             modifier = Modifier.size(18.dp), tint = Color.White.copy(alpha = 0.9f))
                         DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                            DropdownMenuItem(
-                                text = { Text("Eliminar de la biblioteca") },
-                                onClick = { onRemove(); showMenu = false },
-                                leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) }
-                            )
+                            if (isRemovable) {
+                                DropdownMenuItem(
+                                    text = { Text("Eliminar de la biblioteca") },
+                                    onClick = { onRemove(); showMenu = false },
+                                    leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) }
+                                )
+                            } else {
+                                DropdownMenuItem(
+                                    text = { Text("Menu proximamente") },
+                                    onClick = { showMenu = false },
+                                    leadingIcon = { Icon(Icons.Default.MoreHoriz, null) }
+                                )
+                            }
                         }
+                    }
+                }
+
+                if (onPlay != null && showImageActions) {
+                    FilledIconButton(
+                        onClick = onPlay,
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(6.dp)
+                            .size(34.dp)
+                            .graphicsLayer { alpha = playAlpha },
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = Color.Black.copy(alpha = 0.55f),
+                            contentColor = Color.White
+                        )
+                    ) {
+                        Icon(Icons.Default.PlayArrow, contentDescription = "Reproducir", modifier = Modifier.size(20.dp))
                     }
                 }
             }
@@ -1060,6 +1202,11 @@ private fun LibraryGridItem(
                 modifier = Modifier.fillMaxWidth(), textAlign = textAlign)
         }
     }
+}
+
+private enum class LibraryItemSource {
+    LOCAL,
+    YTM
 }
 
 // ────────────────────────────────────────────────────────

@@ -16,7 +16,7 @@ import coil3.compose.AsyncImage
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.graphics.luminance
-import com.example.melodist.ui.components.images.upscaleThumbnailUrl
+import com.example.melodist.utils.upscaleThumbnailUrl
 
 /**
  * Fondo de pantalla difuminado usando la imagen provista.

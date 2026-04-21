@@ -163,6 +163,36 @@ class LibraryViewModel(
     }
 
     fun refreshYtmLibrary() = loadYtmLibrary()
+
+    fun resolveAlbumSongsForPlayback(
+        browseId: String,
+        onResolved: (List<SongItem>) -> Unit,
+        onFallback: () -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            try {
+                val songs = YouTube.album(browseId).getOrNull()?.songs.orEmpty()
+                if (songs.isNotEmpty()) onResolved(songs) else onFallback()
+            } catch (_: Exception) {
+                onFallback()
+            }
+        }
+    }
+
+    fun resolvePlaylistSongsForPlayback(
+        playlistId: String,
+        onResolved: (List<SongItem>) -> Unit,
+        onFallback: () -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            try {
+                val songs = YouTube.playlist(playlistId).getOrNull()?.songs.orEmpty()
+                if (songs.isNotEmpty()) onResolved(songs) else onFallback()
+            } catch (_: Exception) {
+                onFallback()
+            }
+        }
+    }
 }
 
 
