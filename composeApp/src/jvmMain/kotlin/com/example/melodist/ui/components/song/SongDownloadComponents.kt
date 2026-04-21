@@ -1,5 +1,6 @@
-package com.example.melodist.ui.components
+package com.example.melodist.ui.components.song
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -59,16 +60,13 @@ import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import com.example.melodist.player.DownloadState
 import com.example.melodist.player.YTPlayerutils
 import com.example.melodist.ui.helpers.rememberSongDownloadState
-import com.example.melodist.utils.LocalSnackbarHostState
 import com.example.melodist.utils.LocalDownloadViewModel
-import com.example.melodist.utils.LocalLibraryViewModel
 import com.example.melodist.utils.LocalPlayerViewModel
 import com.example.melodist.viewmodels.LibraryPlaylistsViewModel
 import com.metrolist.innertube.models.SongItem
@@ -89,13 +87,13 @@ fun DownloadIndicator(
         is DownloadState.Queued -> Icon(
             Icons.Default.HourglassTop,
             contentDescription = "En cola",
-            modifier = modifier.size(16.dp),
+            modifier = modifier.size(20.dp),
             tint = MaterialTheme.colorScheme.onSurfaceVariant
         )
         is DownloadState.Downloading -> Box(modifier = modifier.size(20.dp), contentAlignment = Alignment.Center) {
             CircularProgressIndicator(
                 progress = { if (state.progress >= 0f) state.progress else 0f },
-                modifier = Modifier.size(18.dp),
+                modifier = Modifier.size(20.dp),
                 strokeWidth = 2.dp,
                 color = MaterialTheme.colorScheme.primary,
                 trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
@@ -105,13 +103,13 @@ fun DownloadIndicator(
         is DownloadState.Completed -> Icon(
             Icons.Default.DownloadDone,
             contentDescription = "Descargada",
-            modifier = modifier.size(16.dp),
+            modifier = modifier.size(20.dp),
             tint = MaterialTheme.colorScheme.primary
         )
         is DownloadState.Failed -> Icon(
             Icons.Default.ErrorOutline,
             contentDescription = "Error de descarga",
-            modifier = modifier.size(16.dp),
+            modifier = modifier.size(20.dp),
             tint = MaterialTheme.colorScheme.error
         )
         else -> Unit
@@ -119,7 +117,7 @@ fun DownloadIndicator(
 }
 
 @Composable
-private fun rememberContextMenuPositionProvider(clickOffset: DpOffset): PopupPositionProvider {
+fun rememberContextMenuPositionProvider(clickOffset: DpOffset): PopupPositionProvider {
     val density = LocalDensity.current
     val clickXPx = with(density) { clickOffset.x.toPx() }
     val clickYPx = with(density) { clickOffset.y.toPx() }
@@ -140,7 +138,7 @@ private fun rememberContextMenuPositionProvider(clickOffset: DpOffset): PopupPos
                     x = windowSize.width - popupContentSize.width - marginPx
                 }
                 if (y + popupContentSize.height > windowSize.height - marginPx) {
-                    y = y - popupContentSize.height
+                    y -= popupContentSize.height
                 }
 
                 x = x.coerceAtLeast(marginPx)
@@ -152,7 +150,7 @@ private fun rememberContextMenuPositionProvider(clickOffset: DpOffset): PopupPos
     }
 }
 
-private suspend fun SongItem.withMissingMetadataResolved(): SongItem {
+suspend fun SongItem.withMissingMetadataResolved(): SongItem {
     val hasDuration = duration != null
     if (hasDuration) return this
 
@@ -168,137 +166,7 @@ private suspend fun SongItem.withMissingMetadataResolved(): SongItem {
     }
 }
 
-@OptIn(ExperimentalComposeUiApi::class)
-@Composable
-fun SongContextMenu(
-    expanded: Boolean,
-    onDismiss: () -> Unit,
-    song: SongItem,
-    onRemoveFromLibrary: (() -> Unit)? = null,
-    onRemoveFromPlaylist: (() -> Unit)? = null,
-    isLocalPlaylist: Boolean = false,
-    showQueueActions: Boolean = true,
-    offset: DpOffset = DpOffset.Zero
-) {
-    val downloadViewModel = LocalDownloadViewModel.current
-    val downloadState by rememberSongDownloadState(song.id, downloadViewModel)
-    val playerViewModel = LocalPlayerViewModel.current
-    val coroutineScope = rememberCoroutineScope()
-    val playlistsViewModel: LibraryPlaylistsViewModel = koinInject()
-    val positionProvider = rememberContextMenuPositionProvider(offset)
 
-    var showPlaylistDialog by remember { mutableStateOf(false) }
-
-    if (expanded) {
-        Popup(
-            popupPositionProvider = positionProvider,
-            onDismissRequest = onDismiss,
-            properties = PopupProperties(
-                focusable = true,
-                dismissOnClickOutside = true,
-                dismissOnBackPress = true,
-            ),
-        ) {
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.width(320.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                elevation = CardDefaults.cardElevation(defaultElevation = 10.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-            ) {
-                Column(modifier = Modifier.background(MaterialTheme.colorScheme.surfaceContainer).padding(vertical = 8.dp)) {
-        @Composable
-        fun StyledMenuItem(
-            text: String,
-            icon: ImageVector,
-            iconTint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
-            onClick: () -> Unit
-        ) {
-            var hovered by remember { mutableStateOf(false) }
-            Row(
-                modifier = Modifier
-                    .padding(horizontal = 8.dp, vertical = 3.dp)
-                    .defaultMinSize(minHeight = 48.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(
-                        if (hovered) MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f)
-                        else Color.Transparent
-                    )
-                    .clickable {
-                        onClick()
-                        onDismiss()
-                    }
-                    .onPointerEvent(PointerEventType.Enter) { hovered = true }
-                    .onPointerEvent(PointerEventType.Exit) { hovered = false }
-                    .fillMaxWidth()
-                    .padding(horizontal = 10.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(icon, null, tint = iconTint, modifier = Modifier.size(22.dp))
-                Spacer(Modifier.width(12.dp))
-                Text(text, style = MaterialTheme.typography.bodyLarge)
-            }
-        }
-
-        // --- SECCIÓN DE DESCARGAS ---
-        when (downloadState) {
-            is DownloadState.Completed -> StyledMenuItem(
-                "Eliminar descarga", Icons.Default.DeleteOutline, MaterialTheme.colorScheme.error
-            ) { downloadViewModel.removeDownload(song.id) }
-
-            is DownloadState.Downloading, is DownloadState.Queued -> StyledMenuItem(
-                "Cancelar descarga", Icons.Default.Cancel, MaterialTheme.colorScheme.error
-            ) { downloadViewModel.cancelDownload(song.id) }
-
-            else -> StyledMenuItem(
-                "Descargar", Icons.Default.Download, MaterialTheme.colorScheme.primary
-            ) { downloadViewModel.downloadSong(song) }
-        }
-
-        HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp, horizontal = 12.dp), color = MaterialTheme.colorScheme.outlineVariant)
-
-        // --- SECCIÓN DE COLA ---
-        if (showQueueActions) {
-            StyledMenuItem("Reproducir a continuación", Icons.AutoMirrored.Filled.PlaylistAdd) {
-                coroutineScope.launch {
-                    val resolvedSong = song.withMissingMetadataResolved()
-                    playerViewModel.playNext(resolvedSong)
-                }
-            }
-            StyledMenuItem("Agregar al final de la cola", Icons.AutoMirrored.Filled.QueueMusic) {
-                coroutineScope.launch {
-                    val resolvedSong = song.withMissingMetadataResolved()
-                    playerViewModel.addToQueue(resolvedSong)
-                }
-            }
-        }
-
-        // --- SECCIÓN DE BIBLIOTECA/PLAYLIST ---
-        StyledMenuItem("Añadir a playlist local", Icons.Default.AddCircleOutline) {
-            showPlaylistDialog = true
-            onDismiss()
-        }
-
-        onRemoveFromLibrary?.let {
-            StyledMenuItem("Eliminar de biblioteca", Icons.Default.Delete, MaterialTheme.colorScheme.error, it)
-        }
-
-        if (isLocalPlaylist && onRemoveFromPlaylist != null) {
-            StyledMenuItem("Quitar de esta playlist", Icons.Default.RemoveCircleOutline, MaterialTheme.colorScheme.error, onRemoveFromPlaylist)
-        }
-                }
-            }
-        }
-    }
-
-    if (showPlaylistDialog) {
-        AddToPlaylistDialog(
-            song = song,
-            playlistsViewModel = playlistsViewModel,
-            onDismiss = { showPlaylistDialog = false }
-        )
-    }
-}
 
 @Composable
 fun AddToPlaylistDialog(

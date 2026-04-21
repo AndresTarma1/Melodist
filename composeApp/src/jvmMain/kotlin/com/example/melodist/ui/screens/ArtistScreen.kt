@@ -29,11 +29,11 @@ import com.example.melodist.navigation.Route
 import com.example.melodist.ui.components.ArtistScreenSkeleton
 import com.example.melodist.ui.components.layout.AppVerticalScrollbar
 import com.example.melodist.ui.components.BlurredImageBackground
-import com.example.melodist.ui.components.DownloadIndicator
+import com.example.melodist.ui.components.song.DownloadIndicator
 import com.example.melodist.ui.components.layout.HorizontalScrollableRow
 import com.example.melodist.ui.components.MelodistImage
 import com.example.melodist.ui.components.PlaceholderType
-import com.example.melodist.ui.components.SongContextMenu
+import com.example.melodist.ui.components.context.SongContextMenu
 import com.example.melodist.ui.helpers.contextMenuArea
 import com.example.melodist.ui.helpers.rememberSongDownloadState
 import com.example.melodist.utils.LocalDownloadViewModel

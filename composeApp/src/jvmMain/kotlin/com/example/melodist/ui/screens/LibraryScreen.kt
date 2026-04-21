@@ -24,7 +24,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -32,7 +31,6 @@ import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -41,11 +39,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.melodist.navigation.Route
 import com.example.melodist.ui.components.layout.AppVerticalScrollbar
-import com.example.melodist.ui.components.DownloadIndicator
+import com.example.melodist.ui.components.song.DownloadIndicator
 import com.example.melodist.ui.components.layout.HorizontalScrollableRow
 import com.example.melodist.ui.components.MelodistImage
 import com.example.melodist.ui.components.PlaceholderType
-import com.example.melodist.ui.components.SongContextMenu
+import com.example.melodist.ui.components.context.SongContextMenu
 import com.example.melodist.utils.LocalPlayerViewModel
 import com.example.melodist.utils.SyncUtils
 import org.koin.compose.koinInject

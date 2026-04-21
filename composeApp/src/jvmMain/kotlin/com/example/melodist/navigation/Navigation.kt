@@ -1,9 +1,11 @@
 package com.example.melodist.navigation
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -149,7 +151,6 @@ fun NavigationDesktop(rootComponent: RootComponent) {
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
-                        .animateContentSize() // 🔥 suaviza cambios de layout
                 ) {
 
                     // 🏝️ CONTENIDO PRINCIPAL
@@ -197,6 +198,7 @@ fun NavigationDesktop(rootComponent: RootComponent) {
                                         animationSpec = spring(dampingRatio = 0.85f),
                                         targetOffsetX = { it }
                                     ) + fadeOut()
+
                         }
                     ) { visible ->
 
@@ -205,20 +207,7 @@ fun NavigationDesktop(rootComponent: RootComponent) {
                                 modifier = Modifier.fillMaxHeight()
                             ) {
 
-                                // 🎚️ DIVISOR
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxHeight()
-                                        .width(12.dp)
-                                        .pointerHoverIcon(PointerIcon.Hand)
-                                        .pointerInput(Unit) {
-                                            detectHorizontalDragGestures { _, dragAmount ->
-                                                val dragDp = with(density) { dragAmount.toDp() }
-                                                queueWidth = (queueWidth - dragDp)
-                                                    .coerceIn(250.dp, 600.dp)
-                                            }
-                                        }
-                                )
+                                Spacer(Modifier.width(12.dp)) // evita saltos raros
 
                                 // 🎵 QUEUE PANEL
                                 PlaybackQueuePanel(

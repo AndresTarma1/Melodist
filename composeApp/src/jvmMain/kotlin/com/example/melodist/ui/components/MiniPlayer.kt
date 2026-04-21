@@ -66,15 +66,6 @@ fun MiniPlayer(
     val sliderProgress = seekValue ?: computedProgress
     val isError = state.playbackState == PlaybackState.ERROR
     val isAlbumQueue = state.queueSource is QueueSource.Album
-    val discRotation by rememberInfiniteTransition(label = "miniAlbumDisc").animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(12000, easing = LinearEasing),
-            repeatMode = androidx.compose.animation.core.RepeatMode.Restart
-        ),
-        label = "miniAlbumDiscRotation"
-    )
 
     Surface(
         modifier = modifier.fillMaxWidth().height(88.dp),
@@ -114,10 +105,7 @@ fun MiniPlayer(
                                 url = song.thumbnail,
                                 contentDescription = song.title,
                                 modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .graphicsLayer { rotationZ = discRotation },
-                                shape = CircleShape,
+                                    .size(36.dp),
                                 contentScale = ContentScale.Crop,
                                 placeholderType = PlaceholderType.ALBUM,
                                 iconSize = 18.dp
@@ -200,6 +188,7 @@ fun MiniPlayer(
                             )
                         }
 
+                        val isPlaying = state.playbackState == PlaybackState.PLAYING
                         FilledIconButton(
                             onClick = { playerViewModel.togglePlayPause() },
                             modifier = Modifier.size(46.dp).pointerHoverIcon(PointerIcon.Hand),
@@ -216,9 +205,14 @@ fun MiniPlayer(
                                     strokeWidth = 2.dp
                                 )
                             } else {
+                                val rotation by animateFloatAsState(
+                                    targetValue = if (isPlaying) 180f else 0f
+                                )
                                 Icon(
-                                    if (state.playbackState == PlaybackState.PLAYING) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                                    null, modifier = Modifier.size(32.dp)
+                                    if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                                    null, modifier = Modifier.size(32.dp).graphicsLayer(
+                                        rotationZ = rotation,
+                                    )
                                 )
                             }
                         }
@@ -306,7 +300,6 @@ fun MiniPlayer(
                                         when (event.type) {
                                             PointerEventType.Enter -> isVolumeHovered = true
                                             PointerEventType.Exit -> isVolumeHovered = false
-                                            else -> {}
                                         }
                                     }
                                 }
@@ -383,10 +376,17 @@ fun MiniPlayer(
                             else Color.Transparent
                         )
                     ) {
+                        val rotation by animateFloatAsState(
+                            targetValue = if (isNowPlayingExpanded) 0f else 180f,
+                            animationSpec = tween(
+                                durationMillis = 300,
+                                easing = FastOutSlowInEasing
+                            )
+                        )
                         Icon(
-                            if (isNowPlayingExpanded) Icons.Default.ArrowDropDown else Icons.Default.ArrowDropUp,
+                            Icons.Default.ArrowDropDown,
                             "Opciones",
-                            modifier = Modifier.size(24.dp),
+                            modifier = Modifier.size(32.dp).graphicsLayer(rotationZ = rotation),
                             tint = if (isNowPlayingExpanded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }

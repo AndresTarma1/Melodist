@@ -1,5 +1,9 @@
 package com.example.melodist.ui.screens
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.*
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -10,6 +14,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -17,12 +23,16 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
@@ -45,11 +55,15 @@ import com.metrolist.innertube.models.AlbumItem
 import com.metrolist.innertube.models.ArtistItem
 import com.metrolist.innertube.models.PlaylistItem
 import com.metrolist.innertube.pages.HomePage
-import com.example.melodist.ui.components.SongContextMenu
 import com.example.melodist.ui.helpers.rememberSongDownloadState
 import com.example.melodist.utils.LocalDownloadViewModel
-import com.example.melodist.ui.helpers.contextMenuArea
-import com.example.melodist.ui.components.DownloadIndicator
+import com.example.melodist.ui.components.BoxForContainerContextMenuItem
+import com.example.melodist.ui.components.song.DownloadIndicator
+import com.example.melodist.ui.components.HoverCornerActionButton
+import com.example.melodist.ui.components.context.SongContextMenu
+import com.metrolist.innertube.YouTube
+import kotlinx.coroutines.launch
+import org.jetbrains.jewel.foundation.modifier.onHover
 
 @Composable
 fun HomeScreenRoute(
@@ -58,7 +72,6 @@ fun HomeScreenRoute(
 ) {
 
     val playerViewModel = LocalPlayerViewModel.current
-    val downloadViewModel = LocalDownloadViewModel.current
     val uiState by viewModel.uiState.collectAsState()
     val currentParams by viewModel.currentParams.collectAsState()
 
@@ -200,7 +213,7 @@ fun HomeScreenContent(
 
             // Secciones
             page.sections.forEach { section ->
-                Column(modifier = Modifier.padding(top = 12.dp, bottom = 12.dp, end= 16.dp)) {
+                Column(modifier = Modifier.padding(top = 12.dp, bottom = 12.dp, end = 16.dp)) {
                     Text(
                         text = section.title,
                         style = MaterialTheme.typography.headlineMedium,
@@ -251,126 +264,227 @@ fun HomeScreenContent(
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun MusicItem(item: YTItem, onClick: (YTItem) -> Unit) {
-    val isArtist = item is ArtistItem
-    val imageShape = if (isArtist) CircleShape else RoundedCornerShape(8.dp)
-    val alignment = if (isArtist) Alignment.CenterHorizontally else Alignment.Start
-    val titleTextAlign: TextAlign = if (isArtist) TextAlign.Center else TextAlign.Start
-
+    val isArtist      = item is ArtistItem
+    val imageShape    = if (isArtist) CircleShape else RoundedCornerShape(10.dp)
+    val alignment     = if (isArtist) Alignment.CenterHorizontally else Alignment.Start
+    val titleAlign    = if (isArtist) TextAlign.Center else TextAlign.Start
     val placeholderType = when (item) {
-        is ArtistItem -> PlaceholderType.ARTIST
-        is AlbumItem -> PlaceholderType.ALBUM
+        is ArtistItem   -> PlaceholderType.ARTIST
+        is AlbumItem    -> PlaceholderType.ALBUM
         is PlaylistItem -> PlaceholderType.PLAYLIST
-        else -> PlaceholderType.SONG
+        else            -> PlaceholderType.SONG
     }
 
-    val cardHeight = 180.dp
-    val aspectRatio = item.thumbnailAspectRatio()
-    val cardWidth = cardHeight * aspectRatio
+    val cardHeight     = 180.dp
+    val aspectRatio    = item.thumbnailAspectRatio()
+    val cardWidth      = cardHeight * aspectRatio
     val contentPadding = 10.dp
+
     val downloadViewModel = LocalDownloadViewModel.current
-
-    var showMenu by remember { mutableStateOf(false) }
-    var menuOffset by remember { mutableStateOf(DpOffset.Zero) }
-    var isHovered by remember { mutableStateOf(false) }
-
-    // Material 3: Usamos surfaceVariant para el hover en lugar de modificar alphas a mano
-    val hoverColor = if (isHovered) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f) else Color.Transparent
-
-    val downloadState by if (item is SongItem) {
+    val playerViewModel = LocalPlayerViewModel.current
+    val scope = rememberCoroutineScope()
+    val downloadState by if (item is SongItem)
         rememberSongDownloadState(item.id, downloadViewModel)
-    } else {
+    else
         remember { mutableStateOf(null) }
-    }
 
-    // Movemos los modificadores de interacción al Box raíz
-    Box(
-        modifier = Modifier
-            .width(cardWidth + contentPadding + contentPadding)
-            .clip(RoundedCornerShape(12.dp))
-            .background(hoverColor)
-            .clickable { onClick(item) }
-            .pointerHoverIcon(PointerIcon.Hand)
-            .contextMenuArea(
+    var showMenu   by remember { mutableStateOf(false) }
+    var menuOffset by remember { mutableStateOf(DpOffset.Zero) }
+
+    // ── Un solo estado de hover para toda la tarjeta ─────────────────────────
+    var isHovered       by remember { mutableStateOf(false) }
+    val showQuickPlay = item is AlbumItem || item is PlaylistItem
+    val showCenterPlay = item is SongItem
+    val quickPlayButtonSize = if (item is PlaylistItem) 42.dp else 28.dp
+    val quickPlayIconSize = if (item is PlaylistItem) 20.dp else 16.dp
+
+    // Animaciones
+    val overlayAlpha by animateFloatAsState(if (isHovered) 0.38f else 0f, tween(160), label = "overlay")
+    val playIconAlpha by animateFloatAsState(if (isHovered) 1f else 0f, tween(160), label = "play")
+    val playIconScale by animateFloatAsState(if (isHovered) 1f else 0.7f, spring(Spring.DampingRatioMediumBouncy), label = "playScale")
+    val menuBtnAlpha  by animateFloatAsState(if (isHovered) 1f else 0f, tween(120), label = "menuBtn")
+    val quickPlayAlpha by animateFloatAsState(if (isHovered && showQuickPlay) 1f else 0f, tween(120), label = "quickPlayBtn")
+
+    Box(modifier = Modifier.width(cardWidth + contentPadding * 2).padding(contentPadding)) {
+        Column(horizontalAlignment = alignment) {
+
+            // ── Imagen con overlays ──────────────────────────────────────────
+            BoxForContainerContextMenuItem(
+                modifier = Modifier
+                    .height(cardHeight)
+                    .width(cardWidth)
+                    .clip(RoundedCornerShape(12.dp))
+                    // pointerInput en el contenedor raíz de la imagen — un solo punto de control
+                    .onPointerEvent(PointerEventType.Enter) { isHovered = true }
+                    .onPointerEvent(PointerEventType.Exit)  { isHovered = false }
+                    .clickable { onClick(item) }
+                    .pointerHoverIcon(PointerIcon.Hand),
                 enabled = item is SongItem,
                 onHoverChange = { isHovered = it },
-                onMenuAction = { offset ->
-                    menuOffset = offset
-                    showMenu = true
-                }
-            )
-            .padding(contentPadding) // Padding interno para que actúe como una tarjeta
-    ) {
-        Column(
-            horizontalAlignment = alignment
-        ) {
-            Box {
+                onMenuAction = { offset -> menuOffset = offset; showMenu = true }
+            ) { menuButtonModifier, openMenuFromButton ->
+                // Imagen
                 MelodistImage(
-                    url = item.thumbnail,
+                    url                = item.thumbnail,
                     contentDescription = item.title,
-                    modifier = Modifier
-                        .height(cardHeight)
-                        .width(cardWidth),
-                    shape = imageShape,
-                    placeholderType = placeholderType,
-                    iconSize = if (isArtist) 56.dp else 40.dp,
-                    // Crop suele verse más premium en portadas de álbumes para evitar bordes negros
-                    contentScale = ContentScale.Crop,
-                    alignment = if (isArtist) Alignment.TopCenter else Alignment.Center
+                    modifier           = Modifier.fillMaxSize(),
+                    shape              = imageShape,
+                    placeholderType    = placeholderType,
+                    iconSize           = if (isArtist) 56.dp else 40.dp,
+                    contentScale       = ContentScale.Crop,
+                    alignment          = if (isArtist) Alignment.TopCenter else Alignment.Center
                 )
 
+                // Overlay oscuro — NO intercepta eventos (solo visual)
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .graphicsLayer { alpha = overlayAlpha }
+                        .background(Color.Black)
+                )
+
+                // Ícono de play centrado
+                if (showCenterPlay) {
+                    Box(
+                        modifier         = Modifier.matchParentSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Rounded.PlayArrow, "Reproducir",
+                            tint     = Color.White,
+                            modifier = Modifier
+                                .size(56.dp)
+                                .graphicsLayer {
+                                    alpha     = playIconAlpha
+                                    scaleX    = playIconScale
+                                    scaleY    = playIconScale
+                                }
+                        )
+                    }
+                }
+
+                // Botón de 3 puntos — arriba a la derecha
+                HoverCornerActionButton(
+                    icon = Icons.Rounded.MoreVert,
+                    contentDescription = "Opciones",
+                    onClick = {
+                        if (item is SongItem) openMenuFromButton() else onClick(item)
+                    },
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(6.dp)
+                        .graphicsLayer { alpha = menuBtnAlpha },
+                    buttonModifier = menuButtonModifier.pointerHoverIcon(PointerIcon.Hand),
+                    visible = isHovered,
+                    onButtonHoverChange = { if (it) isHovered = true }
+                )
+
+                if (showQuickPlay) {
+                    HoverCornerActionButton(
+                        icon = Icons.Rounded.PlayArrow,
+                        contentDescription = "Reproducir",
+                        onClick = {
+                            scope.launch {
+                                when (item) {
+                                    is AlbumItem -> {
+                                        val page = YouTube.album(item.browseId).getOrNull()
+                                        val songs = page?.songs.orEmpty()
+                                        if (songs.isNotEmpty()) {
+                                            playerViewModel.playAlbum(
+                                                songs = songs,
+                                                startIndex = 0,
+                                                browseId = item.browseId,
+                                                title = item.title
+                                            )
+                                        } else {
+                                            onClick(item)
+                                        }
+                                    }
+
+                                    is PlaylistItem -> {
+                                        val page = YouTube.playlist(item.id).getOrNull()
+                                        val songs = page?.songs.orEmpty()
+                                        if (songs.isNotEmpty()) {
+                                            playerViewModel.playPlaylist(
+                                                songs = songs,
+                                                startIndex = 0,
+                                                playlistId = item.id,
+                                                title = item.title
+                                            )
+                                        } else {
+                                            onClick(item)
+                                        }
+                                    }
+
+                                }
+                            }
+                        },
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(6.dp)
+                            .graphicsLayer { alpha = quickPlayAlpha },
+                        buttonModifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                        visible = isHovered,
+                        size = quickPlayButtonSize,
+                        iconSize = quickPlayIconSize,
+                        onButtonHoverChange = { if (it) isHovered = true }
+                    )
+                }
+
+                // Download indicator — esquina superior izquierda para no chocar con los 3 puntos
                 if (item is SongItem && downloadState != null) {
                     DownloadIndicator(
-                        state = downloadState,
+                        state    = downloadState,
                         modifier = Modifier
-                            .align(Alignment.TopEnd)
+                            .align(Alignment.TopStart)
                             .padding(6.dp)
-                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f), CircleShape)
+                            .background(Color.Black.copy(alpha = 0.55f), CircleShape)
                             .padding(4.dp)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(Modifier.height(10.dp))
 
             Text(
-                text = item.title,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.SemiBold, // SemiBold es más limpio que Bold para títulos
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.fillMaxWidth(),
-                textAlign = titleTextAlign
+                text       = item.title,
+                style      = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                maxLines   = 1,
+                overflow   = TextOverflow.Ellipsis,
+                modifier   = Modifier.fillMaxWidth(),
+                textAlign  = titleAlign
             )
 
             val artistText = when (item) {
-                is SongItem -> item.artists.firstOrNull()?.name ?: ""
-                is AlbumItem -> item.artists?.firstOrNull()?.name ?: "Álbum"
-                is ArtistItem -> "Artista"
+                is SongItem     -> item.artists.firstOrNull()?.name ?: ""
+                is AlbumItem    -> item.artists?.firstOrNull()?.name ?: "Álbum"
+                is ArtistItem   -> "Artista"
                 is PlaylistItem -> item.author?.name ?: "Lista"
             }
 
             if (artistText.isNotBlank()) {
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(Modifier.height(2.dp))
+
+                var artistHover by remember { mutableStateOf(false)}
+
                 Text(
-                    text = artistText,
-                    style = MaterialTheme.typography.bodyMedium,
-                    // Semántica de Material 3 para textos secundarios
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = titleTextAlign
+                    text      = artistText,
+                    style     = MaterialTheme.typography.bodySmall.copy(
+                        textDecoration = if(artistHover) TextDecoration.Underline else TextDecoration.None,
+                    ),
+                    color     = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines  = 1,
+                    overflow  = TextOverflow.Ellipsis,
+                    modifier  = Modifier.fillMaxWidth()
+                        .pointerHoverIcon(PointerIcon.Hand)
+                        .onHover{ artistHover = it},
+                    textAlign = titleAlign
                 )
             }
         }
 
         if (item is SongItem) {
-            SongContextMenu(
-                expanded = showMenu,
-                onDismiss = { showMenu = false },
-                song = item,
-                offset = menuOffset
-            )
+            SongContextMenu(expanded = showMenu, onDismiss = { showMenu = false }, song = item, offset = menuOffset)
         }
     }
 }

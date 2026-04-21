@@ -444,7 +444,6 @@ class DownloadRepository(
         connection.setRequestProperty("Cache-Control", "no-cache")
 
         YouTube.cookie?.takeIf { it.isNotBlank() }?.let { cookie ->
-            print(cookie)
             connection.setRequestProperty("Cookie", cookie)
         }
     }

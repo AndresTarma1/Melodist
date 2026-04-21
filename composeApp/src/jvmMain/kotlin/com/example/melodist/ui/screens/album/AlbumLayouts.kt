@@ -18,7 +18,6 @@ import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
@@ -30,21 +29,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import com.example.melodist.navigation.Route
-import com.example.melodist.ui.components.DownloadIndicator
 import com.example.melodist.ui.components.layout.AppVerticalScrollbar
 import com.example.melodist.ui.components.LoadingMoreSongsItem
 import com.example.melodist.ui.components.MelodistImage
 import com.example.melodist.ui.components.PlaceholderType
-import com.example.melodist.ui.components.SongContextMenu
 import com.example.melodist.utils.LocalDownloadViewModel
 import com.example.melodist.utils.LocalPlayerViewModel
-import com.example.melodist.ui.helpers.rememberSongDownloadState
-import com.example.melodist.ui.helpers.contextMenuArea
+import com.example.melodist.ui.screens.playlist.SongListItem
 import com.example.melodist.ui.screens.shared.calculateTotalDuration
-import com.example.melodist.ui.screens.shared.formatDuration
 import com.metrolist.innertube.models.SongItem
 import com.metrolist.innertube.pages.AlbumPage
 
@@ -324,10 +318,10 @@ internal fun AlbumSongsList(
             state = scrollState
         ) {
             itemsIndexed(songs, key = { _, song -> song.id }) { index, song ->
-                NewSongListItem(
-                    index = index + 1,
+                SongListItem(
+                    albumIndex = index + 1,
                     song = song,
-                    onPlay = { onSongClick(index) }
+                    onPlay = { onSongClick(index)}
                 )
                 if (index < songs.lastIndex) {
                     HorizontalDivider(
@@ -347,101 +341,3 @@ internal fun AlbumSongsList(
     }
 }
 
-@OptIn(ExperimentalComposeUiApi::class)
-@Composable
-fun NewSongListItem(
-    index: Int,
-    song: SongItem,
-    onPlay: () -> Unit
-) {
-    val downloadViewModel = LocalDownloadViewModel.current
-    val downloadState by rememberSongDownloadState(song.id, downloadViewModel)
-
-    var isHovered by remember { mutableStateOf(false) }
-    var showContextMenu by remember { mutableStateOf(false) }
-    var menuOffset by remember { mutableStateOf(DpOffset.Zero) }
-
-    val color = if (isHovered) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f) else Color.Transparent
-
-    Box {
-        Surface(
-            color = color,
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(8.dp))
-                .clickable { onPlay() }
-                .pointerHoverIcon(PointerIcon.Hand)
-                .contextMenuArea(
-                    enabled = true,
-                    onHoverChange = { isHovered = it },
-                    onMenuAction = { offset ->
-                        menuOffset = offset
-                        showContextMenu = true
-                    }
-                )
-        ) {
-            Row(
-                modifier = Modifier.padding(vertical = 10.dp, horizontal = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(modifier = Modifier.width(36.dp), contentAlignment = Alignment.Center) {
-                    if (isHovered) {
-                        Icon(Icons.Default.PlayArrow, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    } else {
-                        Text(
-                            text = index.toString(),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                        )
-                    }
-                }
-
-                Spacer(Modifier.width(8.dp))
-
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = song.title,
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (song.explicit) {
-                            Icon(
-                                Icons.Default.Explicit, null,
-                                modifier = Modifier.size(14.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                            )
-                            Spacer(Modifier.width(4.dp))
-                        }
-                        Text(
-                            text = song.artists.joinToString(", ") { it.name }.ifEmpty { "Artista desconocido" },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-
-                DownloadIndicator(state = downloadState, modifier = Modifier.padding(end = 8.dp))
-
-                Text(
-                    text = formatDuration(song.duration ?: 0),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.Normal
-                )
-            }
-        }
-
-        SongContextMenu(
-            expanded = showContextMenu,
-            onDismiss = { showContextMenu = false },
-            song = song,
-            offset = menuOffset
-        )
-    }
-}

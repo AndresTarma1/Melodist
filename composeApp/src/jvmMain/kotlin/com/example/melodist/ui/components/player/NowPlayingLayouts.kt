@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import com.example.melodist.navigation.Route
 import com.example.melodist.ui.components.*
 import com.example.melodist.ui.components.images.upscaleThumbnailUrl
+import com.example.melodist.ui.components.song.DownloadIndicator
 import com.example.melodist.ui.helpers.rememberSongDownloadState
 import com.example.melodist.utils.LocalDownloadViewModel
 import com.example.melodist.utils.LocalPlayerViewModel
