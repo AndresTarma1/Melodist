@@ -1,5 +1,7 @@
 package com.example.melodist.ui.screens.home
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
@@ -252,11 +254,20 @@ private fun HomeSectionRow(
             contentPadding = PaddingValues(horizontal = 24.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            items(section.items.size) { index ->
+            items(
+                count = section.items.size,
+                key = { index -> section.items[index].id }
+            ) { index ->
                 HomeSectionItem(
                     item = section.items[index],
                     onNavigate = onNavigate,
                     playerViewModel = playerViewModel,
+                    modifier = Modifier.animateItem(
+                        placementSpec = spring(
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            stiffness = Spring.StiffnessMediumLow
+                        )
+                    )
                 )
             }
         }
@@ -268,23 +279,28 @@ private fun HomeSectionItem(
     item: YTItem,
     onNavigate: (Route) -> Unit,
     playerViewModel: PlayerViewModel?,
+    modifier: Modifier = Modifier,
 ) {
     when (item) {
         is SongItem -> SongHomeItem(
             item = item,
             onClick = { playerViewModel?.playSingle(it as SongItem) },
+            modifier = modifier,
         )
         is AlbumItem -> AlbumHomeItem(
             item = item,
             onClick = { onNavigate(Route.Album((it as AlbumItem).browseId)) },
+            modifier = modifier,
         )
         is PlaylistItem -> PlaylistHomeItem(
             item = item,
             onClick = { onNavigate(Route.Playlist((it as PlaylistItem).id)) },
+            modifier = modifier,
         )
         is ArtistItem -> ArtistHomeItem(
             item = item,
             onClick = { onNavigate(Route.Artist((it as ArtistItem).id)) },
+            modifier = modifier,
         )
     }
 }

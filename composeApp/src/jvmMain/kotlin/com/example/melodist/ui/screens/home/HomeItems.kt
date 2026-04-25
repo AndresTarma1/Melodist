@@ -8,7 +8,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -20,18 +19,17 @@ import androidx.compose.ui.unit.dp
 import com.example.melodist.ui.components.CornerQuickPlayConfig
 import com.example.melodist.ui.components.PlaceholderType
 import com.example.melodist.ui.components.YouTubeGridItem
+import com.example.melodist.ui.components.context.CollectionContextMenu
 import com.example.melodist.ui.components.context.SongContextMenu
 import com.example.melodist.ui.components.song.DownloadIndicator
 import com.example.melodist.ui.helpers.rememberSongDownloadState
 import com.example.melodist.utils.LocalDownloadViewModel
 import com.example.melodist.utils.LocalPlayerViewModel
-import com.metrolist.innertube.YouTube
 import com.metrolist.innertube.models.AlbumItem
 import com.metrolist.innertube.models.ArtistItem
 import com.metrolist.innertube.models.PlaylistItem
 import com.metrolist.innertube.models.SongItem
 import com.metrolist.innertube.models.YTItem
-import kotlinx.coroutines.launch
 import kotlin.collections.isNotEmpty
 import kotlin.collections.orEmpty
 
@@ -39,6 +37,7 @@ import kotlin.collections.orEmpty
 @Composable
 fun SongHomeItem(
     item: SongItem,
+    modifier: Modifier = Modifier,
     onClick: (YTItem) -> Unit
 ) {
     val downloadViewModel = LocalDownloadViewModel.current
@@ -58,6 +57,7 @@ fun SongHomeItem(
         contextMenuEnabled = true,
         onContextMenuAction = { offset -> menuOffset = offset; showMenu = true },
         subtitle = item.artists.firstOrNull()?.name.orEmpty(),
+        modifier = modifier,
         topStartOverlay = {
             if (downloadState != null) {
                 DownloadIndicator(
@@ -83,9 +83,10 @@ fun SongHomeItem(
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-fun AlbumHomeItem(item: AlbumItem, onClick: (YTItem) -> Unit) {
+fun AlbumHomeItem(item: AlbumItem, modifier: Modifier = Modifier, onClick: (YTItem) -> Unit) {
     val playerViewModel = LocalPlayerViewModel.current
-    val scope = rememberCoroutineScope()
+    var showMenu by remember { mutableStateOf(false) }
+    var menuOffset by remember { mutableStateOf(DpOffset.Zero) }
 
     YouTubeGridItem(
         item = item,
@@ -95,37 +96,55 @@ fun AlbumHomeItem(item: AlbumItem, onClick: (YTItem) -> Unit) {
         titleAlign = TextAlign.Start,
         placeholderType = PlaceholderType.ALBUM,
         centerPlayVisible = false,
-        contextMenuEnabled = false,
-        onMoreClick = { onClick(item) },
+        contextMenuEnabled = true,
+        onContextMenuAction = { offset -> menuOffset = offset; showMenu = true },
         quickPlay = CornerQuickPlayConfig(
             size = 28.dp,
             iconSize = 16.dp,
             onClick = {
-                scope.launch {
-                    val page = YouTube.album(item.browseId).getOrNull()
-                    val songs = page?.songs.orEmpty()
-                    if (songs.isNotEmpty()) {
-                        playerViewModel.playAlbum(
-                            songs = songs,
-                            startIndex = 0,
-                            browseId = item.browseId,
-                            title = item.title
-                        )
-                    } else {
-                        onClick(item)
-                    }
-                }
+                playerViewModel.playAlbumFromBrowseId(
+                    browseId = item.browseId,
+                    title = item.title,
+                    onEmpty = { onClick(item) }
+                )
             }
         ),
-        subtitle = item.artists?.firstOrNull()?.name ?: "Álbum"
+        subtitle = item.artists?.firstOrNull()?.name ?: "Álbum",
+        modifier = modifier,
+        overlayContent = {
+            CollectionContextMenu(
+                expanded = showMenu,
+                onDismiss = { showMenu = false },
+                title = item.title,
+                isPlaylist = false,
+                onOpen = { onClick(item) },
+                onPlay = {
+                    playerViewModel.playAlbumFromBrowseId(
+                        browseId = item.browseId,
+                        title = item.title,
+                        onEmpty = { onClick(item) }
+                    )
+                },
+                onShuffle = {
+                    playerViewModel.playAlbumFromBrowseId(
+                        browseId = item.browseId,
+                        title = item.title,
+                        shuffle = true,
+                        onEmpty = { onClick(item) }
+                    )
+                },
+                offset = menuOffset
+            )
+        }
     )
 }
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-fun PlaylistHomeItem(item: PlaylistItem, onClick: (YTItem) -> Unit) {
+fun PlaylistHomeItem(item: PlaylistItem, modifier: Modifier = Modifier, onClick: (YTItem) -> Unit) {
     val playerViewModel = LocalPlayerViewModel.current
-    val scope = rememberCoroutineScope()
+    var showMenu by remember { mutableStateOf(false) }
+    var menuOffset by remember { mutableStateOf(DpOffset.Zero) }
 
     YouTubeGridItem(
         item = item,
@@ -135,35 +154,52 @@ fun PlaylistHomeItem(item: PlaylistItem, onClick: (YTItem) -> Unit) {
         titleAlign = TextAlign.Start,
         placeholderType = PlaceholderType.PLAYLIST,
         centerPlayVisible = false,
-        contextMenuEnabled = false,
-        onMoreClick = { onClick(item) },
+        contextMenuEnabled = true,
+        onContextMenuAction = { offset -> menuOffset = offset; showMenu = true },
         quickPlay = CornerQuickPlayConfig(
             size = 42.dp,
             iconSize = 20.dp,
             onClick = {
-                scope.launch {
-                    val page = YouTube.playlist(item.id).getOrNull()
-                    val songs = page?.songs.orEmpty()
-                    if (songs.isNotEmpty()) {
-                        playerViewModel.playPlaylist(
-                            songs = songs,
-                            startIndex = 0,
-                            playlistId = item.id,
-                            title = item.title
-                        )
-                    } else {
-                        onClick(item)
-                    }
-                }
+                playerViewModel.playPlaylistFromId(
+                    playlistId = item.id,
+                    title = item.title,
+                    onEmpty = { onClick(item) }
+                )
             }
         ),
-        subtitle = item.author?.name ?: "Lista"
+        subtitle = item.author?.name ?: "Lista",
+        modifier = modifier,
+        overlayContent = {
+            CollectionContextMenu(
+                expanded = showMenu,
+                onDismiss = { showMenu = false },
+                title = item.title,
+                isPlaylist = true,
+                onOpen = { onClick(item) },
+                onPlay = {
+                    playerViewModel.playPlaylistFromId(
+                        playlistId = item.id,
+                        title = item.title,
+                        onEmpty = { onClick(item) }
+                    )
+                },
+                onShuffle = {
+                    playerViewModel.playPlaylistFromId(
+                        playlistId = item.id,
+                        title = item.title,
+                        shuffle = true,
+                        onEmpty = { onClick(item) }
+                    )
+                },
+                offset = menuOffset
+            )
+        }
     )
 }
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-fun ArtistHomeItem(item: ArtistItem, onClick: (YTItem) -> Unit) {
+fun ArtistHomeItem(item: ArtistItem, modifier: Modifier = Modifier, onClick: (YTItem) -> Unit) {
     YouTubeGridItem(
         item = item,
         onClick = onClick,
@@ -174,7 +210,8 @@ fun ArtistHomeItem(item: ArtistItem, onClick: (YTItem) -> Unit) {
         centerPlayVisible = false,
         contextMenuEnabled = false,
         onMoreClick = { onClick(item) },
-        subtitle = "Artista"
+        subtitle = "Artista",
+        modifier = modifier
     )
 }
 

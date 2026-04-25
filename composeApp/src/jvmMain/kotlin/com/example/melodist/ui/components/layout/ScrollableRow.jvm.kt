@@ -47,8 +47,8 @@ fun HorizontalScrollableRow(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth() // Ocupa todo el ancho para simular la integración nativa
-                .padding(horizontal = 12.dp) // Un pequeño margen para que no toque los bordes laterales
-                .height(12.dp), // Área de interacción (el track es de 6dp por el style)
+                .height(10.dp)
+                    ,
             style = scrollbarStyle
         )
     }

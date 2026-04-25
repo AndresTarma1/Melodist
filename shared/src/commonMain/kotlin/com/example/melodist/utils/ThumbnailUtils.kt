@@ -19,6 +19,16 @@ fun YTItem.isWideThumbnail(): Boolean {
     } == true
 }
 
+fun isWideThumbnail(url: String?) : Boolean{
+    return url?.let { url ->
+        url.contains("ytimg.com/vi/") ||
+        url.contains("hqdefault") ||
+        url.contains("mqdefault") ||
+        url.contains("maxresdefault") ||
+        url.contains("sddefault")
+    }  == true
+}
+
 /**
  * Returns the correct aspect ratio for a YTItem thumbnail.
  * - Artists and albums → 1:1

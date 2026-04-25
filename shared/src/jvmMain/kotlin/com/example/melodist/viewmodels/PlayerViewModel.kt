@@ -2,32 +2,42 @@ package com.example.melodist.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-
+import com.example.melodist.data.remote.ApiService
+import com.example.melodist.data.repository.UserPreferencesRepository
 import com.example.melodist.models.MediaMetadata
 import com.example.melodist.models.toMediaMetadata
+import com.example.melodist.player.AgeRestrictedException
 import com.example.melodist.player.AudioStreamResolver
+import com.example.melodist.player.DownloadService
 import com.example.melodist.player.PlaybackState
 import com.example.melodist.player.PlayerService
 import com.example.melodist.player.WindowsMediaSession
+import com.example.melodist.utils.withMissingMetadataResolved
 import com.metrolist.innertube.YouTube
 import com.metrolist.innertube.models.SongItem
 import com.metrolist.innertube.models.WatchEndpoint
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import kotlin.jvm.JvmName
 import java.net.HttpURLConnection
 import java.net.URI
 import java.util.logging.Logger
-
-import com.example.melodist.data.repository.UserPreferencesRepository
+import kotlin.jvm.JvmName
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class PlayerViewModel(
     private val playerService: PlayerService,
     private val streamResolver: AudioStreamResolver,
     private val mediaSession: WindowsMediaSession,
+    private val apiService: ApiService,
     userPreferences: UserPreferencesRepository
 ) : ViewModel() {
 
@@ -38,41 +48,35 @@ class PlayerViewModel(
     private val _uiState = MutableStateFlow(PlayerUiState())
     val uiState: StateFlow<PlayerUiState> = _uiState.asStateFlow()
 
-    /** Progreso separado: posición + duración se emiten cada segundo.
-     *  Al estar en su propio StateFlow, los composables que NO necesitan
-     *  la barra de progreso no se recomponen con cada tick. */
     private val _progressState = MutableStateFlow(PlayerProgressState())
     val progressState: StateFlow<PlayerProgressState> = _progressState.asStateFlow()
 
     private var resolveJob: Job? = null
 
     init {
-        // Sync equalizer preferences
         viewModelScope.launch {
             userPreferences.equalizerBands.collect { bands ->
                 playerService.setEqualizer(bands)
             }
         }
+
         viewModelScope.launch {
             playerService.playbackState.collect { state ->
                 _uiState.update { it.copy(playbackState = state) }
 
-                // Notificar estado de reproducción al overlay de Windows
                 mediaSession.setPlaybackStatus(
                     isPlaying = state == PlaybackState.PLAYING,
-                    isPaused  = state == PlaybackState.PAUSED
+                    isPaused = state == PlaybackState.PAUSED
                 )
 
                 when (state) {
                     PlaybackState.ENDED -> onTrackEnded()
-                    PlaybackState.ERROR -> {
-                        log.warning(">>> Error de reproducción, el usuario puede reintentar manualmente")
-                    }
-                    else -> {}
+                    PlaybackState.ERROR -> log.warning("Playback error; user can retry manually")
+                    else -> Unit
                 }
             }
         }
-        // Combine position+duration to reduce state emissions (one update instead of two)
+
         viewModelScope.launch {
             playerService.position
                 .combine(playerService.duration) { pos, dur -> pos to dur }
@@ -81,28 +85,29 @@ class PlayerViewModel(
                     _progressState.update { it.copy(positionMs = pos, durationMs = dur) }
                 }
         }
+
         viewModelScope.launch {
             playerService.volume.collect { vol ->
                 _uiState.update { it.copy(volume = vol) }
             }
         }
-        // Actualizar metadatos en el overlay de Windows cuando cambia la canción
+
         viewModelScope.launch {
             _uiState
                 .map { it.currentSong }
                 .distinctUntilChanged()
-                .collect { song ->
+                .collectLatest { song ->
                     if (song != null) {
-                        // Descargar thumbnail en IO, luego actualizar SMTC con file:// URI
-                        viewModelScope.launch(Dispatchers.IO) {
-                            val thumbUri = downloadThumbToTemp(song.thumbnailUrl)
-                            mediaSession.updateMetadata(
-                                title        = song.title,
-                                artist       = song.artists.joinToString(", ") { it.name },
-                                album        = song.album?.title ?: "",
-                                thumbnailUrl = thumbUri
-                            )
+                        val thumbUri = withContext(Dispatchers.IO) {
+                            downloadThumbToTemp(song.thumbnailUrl)
                         }
+
+                        mediaSession.updateMetadata(
+                            title = song.title,
+                            artist = song.artists.joinToString(", ") { it.name },
+                            album = song.album?.title ?: "",
+                            thumbnailUrl = thumbUri
+                        )
                     } else {
                         mediaSession.resetToIdle()
                     }
@@ -110,17 +115,12 @@ class PlayerViewModel(
         }
     }
 
-    /**
-     * Descarga el thumbnail a un archivo temporal y devuelve una URI file:///
-     * que Windows SMTC puede leer sin necesidad de headers HTTP especiales.
-     * Si falla, devuelve la URL HTTP original como fallback.
-     */
     private fun downloadThumbToTemp(url: String?): String? {
         if (url.isNullOrBlank()) return null
         return try {
             val conn = URI(url).toURL().openConnection() as HttpURLConnection
             conn.connectTimeout = 5_000
-            conn.readTimeout    = 10_000
+            conn.readTimeout = 10_000
             conn.setRequestProperty("User-Agent", "Mozilla/5.0")
             conn.connect()
             val bytes = conn.inputStream.use { it.readBytes() }
@@ -128,25 +128,17 @@ class PlayerViewModel(
 
             val tmpFile = java.io.File(System.getProperty("java.io.tmpdir"), "melodist_smtc_thumb.jpg")
             tmpFile.writeBytes(bytes)
-            // URI file:/// con barras normales (formato Windows Runtime)
             "file:///${tmpFile.absolutePath.replace('\\', '/')}"
         } catch (e: Exception) {
             log.fine("SMTC thumb download failed: ${e.message}")
-            url // fallback a HTTP URL
+            url
         }
     }
-
-    // ─── Play actions ──────────────────────────────────────
 
     fun playSingle(song: SongItem) = playSingle(song.toMediaMetadata())
 
     fun playSingle(song: MediaMetadata) {
-        val session = QueueSession(
-            source = QueueSource.Single(song.id),
-            items = listOf(song),
-            order = listOf(0),
-            currentIndex = 0
-        )
+        val session = PlayerQueueCoordinator.singleSession(song)
         _uiState.update {
             it.copy(
                 currentSong = song,
@@ -162,6 +154,42 @@ class PlayerViewModel(
         fetchRelatedQueue(song, session)
     }
 
+    fun playAlbumFromBrowseId(
+        browseId: String,
+        title: String,
+        startIndex: Int = 0,
+        shuffle: Boolean = false,
+        onEmpty: (() -> Unit)? = null
+    ) {
+        viewModelScope.launch {
+            val songs = apiService.getAlbum(browseId).getOrNull()?.songs.orEmpty()
+            if (songs.isNotEmpty()) {
+                playAlbum(songs, startIndex, browseId, title)
+                if (shuffle) toggleShuffle()
+            } else {
+                onEmpty?.invoke()
+            }
+        }
+    }
+
+    fun playPlaylistFromId(
+        playlistId: String,
+        title: String,
+        startIndex: Int = 0,
+        shuffle: Boolean = false,
+        onEmpty: (() -> Unit)? = null
+    ) {
+        viewModelScope.launch {
+            val songs = apiService.getPlaylist(playlistId).getOrNull()?.songs.orEmpty()
+            if (songs.isNotEmpty()) {
+                playPlaylist(songs, startIndex, playlistId, title)
+                if (shuffle) toggleShuffle()
+            } else {
+                onEmpty?.invoke()
+            }
+        }
+    }
+
     @JvmName("playAlbumFromSongItems")
     fun playAlbum(songs: List<SongItem>, startIndex: Int = 0, browseId: String, title: String) =
         playAlbum(songs.map { it.toMediaMetadata() }, startIndex, browseId, title)
@@ -169,25 +197,19 @@ class PlayerViewModel(
     fun playAlbum(songs: List<MediaMetadata>, startIndex: Int = 0, browseId: String, title: String) {
         if (songs.isEmpty()) return
         val source = QueueSource.Album(browseId, title)
-        val idx = startIndex.coerceIn(0, songs.lastIndex)
-        val session = QueueSession(
-            source = source,
-            items = songs,
-            order = songs.indices.toList(),
-            currentIndex = idx
-        )
+        val session = PlayerQueueCoordinator.collectionSession(source, songs, startIndex)
         _uiState.update {
             it.copy(
-                currentSong = songs[idx],
+                currentSong = session.currentSong(),
                 queue = session.queueItems(),
-                currentIndex = idx,
+                currentIndex = session.currentIndex,
                 queueSource = source,
                 error = null,
                 isShuffled = false,
                 queueSession = session
             )
         }
-        resolveAndPlay(songs[idx])
+        session.currentSong()?.let(::resolveAndPlay)
     }
 
     @JvmName("playPlaylistFromSongItems")
@@ -197,25 +219,19 @@ class PlayerViewModel(
     fun playPlaylist(songs: List<MediaMetadata>, startIndex: Int = 0, playlistId: String, title: String) {
         if (songs.isEmpty()) return
         val source = QueueSource.Playlist(playlistId, title)
-        val idx = startIndex.coerceIn(0, songs.lastIndex)
-        val session = QueueSession(
-            source = source,
-            items = songs,
-            order = songs.indices.toList(),
-            currentIndex = idx
-        )
+        val session = PlayerQueueCoordinator.collectionSession(source, songs, startIndex)
         _uiState.update {
             it.copy(
-                currentSong = songs[idx],
+                currentSong = session.currentSong(),
                 queue = session.queueItems(),
-                currentIndex = idx,
+                currentIndex = session.currentIndex,
                 queueSource = source,
                 error = null,
                 isShuffled = false,
                 queueSession = session
             )
         }
-        resolveAndPlay(songs[idx])
+        session.currentSong()?.let(::resolveAndPlay)
     }
 
     @JvmName("playCustomFromSongItems")
@@ -224,28 +240,20 @@ class PlayerViewModel(
 
     fun playCustom(songs: List<MediaMetadata>, startIndex: Int = 0) {
         if (songs.isEmpty()) return
-        val idx = startIndex.coerceIn(0, songs.lastIndex)
-        val session = QueueSession(
-            source = QueueSource.Custom,
-            items = songs,
-            order = songs.indices.toList(),
-            currentIndex = idx
-        )
+        val session = PlayerQueueCoordinator.collectionSession(QueueSource.Custom, songs, startIndex)
         _uiState.update {
             it.copy(
-                currentSong = songs[idx],
+                currentSong = session.currentSong(),
                 queue = session.queueItems(),
-                currentIndex = idx,
+                currentIndex = session.currentIndex,
                 queueSource = QueueSource.Custom,
                 error = null,
                 isShuffled = false,
                 queueSession = session
             )
         }
-        resolveAndPlay(songs[idx])
+        session.currentSong()?.let(::resolveAndPlay)
     }
-
-    // ─── Transport controls ────────────────────────────────
 
     fun togglePlayPause() {
         val state = _uiState.value
@@ -265,26 +273,12 @@ class PlayerViewModel(
     }
 
     fun next() {
-
         val state = _uiState.value
-        if (state.queueSession.items.isEmpty()) return
-
-        val nextIndex = when (state.repeatMode) {
-            RepeatMode.ONE -> state.currentIndex
-
-            RepeatMode.ALL -> (state.currentIndex + 1) % state.queueSession.order.size
-
-            RepeatMode.OFF -> {
-                val n = state.currentIndex + 1
-                if (n >= state.queueSession.order.size) {
-                    stop()
-                    return
-                }
-                n
-            }
+        val nextIndex = PlayerQueueCoordinator.nextIndex(state) ?: run {
+            if (state.repeatMode == RepeatMode.OFF) stop()
+            return
         }
 
-        // 1️⃣ Actualizar estado
         _uiState.update {
             val updatedSession = it.queueSession.copy(currentIndex = nextIndex)
             it.copy(
@@ -295,7 +289,6 @@ class PlayerViewModel(
             )
         }
 
-        // 2️⃣ Ejecutar reproducción FUERA del update
         playAtIndex(nextIndex)
     }
 
@@ -308,45 +301,12 @@ class PlayerViewModel(
             return
         }
 
-        val prevIndex = when (state.repeatMode) {
-            RepeatMode.ONE -> state.currentIndex
-            RepeatMode.ALL -> if (state.currentIndex - 1 < 0) state.queueSession.order.lastIndex else state.currentIndex - 1
-            RepeatMode.OFF -> {
-                val p = state.currentIndex - 1
-                if (p < 0) 0 else p
-            }
-        }
+        val prevIndex = PlayerQueueCoordinator.previousIndex(state) ?: return
         playAtIndex(prevIndex)
     }
 
     fun toggleShuffle() {
-        _uiState.update { state ->
-            val session = state.queueSession
-            if (session.items.isEmpty()) return@update state
-
-            if (state.isShuffled) {
-                val naturalOrder = session.naturalOrder()
-                val currentId = state.currentSong?.id
-                val newIndex = naturalOrder.indexOfFirst { session.items.getOrNull(it)?.id == currentId }.coerceAtLeast(0)
-                state.copy(
-                    queue = naturalOrder.mapNotNull { session.items.getOrNull(it) },
-                    currentIndex = newIndex,
-                    isShuffled = false,
-                    queueSession = session.copy(order = naturalOrder, currentIndex = newIndex)
-                )
-            } else {
-                val currentItem = state.currentSong ?: return@update state
-                val currentBaseIndex = session.items.indexOfFirst { it.id == currentItem.id }.coerceAtLeast(0)
-                val rest = session.items.indices.filter { it != currentBaseIndex }.shuffled()
-                val shuffledOrder = listOf(currentBaseIndex) + rest
-                state.copy(
-                    queue = shuffledOrder.mapNotNull { session.items.getOrNull(it) },
-                    currentIndex = 0,
-                    isShuffled = true,
-                    queueSession = session.copy(order = shuffledOrder, currentIndex = 0)
-                )
-            }
-        }
+        _uiState.update(PlayerQueueCoordinator::toggleShuffle)
     }
 
     fun toggleRepeat() {
@@ -365,43 +325,40 @@ class PlayerViewModel(
         resolveJob?.cancel()
         playerService.stop()
         _progressState.value = PlayerProgressState()
-        _uiState.update { PlayerUiState() }
+        _uiState.update {
+            it.copy(
+                currentSong = null,
+                queue = emptyList(),
+                currentIndex = 0,
+                playbackState = PlaybackState.IDLE
+            )
+        }
         mediaSession.resetToIdle()
     }
-
-    // ─── Queue manipulation ────────────────────────────────
 
     fun addToQueue(song: SongItem) = addToQueue(song.toMediaMetadata())
 
     fun addToQueue(song: MediaMetadata) {
-        _uiState.update { state ->
-            if (state.queueSession.items.isEmpty()) return@update state.copy(queueSession = QueueSession(source = QueueSource.Custom, items = listOf(song), order = listOf(0), currentIndex = 0), queue = listOf(song))
-            val session = state.queueSession
-            val items = session.items + song
-            val order = session.order + items.lastIndex
-            state.copy(
-                queueSession = session.copy(items = items, order = order),
-                queue = order.mapNotNull { items.getOrNull(it) }
-            )
+        _uiState.update { state -> PlayerQueueCoordinator.append(state, song) }
+    }
+
+    fun playNext(song: SongItem) = playNext(song.toMediaMetadata())
+
+    fun playNext(song: MediaMetadata) {
+        _uiState.update { state -> PlayerQueueCoordinator.insertNext(state, song) }
+    }
+
+    fun playNextResolved(song: SongItem) {
+        viewModelScope.launch {
+            val resolvedSong = withContext(Dispatchers.IO) { song.withMissingMetadataResolved() }
+            playNext(resolvedSong)
         }
     }
 
-    /** Insert song right after the currently playing song (play next). */
-    fun playNext(song: SongItem) = playNext(song.toMediaMetadata())
-
-    /** Insert song right after the currently playing song (play next). */
-    fun playNext(song: MediaMetadata) {
-        _uiState.update { state ->
-            if (state.queueSession.items.isEmpty()) return@update state.copy(queueSession = QueueSession(source = QueueSource.Custom, items = listOf(song), order = listOf(0), currentIndex = 0), queue = listOf(song))
-            val session = state.queueSession
-            val items = session.items + song
-            val insertedBaseIndex = items.lastIndex
-            val insertAt = (state.currentIndex + 1).coerceAtMost(session.order.size)
-            val newOrder = session.order.toMutableList().apply { add(insertAt, insertedBaseIndex) }
-            state.copy(
-                queueSession = session.copy(items = items, order = newOrder),
-                queue = newOrder.mapNotNull { items.getOrNull(it) }
-            )
+    fun addToQueueResolved(song: SongItem) {
+        viewModelScope.launch {
+            val resolvedSong = withContext(Dispatchers.IO) { song.withMissingMetadataResolved() }
+            addToQueue(resolvedSong)
         }
     }
 
@@ -417,43 +374,36 @@ class PlayerViewModel(
                 stop()
                 return
             }
+
             index < state.currentIndex -> state.currentIndex - 1
             index == state.currentIndex -> {
                 val nextIdx = index.coerceAtMost(newOrder.lastIndex)
                 val nextSong = newOrder.getOrNull(nextIdx)?.let(newItems::getOrNull)
-                _uiState.update { it.copy(queue = newOrder.mapNotNull { idx -> newItems.getOrNull(idx) }, currentIndex = nextIdx, currentSong = nextSong, queueSession = session.copy(order = newOrder, currentIndex = nextIdx)) }
-                nextSong?.let { resolveAndPlay(it) }
+                _uiState.update {
+                    it.copy(
+                        queue = newOrder.mapNotNull { idx -> newItems.getOrNull(idx) },
+                        currentIndex = nextIdx,
+                        currentSong = nextSong,
+                        queueSession = session.copy(order = newOrder, currentIndex = nextIdx)
+                    )
+                }
+                nextSong?.let(::resolveAndPlay)
                 return
             }
+
             else -> state.currentIndex
         }
-        _uiState.update { it.copy(queue = newOrder.mapNotNull { idx -> newItems.getOrNull(idx) }, currentIndex = newIndex, queueSession = session.copy(order = newOrder, currentIndex = newIndex)) }
+        _uiState.update {
+            it.copy(
+                queue = newOrder.mapNotNull { idx -> newItems.getOrNull(idx) },
+                currentIndex = newIndex,
+                queueSession = session.copy(order = newOrder, currentIndex = newIndex)
+            )
+        }
     }
 
     fun moveQueueItem(fromIndex: Int, toIndex: Int) {
-        _uiState.update { state ->
-            val session = state.queueSession
-            if (fromIndex < 0 || fromIndex >= session.order.size || toIndex < 0 || toIndex >= session.order.size) return@update state
-
-            val newOrder = session.order.toMutableList()
-            val movedItem = newOrder.removeAt(fromIndex)
-            newOrder.add(toIndex, movedItem)
-
-            val curIndex = state.currentIndex
-            val newCurrentIndex = when {
-                fromIndex == curIndex -> toIndex
-                curIndex in (fromIndex + 1)..toIndex -> curIndex - 1
-                curIndex in toIndex..<fromIndex -> curIndex + 1
-                else -> curIndex
-            }
-
-            val newSession = session.copy(order = newOrder, currentIndex = newCurrentIndex)
-            state.copy(
-                queueSession = newSession,
-                queue = newSession.queueItems(),
-                currentIndex = newCurrentIndex
-            )
-        }
+        _uiState.update { state -> PlayerQueueCoordinator.move(state, fromIndex, toIndex) }
     }
 
     fun playAtIndex(index: Int) {
@@ -461,11 +411,16 @@ class PlayerViewModel(
         if (index < 0 || index >= state.queueSession.order.size) return
 
         val song = state.queueSession.order.getOrNull(index)?.let(state.queueSession.items::getOrNull) ?: return
-        _uiState.update { it.copy(currentSong = song, currentIndex = index, error = null, queueSession = state.queueSession.copy(currentIndex = index)) }
+        _uiState.update {
+            it.copy(
+                currentSong = song,
+                currentIndex = index,
+                error = null,
+                queueSession = state.queueSession.copy(currentIndex = index)
+            )
+        }
         resolveAndPlay(song)
     }
-
-    // ─── Internal ──────────────────────────────────────────
 
     private fun resolveAndPlay(song: MediaMetadata) {
         resolveJob?.cancel()
@@ -473,10 +428,10 @@ class PlayerViewModel(
         resolveJob = viewModelScope.launch {
             _uiState.update { it.copy(playbackState = PlaybackState.LOADING, error = null) }
             playerService.stopAudioOnly()
-            
+
             try {
                 val cachedFile = withContext(Dispatchers.IO) {
-                    com.example.melodist.player.DownloadService.getCachedFile(song.id)
+                    DownloadService.getCachedFile(song.id)
                 }
                 if (cachedFile != null) {
                     playerService.play(cachedFile.absolutePath)
@@ -484,13 +439,13 @@ class PlayerViewModel(
                     val streamUrl = withContext(Dispatchers.IO) {
                         streamResolver.resolveAudioStream(song.id)
                     }.streamUrl
-                    if (!streamUrl.isEmpty()) {
+                    if (streamUrl.isNotEmpty()) {
                         playerService.play(streamUrl)
                     } else {
                         _uiState.update { it.copy(error = "No se pudo obtener el audio para \"${song.title}\"") }
                     }
                 }
-            } catch (e: com.example.melodist.player.AgeRestrictedException) {
+            } catch (e: AgeRestrictedException) {
                 _uiState.update { it.copy(playbackState = PlaybackState.ERROR, error = e.message) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message) }
@@ -501,17 +456,9 @@ class PlayerViewModel(
     private fun onTrackEnded() {
         val state = _uiState.value
         when (state.repeatMode) {
-            RepeatMode.ONE -> {
-                state.currentSong?.let { resolveAndPlay(it) }
-            }
-            RepeatMode.ALL -> {
-                next()
-            }
-            RepeatMode.OFF -> {
-                if (state.currentIndex < state.queue.lastIndex) {
-                    next()
-                }
-            }
+            RepeatMode.ONE -> state.currentSong?.let(::resolveAndPlay)
+            RepeatMode.ALL -> next()
+            RepeatMode.OFF -> if (state.currentIndex < state.queue.lastIndex) next()
         }
     }
 
@@ -530,7 +477,7 @@ class PlayerViewModel(
                         .filter { it.id != originalSongId }
                         .map { it.toMediaMetadata() }
                     val items = listOfNotNull(
-                        state.currentSong.let {
+                        state.currentSong?.let {
                             if (it.duration <= 0 && suggestedCurrent != null && suggestedCurrent.duration > 0) {
                                 it.copy(duration = suggestedCurrent.duration)
                             } else {
@@ -554,7 +501,8 @@ class PlayerViewModel(
                         )
                     )
                 }
-            } catch (_: Exception) { }
+            } catch (_: Exception) {
+            }
         }
     }
 
@@ -563,27 +511,3 @@ class PlayerViewModel(
         super.onCleared()
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

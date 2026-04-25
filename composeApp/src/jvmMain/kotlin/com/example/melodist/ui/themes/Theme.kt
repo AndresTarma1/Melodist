@@ -34,23 +34,27 @@ fun MelodistTheme(
         else -> isSystemInDarkTheme()
     }
 
-    val seedPrimary = if (dynamicEnabled && artworkColors != null && artworkColors != ArtworkColors.Default) {
-        artworkColors.vibrant
-    } else {
-        Primary
-    }
-
-    val seedSecondary = if (dynamicEnabled && artworkColors != null && artworkColors != ArtworkColors.Default) {
-        artworkColors.muted
-    } else {
-        Secondary
+    // Optimización: Usamos remember para evitar recalcular los colores base en cada recomposición
+    // a menos que artworkColors o dynamicEnabled cambien realmente.
+    val seeds = remember(artworkColors, dynamicEnabled) {
+        val primary = if (dynamicEnabled && artworkColors != null && artworkColors != ArtworkColors.Default) {
+            artworkColors.vibrant
+        } else {
+            Primary
+        }
+        val secondary = if (dynamicEnabled && artworkColors != null && artworkColors != ArtworkColors.Default) {
+            artworkColors.muted
+        } else {
+            Secondary
+        }
+        primary to secondary
     }
 
     val dynamicThemeState = rememberDynamicMaterialThemeState(
         isDark = isDarkTheme,
         style = PaletteStyle.Content,
-        primary = seedPrimary,
-        secondary = seedSecondary,
+        primary = seeds.first,
+        secondary = seeds.second,
     )
 
     DynamicMaterialTheme(
@@ -58,8 +62,8 @@ fun MelodistTheme(
         animate = true,
         content = content,
         animationSpec = spring(
-            dampingRatio = Spring.DampingRatioNoBouncy, // Sin rebote para que no distraiga
-            stiffness = Spring.StiffnessLow // Movimiento lento y elegante
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMediumLow // Un poco más rápido para reducir la sensación de lag
         )
     )
 }

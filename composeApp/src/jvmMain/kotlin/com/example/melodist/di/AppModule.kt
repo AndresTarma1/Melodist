@@ -12,6 +12,7 @@ import com.example.melodist.data.repository.SongRepository
 import com.example.melodist.viewmodels.AccountViewModel
 import com.example.melodist.viewmodels.AlbumViewModel
 import com.example.melodist.viewmodels.ArtistViewModel
+import com.example.melodist.viewmodels.AppViewModel
 import com.example.melodist.viewmodels.DownloadViewModel
 import com.example.melodist.viewmodels.HomeViewModel
 import com.example.melodist.viewmodels.LibraryAlbumsViewModel
@@ -60,7 +61,8 @@ val appModule = module {
     single<AudioStreamResolver> { AudioStreamResolver() }
     single<WindowsMediaSession> { WindowsMediaSession() }
     single<DownloadService> { DownloadService(get(), get()) }
-    single<PlayerViewModel> { PlayerViewModel(get(), get(), get(), get()) }
+    single<AppViewModel> { AppViewModel() }
+    single<PlayerViewModel> { PlayerViewModel(get(), get(), get(), get(), get()) }
     single<DownloadViewModel> { DownloadViewModel(get(), get(), get()) }
 
     // ViewModels — loginState de AccountManager para reaccionar a cambios de sesión

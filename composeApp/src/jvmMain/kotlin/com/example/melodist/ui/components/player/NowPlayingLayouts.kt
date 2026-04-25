@@ -33,12 +33,15 @@ import androidx.compose.ui.unit.dp
 import com.example.melodist.navigation.Route
 import com.example.melodist.models.MediaMetadata
 import com.example.melodist.ui.components.*
+import com.example.melodist.ui.components.background.BlurredImageBackground
+import com.example.melodist.ui.components.skeletons.AnimatedEqualizer
 import com.example.melodist.utils.upscaleThumbnailUrl
 import com.example.melodist.ui.components.song.DownloadIndicator
 import com.example.melodist.ui.helpers.rememberSongDownloadState
 import com.example.melodist.utils.LocalDownloadViewModel
 import com.example.melodist.utils.LocalPlayerViewModel
 import com.example.melodist.utils.LocalUserPreferences
+import com.example.melodist.utils.isWideThumbnail
 import com.example.melodist.viewmodels.PlayerUiState
 import com.example.melodist.viewmodels.QueueSource
 import kotlinx.coroutines.delay
@@ -65,27 +68,36 @@ fun NowPlayingLayout(
         darkOverlayAlpha = 0.62f,
         gradientFraction = 0.52f
     ) {
-        Column(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 48.dp, vertical = 28.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            contentAlignment = Alignment.Center
         ) {
+            val isCompact = maxHeight < 600.dp
+            val imageSize = if (isCompact) 280.dp else 420.dp
+            
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                CoverArt(
+                    url = song.thumbnailUrl,
+                    title = song.title,
+                    modifier = Modifier.widthIn(max = imageSize),
+                    highRes = highRes
+                )
 
-            if (state.queueSource is QueueSource.Album) {
-                AlbumDiscLarge(url = song.thumbnailUrl, title = song.title, highRes = highRes)
-            } else {
-                CoverArt(url = song.thumbnailUrl, title = song.title, size = 440, highRes = highRes)
+                Spacer(Modifier.height(if (isCompact) 16.dp else 32.dp))
+                
+                SongHeader(
+                    state = state,
+                    song = song,
+                    textAlign = TextAlign.Center,
+                    onNavigate = onNavigate,
+                    onCollapse = onCollapse
+                )
             }
-            Spacer(Modifier.height(24.dp))
-            SongHeader(
-                state = state,
-                song = song,
-                textAlign = TextAlign.Center,
-                onNavigate = onNavigate,
-                onCollapse = onCollapse
-            )
         }
     }
 }
@@ -258,25 +270,23 @@ fun PlaybackQueuePanel(
 }
 
 @Composable
-fun CoverArt(url: String?, title: String, size: Int, highRes: Boolean) {
-    val highResUrl = if (highRes) upscaleThumbnailUrl(url, 1080) else url
-
-    val width = size.dp
-    val height = (size * 9f / 16f).dp
+fun CoverArt(url: String?, title: String, modifier: Modifier = Modifier, highRes: Boolean) {
+    val imageUrl = if (highRes) upscaleThumbnailUrl(url, 1080) else url
+    val ratio = if (isWideThumbnail(url)) 16f/  9f  else 1f
     val corner = 20.dp
 
     Card(
-        modifier = Modifier.width(width).height(height),
+        modifier = modifier.aspectRatio(ratio),
         shape = RoundedCornerShape(corner),
         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
     ) {
         MelodistImage(
-            url = highResUrl,
+            url = imageUrl,
             contentDescription = title,
             modifier = Modifier.fillMaxSize(),
             placeholderType = PlaceholderType.SONG,
-            iconSize = (size * 0.12f).dp,
             contentScale = ContentScale.Crop
+
         )
     }
 }
@@ -443,10 +453,8 @@ fun QueueItem(
             // Número o ícono de reproducción
             Box(modifier = Modifier.width(22.dp), contentAlignment = Alignment.Center) { // Más ancho
                 if (isCurrent) {
-                    Icon(
-                        Icons.Rounded.GraphicEq, null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(18.dp) // Ícono más grande
+                    AnimatedEqualizer(
+                        Modifier.size(18.dp)
                     )
                 } else {
                     Text(

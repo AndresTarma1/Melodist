@@ -69,7 +69,9 @@ data class LibraryActions(
     val onRemoveArtist: (String) -> Unit,
     val onRemovePlaylist: (String) -> Unit,
     val onQuickPlayAlbum: (browseId: String, title: String, onFallback: () -> Unit) -> Unit,
+    val onQuickShuffleAlbum: (browseId: String, title: String, onFallback: () -> Unit) -> Unit,
     val onQuickPlayPlaylist: (playlistId: String, title: String, onFallback: () -> Unit) -> Unit,
+    val onQuickShufflePlaylist: (playlistId: String, title: String, onFallback: () -> Unit) -> Unit,
     val onRefreshYtm: () -> Unit,
     val onCreatePlaylist: (String) -> Unit,
 )
@@ -115,6 +117,21 @@ fun LibraryScreenRoute(
                     onFallback = onFallback,
                 )
             },
+            onQuickShuffleAlbum = { browseId, title, onFallback ->
+                viewModel.resolveAlbumSongsForPlayback(
+                    browseId = browseId,
+                    onResolved = { songs ->
+                        playerViewModel.playAlbum(
+                            songs = songs,
+                            startIndex = 0,
+                            browseId = browseId,
+                            title = title,
+                        )
+                        playerViewModel.toggleShuffle()
+                    },
+                    onFallback = onFallback,
+                )
+            },
             onQuickPlayPlaylist = { playlistId, title, onFallback ->
                 viewModel.resolvePlaylistSongsForPlayback(
                     playlistId = playlistId,
@@ -125,6 +142,21 @@ fun LibraryScreenRoute(
                             playlistId = playlistId,
                             title = title,
                         )
+                    },
+                    onFallback = onFallback,
+                )
+            },
+            onQuickShufflePlaylist = { playlistId, title, onFallback ->
+                viewModel.resolvePlaylistSongsForPlayback(
+                    playlistId = playlistId,
+                    onResolved = { songs ->
+                        playerViewModel.playPlaylist(
+                            songs = songs,
+                            startIndex = 0,
+                            playlistId = playlistId,
+                            title = title,
+                        )
+                        playerViewModel.toggleShuffle()
                     },
                     onFallback = onFallback,
                 )
@@ -210,6 +242,7 @@ fun LibraryScreen(
                     onNavigate = actions.onNavigate,
                     onRemove = actions.onRemoveAlbum,
                     onQuickPlayAlbum = actions.onQuickPlayAlbum,
+                    onQuickShuffleAlbum = actions.onQuickShuffleAlbum,
                 )
 
                 LibraryTab.ARTISTS -> ArtistsTab(
@@ -228,11 +261,17 @@ fun LibraryScreen(
                     onRemove = actions.onRemovePlaylist,
                     playerViewModel = playerViewModel,
                     onQuickPlayPlaylist = actions.onQuickPlayPlaylist,
+                    onQuickShufflePlaylist = actions.onQuickShufflePlaylist,
                 )
 
                 LibraryTab.LIBRARY -> LibraryMixedTab(
                     state = state,
                     onNavigate = actions.onNavigate,
+                    playerViewModel = playerViewModel,
+                    onQuickPlayAlbum = actions.onQuickPlayAlbum,
+                    onQuickShuffleAlbum = actions.onQuickShuffleAlbum,
+                    onQuickPlayPlaylist = actions.onQuickPlayPlaylist,
+                    onQuickShufflePlaylist = actions.onQuickShufflePlaylist,
                 )
             }
         }

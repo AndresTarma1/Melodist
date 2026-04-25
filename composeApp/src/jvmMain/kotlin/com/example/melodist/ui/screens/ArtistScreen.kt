@@ -1,5 +1,7 @@
 package com.example.melodist.ui.screens
 
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.items
@@ -9,14 +11,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.*
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.ContentScale
@@ -25,15 +28,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.melodist.navigation.Route
-import com.example.melodist.ui.components.ArtistScreenSkeleton
-import com.example.melodist.ui.components.layout.AppVerticalScrollbar
-import com.example.melodist.ui.components.BlurredImageBackground
-import com.example.melodist.ui.components.song.DownloadIndicator
-import com.example.melodist.ui.components.layout.HorizontalScrollableRow
-import com.example.melodist.ui.components.MelodistImage
-import com.example.melodist.ui.components.PlaceholderType
+import com.example.melodist.ui.components.*
 import com.example.melodist.ui.components.context.SongContextMenu
+import com.example.melodist.ui.components.layout.AppVerticalScrollbar
+import com.example.melodist.ui.components.layout.HorizontalScrollableRow
+import com.example.melodist.ui.components.song.DownloadIndicator
 import com.example.melodist.ui.helpers.contextMenuArea
 import com.example.melodist.ui.helpers.rememberSongDownloadState
 import com.example.melodist.utils.LocalDownloadViewModel
@@ -53,25 +54,29 @@ fun ArtistScreenRoute(
     val playerViewModel = LocalPlayerViewModel.current
     val uiState by viewModel.uiState.collectAsState()
     val isSaved by viewModel.isSaved.collectAsState()
-    val successState = uiState as? ArtistState.Success
+    val success = uiState as? ArtistState.Success
 
-    val actions = remember(viewModel, playerViewModel, successState) {
-        ArtistScreenActions(
-            onToggleSave = { viewModel.toggleSave() },
-            onPlayTopSongs = {
-                val artistPage = successState?.artistPage ?: return@ArtistScreenActions
-                val songs = artistPage.sections.flatMap { it.items }.filterIsInstance<SongItem>()
-                if (songs.isNotEmpty()) playerViewModel.playCustom(songs, 0)
-            },
-            onShuffleTopSongs = {
-                val artistPage = successState?.artistPage ?: return@ArtistScreenActions
-                val songs = artistPage.sections.flatMap { it.items }.filterIsInstance<SongItem>()
-                if (songs.isNotEmpty()) playerViewModel.playCustom(songs.shuffled(), 0)
-            }
-        )
-    }
-
-    ArtistScreen(uiState, onNavigate, onBack, isSaved = isSaved, actions = actions)
+    ArtistScreen(
+        uiState = uiState,
+        onNavigate = onNavigate,
+        onBack = onBack,
+        isSaved = isSaved,
+        actions = remember(viewModel, playerViewModel, success) {
+            ArtistScreenActions(
+                onToggleSave = { viewModel.toggleSave() },
+                onPlayTopSongs = {
+                    val songs = success?.artistPage?.sections?.flatMap { it.items }?.filterIsInstance<SongItem>()
+                        ?: return@ArtistScreenActions
+                    if (songs.isNotEmpty()) playerViewModel.playCustom(songs, 0)
+                },
+                onShuffleTopSongs = {
+                    val songs = success?.artistPage?.sections?.flatMap { it.items }?.filterIsInstance<SongItem>()
+                        ?: return@ArtistScreenActions
+                    if (songs.isNotEmpty()) playerViewModel.playCustom(songs.shuffled(), 0)
+                }
+            )
+        }
+    )
 }
 
 data class ArtistScreenActions(
@@ -88,239 +93,310 @@ fun ArtistScreen(
     isSaved: Boolean = false,
     actions: ArtistScreenActions,
 ) {
-    val thumbnailUrl = (uiState as? ArtistState.Success)?.artistPage?.artist?.thumbnail
-
-    BlurredImageBackground(
-        imageUrl = thumbnailUrl,
-        modifier = Modifier.fillMaxSize(),
-        darkOverlayAlpha = 0.55f,
-        gradientFraction = 0.40f
-    ) {
+    Box(modifier = Modifier.fillMaxSize()) {
         when (uiState) {
             is ArtistState.Loading -> ArtistScreenSkeleton()
-            is ArtistState.Success -> ArtistScreenLayout(
-                uiState.artistPage,
-                onNavigate,
-                isSaved = isSaved,
-                actions = actions
-            )
-
+            is ArtistState.Success -> ArtistScreenContent(uiState.artistPage, onNavigate, isSaved, actions)
             is ArtistState.Error -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(uiState.message, color = MaterialTheme.colorScheme.error)
             }
         }
 
-        // Floating back button
+        // Botón atrás flotante
         IconButton(
             onClick = onBack,
-            modifier = Modifier.padding(8.dp).align(Alignment.TopStart)
+            modifier = Modifier
+                .padding(12.dp)
+                .align(Alignment.TopStart)
+                .size(36.dp)
+                .clip(CircleShape)
         ) {
             Icon(
-                Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Atrás",
-                tint = Color.White.copy(alpha = 0.85f)
+                Icons.AutoMirrored.Filled.ArrowBack, "Atrás",
+                tint = Color.White,
+                modifier = Modifier.size(20.dp)
             )
         }
     }
 }
 
-@Composable
-fun ArtistScreenLayout(
-    artistPage: ArtistPage,
-    onNavigate: (Route) -> Unit,
-    isSaved: Boolean = false,
-    actions: ArtistScreenActions,
-) {
-    Box(modifier = Modifier.fillMaxSize()) {
-        ArtistWideLayout(
-            artistPage = artistPage,
-            onNavigate = onNavigate,
-            isSaved = isSaved,
-            actions = actions
-        )
-    }
-}
+// ─────────────────────────────────────────────────────────────────────────────
+// Contenido principal
+// ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
-private fun ArtistWideLayout(
+private fun ArtistScreenContent(
     artistPage: ArtistPage,
     onNavigate: (Route) -> Unit,
     isSaved: Boolean,
     actions: ArtistScreenActions
 ) {
     val scrollState = rememberScrollState()
-    val hasPlayableSongs = remember(artistPage.sections) {
-        artistPage.sections.any { section -> section.items.any { it is SongItem } }
-    }
+    val surface = MaterialTheme.colorScheme.surface
 
     Box(modifier = Modifier.fillMaxSize()) {
+
+        // ── Fondo: color base de la pantalla ─────────────────────────────────
+        Box(modifier = Modifier.fillMaxSize().background(surface))
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(scrollState)
-                .padding(horizontal = 48.dp, vertical = 24.dp)
-                .padding(top = 32.dp)
         ) {
-            // Header: avatar + info side by side
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                // Circular avatar with translucent background
-                Box(
-                    modifier = Modifier.size(196.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    // Translucent background circle behind the avatar
-                    Box(
-                        modifier = Modifier
-                            .size(196.dp)
-                            .clip(CircleShape)
-                            .background(
-                                MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.35f)
-                            )
-                    )
-                    Card(
-                        modifier = Modifier
-                            .size(180.dp)
-                            .shadow(24.dp, CircleShape),
-                        shape = CircleShape
-                    ) {
-                        MelodistImage(
-                            url = artistPage.artist.thumbnail,
-                            contentDescription = artistPage.artist.title,
-                            modifier = Modifier.fillMaxSize(),
-                            shape = CircleShape,
-                            placeholderType = PlaceholderType.ARTIST,
-                            iconSize = 72.dp,
-                            contentScale = ContentScale.Crop,
-                            alignment = Alignment.TopCenter
-                        )
-                    }
+            // ── BANNER ────────────────────────────────────────────────────────
+            ArtistBanner(
+                artistPage = artistPage,
+                isSaved = isSaved,
+                actions = actions,
+                surfaceColor = surface
+            )
+
+            // ── SECCIONES ─────────────────────────────────────────────────────
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 32.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(28.dp)
+            ) {
+                artistPage.sections.forEach { section ->
+                    ArtistSectionRow(section = section, onNavigate = onNavigate)
                 }
-
-                Spacer(Modifier.width(32.dp))
-
-                Column {
-                    Text(
-                        text = artistPage.artist.title,
-                        style = MaterialTheme.typography.displaySmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-
-                    Spacer(Modifier.height(6.dp))
-
-                    artistPage.subscriberCountText?.let {
-                        Text(
-                            text = it,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-
-                    artistPage.monthlyListenerCount?.let {
-                        Text(
-                            text = it,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-
-                    Spacer(Modifier.height(20.dp))
-
-                    // Action buttons
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        IconButton(
-                            onClick = actions.onToggleSave,
-                            modifier = Modifier
-                                .size(44.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                                .pointerHoverIcon(PointerIcon.Hand)
-                        ) {
-                            Icon(
-                                if (isSaved) Icons.Default.PersonRemove else Icons.Default.PersonAdd,
-                                null,
-                                tint = if (isSaved) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-
-                        FloatingActionButton(
-                            onClick = { if (hasPlayableSongs) actions.onPlayTopSongs() },
-                            shape = CircleShape,
-                            containerColor = Color.White,
-                            contentColor = Color.Black,
-                            modifier = Modifier
-                                .size(56.dp)
-                                .pointerHoverIcon(if (hasPlayableSongs) PointerIcon.Hand else PointerIcon.Default)
-                        ) {
-                            Icon(Icons.Default.PlayArrow, null, modifier = Modifier.size(28.dp))
-                        }
-
-                        IconButton(
-                            onClick = { if (hasPlayableSongs) actions.onShuffleTopSongs() },
-                            modifier = Modifier
-                                .size(44.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                                .pointerHoverIcon(if (hasPlayableSongs) PointerIcon.Hand else PointerIcon.Default)
-                        ) {
-                            Icon(
-                                Icons.Default.Shuffle,
-                                null,
-                                tint = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(40.dp))
-
-            // Sections
-            artistPage.sections.forEach { section ->
-                ArtistSectionRow(
-                    section,
-                    onNavigate,
-                )
                 Spacer(Modifier.height(24.dp))
-            }
-
-            // Description
-            artistPage.description?.let { desc ->
-                if (desc.isNotBlank()) {
-                    Spacer(Modifier.height(16.dp))
-                    Text(
-                        "Acerca de",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        text = desc,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 6,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
             }
         }
 
         AppVerticalScrollbar(
             state = scrollState,
-            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(12.dp)
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .fillMaxHeight()
+                .padding(end = 2.dp, top = 4.dp, bottom = 4.dp)
         )
     }
 }
 
-// ── Section row (horizontal carousel) ──
+// ─────────────────────────────────────────────────────────────────────────────
+// BANNER — imagen con gradientes multicapa al estilo YouTube Music
+// ─────────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun ArtistBanner(
+    artistPage: ArtistPage,
+    isSaved: Boolean,
+    actions: ArtistScreenActions,
+    surfaceColor: Color
+) {
+    var descExpanded by remember { mutableStateOf(false) }
+    val hasPlayable = artistPage.sections.any { s -> s.items.any { it is SongItem } }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(520.dp)   // alto generoso para que la imagen respire
+    ) {
+        // ── Imagen de fondo ───────────────────────────────────────────────────
+        MelodistImage(
+            url = artistPage.artist.thumbnail,
+            contentDescription = artistPage.artist.title,
+            modifier = Modifier.fillMaxSize(),
+            shape = RectangleShape,
+            placeholderType = PlaceholderType.ARTIST,
+            contentScale = ContentScale.Crop,
+            alignment = Alignment.TopCenter
+        )
+
+        // ── Capa 1: fade vertical UNIFORME en todo el ancho ──────────────────────
+// Esta capa actúa igual en todos los píxeles de izquierda a derecha
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colorStops = arrayOf(
+                            0.00f to Color.Transparent,
+                            0.28f to Color.Transparent,
+                            0.52f to surfaceColor.copy(alpha = 0.20f),
+                            0.70f to surfaceColor.copy(alpha = 0.62f),
+                            0.84f to surfaceColor.copy(alpha = 0.88f),
+                            1.00f to surfaceColor
+                        )
+                    )
+                )
+        )
+
+// ── Capa 2: oscurecimiento lateral SOLO en la parte superior ─────────────
+// Usamos un gradiente radial o combinado que NO llegue al borde inferior,
+// así no cancela el fade vertical uniforme de la capa 1.
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()  // ← solo ocupa el 65% superior, no toca el fade de abajo
+                .align(Alignment.TopStart)
+                .background(
+                    Brush.horizontalGradient(
+                        colorStops = arrayOf(
+                            0.00f to Color.Black.copy(alpha = 0.55f),
+                            1.00f to Color.Transparent
+                        )
+                    )
+                )
+        )
+
+        // ── Info del artista (abajo-izquierda) ────────────────────────────────
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth()
+                .padding(horizontal = 40.dp, vertical = 32.dp)
+        ) {
+            // Nombre
+            Text(
+                text = artistPage.artist.title,
+                style = MaterialTheme.typography.displayLarge.copy(
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = (-1).sp
+                ),
+                color = Color.White,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Spacer(Modifier.height(6.dp))
+
+            // Oyentes mensuales
+            artistPage.monthlyListenerCount?.let { listeners ->
+                Text(
+                    text = listeners,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = Color.White.copy(alpha = 0.75f)
+                )
+                Spacer(Modifier.height(8.dp))
+            }
+
+            // Descripción expandible
+            artistPage.description?.let { desc ->
+                if (desc.isNotBlank()) {
+                    Column(modifier = Modifier.fillMaxWidth(0.55f)) {
+                        AnimatedContent(
+                            targetState = descExpanded,
+                            transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(150)) },
+                            label = "descAnim"
+                        ) { expanded ->
+                            Text(
+                                text = desc,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Color.White.copy(alpha = 0.72f),
+                                maxLines = if (expanded) Int.MAX_VALUE else 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+
+                        // Solo muestra "Más / Menos" si el texto es largo
+                        if (desc.length > 120) {
+                            TextButton(
+                                onClick = { descExpanded = !descExpanded },
+                                contentPadding = PaddingValues(horizontal = 0.dp, vertical = 2.dp),
+                                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)
+                            ) {
+                                Text(
+                                    text = if (descExpanded) "Menos" else "Más",
+                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                                    color = Color.White.copy(alpha = 0.9f)
+                                )
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(20.dp))
+                }
+            }
+
+            // Botones de acción
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // Aleatorio — botón blanco sólido
+                Button(
+                    onClick = { if (hasPlayable) actions.onShuffleTopSongs() },
+                    enabled = hasPlayable,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.White,
+                        contentColor = Color.Black,
+                        disabledContainerColor = Color.White.copy(alpha = 0.3f),
+                        disabledContentColor = Color.White.copy(alpha = 0.5f)
+                    ),
+                    shape = CircleShape,
+                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp)
+                ) {
+                    Icon(Icons.Rounded.Shuffle, null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Aleatorio", fontWeight = FontWeight.SemiBold)
+                }
+
+                // Radio — botón blanco sólido
+                Button(
+                    onClick = { if (hasPlayable) actions.onPlayTopSongs() },
+                    enabled = hasPlayable,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.White,
+                        contentColor = Color.Black,
+                        disabledContainerColor = Color.White.copy(alpha = 0.3f),
+                        disabledContentColor = Color.White.copy(alpha = 0.5f)
+                    ),
+                    shape = CircleShape,
+                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp)
+                ) {
+                    Icon(Icons.Rounded.Radio, null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Radio", fontWeight = FontWeight.SemiBold)
+                }
+
+                // Suscribirse — borde blanco semitransparente (como YouTube Music)
+                val subLabel = buildString {
+                    append(if (isSaved) "Suscrito" else "Suscribirse")
+                    artistPage.subscriberCountText?.let { append("  $it") }
+                }
+                OutlinedButton(
+                    onClick = actions.onToggleSave,
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = if (isSaved) Color.White else Color.White,
+                        containerColor = if (isSaved) Color.White.copy(alpha = 0.15f) else Color.Transparent
+                    ),
+                    border = BorderStroke(
+                        width = 1.5.dp,
+                        color = Color.White.copy(alpha = if (isSaved) 0.6f else 0.85f)
+                    ),
+                    shape = CircleShape,
+                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp)
+                ) {
+                    if (isSaved) {
+                        Icon(Icons.Rounded.Check, null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                    }
+                    Text(subLabel, fontWeight = FontWeight.Medium)
+                }
+
+                // Más opciones
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.12f))
+                        .clickable { /* TODO */ }
+                        .pointerHoverIcon(PointerIcon.Hand),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Rounded.MoreVert, "Más opciones", tint = Color.White, modifier = Modifier.size(20.dp))
+                }
+            }
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SECCIONES DE CONTENIDO
+// ─────────────────────────────────────────────────────────────────────────────
+
 @Composable
 private fun ArtistSectionRow(
     section: ArtistSection,
@@ -329,25 +405,25 @@ private fun ArtistSectionRow(
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = section.title,
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface,
+            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
             modifier = Modifier.padding(bottom = 12.dp)
         )
 
         HorizontalScrollableRow(
             modifier = Modifier.fillMaxWidth(),
             state = rememberLazyListState(),
-            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+            contentPadding = PaddingValues(end = 16.dp, top = 4.dp, bottom = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            items(section.items) { item ->
+            items(items = section.items, key = { it.id }) { item ->
                 ArtistSectionCard(
-                    item,
-                    onNavigate
+                    item = item,
+                    onNavigate = onNavigate,
+                    modifier = Modifier.animateItem(
+                        placementSpec = spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMediumLow)
+                    )
                 )
             }
-
         }
     }
 }
@@ -356,10 +432,11 @@ private fun ArtistSectionRow(
 @Composable
 private fun ArtistSectionCard(
     item: YTItem,
-    onNavigate: (Route) -> Unit
+    onNavigate: (Route) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val isArtist = item is ArtistItem
-    val cardShape = if (isArtist) CircleShape else RoundedCornerShape(8.dp)
+    val cardShape = if (isArtist) CircleShape else RoundedCornerShape(10.dp)
 
     val playerViewModel = LocalPlayerViewModel.current
     val downloadViewModel = LocalDownloadViewModel.current
@@ -368,19 +445,22 @@ private fun ArtistSectionCard(
     var showMenu by remember { mutableStateOf(false) }
     var menuOffset by remember { mutableStateOf(DpOffset.Zero) }
 
-
-    val downloadState by if (item is SongItem) {
+    val downloadState by if (item is SongItem)
         rememberSongDownloadState(item.id, downloadViewModel)
-    } else {
+    else
         remember { mutableStateOf(null) }
-    }
 
-    Box {
+    val bgColor by animateColorAsState(
+        if (isHovered) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f) else Color.Transparent,
+        tween(150), label = "cardBg"
+    )
+
+    Box(modifier = modifier) {
         Column(
             modifier = Modifier
-                .width(150.dp)
+                .width(148.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(if(isHovered) MaterialTheme.colorScheme.surfaceContainerHigh else Color.Transparent)
+                .background(bgColor)
                 .clickable {
                     when (item) {
                         is AlbumItem -> onNavigate(Route.Album(item.browseId))
@@ -393,20 +473,16 @@ private fun ArtistSectionCard(
                 .contextMenuArea(
                     enabled = item is SongItem,
                     onHoverChange = { isHovered = it },
-                    onMenuAction = { offset ->
-                        menuOffset = offset
-                        showMenu = true
-                    }
+                    onMenuAction = { offset -> menuOffset = offset; showMenu = true }
                 )
                 .padding(8.dp),
             horizontalAlignment = if (isArtist) Alignment.CenterHorizontally else Alignment.Start
         ) {
-            // Thumbnail
             Box {
                 MelodistImage(
                     url = item.thumbnail,
                     contentDescription = item.title,
-                    modifier = Modifier.size(134.dp),
+                    modifier = Modifier.size(132.dp),
                     shape = cardShape,
                     placeholderType = when (item) {
                         is ArtistItem -> PlaceholderType.ARTIST
@@ -424,7 +500,7 @@ private fun ArtistSectionCard(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
                             .padding(4.dp)
-                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f), CircleShape)
+                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.75f), CircleShape)
                             .padding(4.dp)
                     )
                 }
@@ -433,17 +509,14 @@ private fun ArtistSectionCard(
             Spacer(Modifier.height(8.dp))
 
             Text(
-                text = item.title,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
+                item.title,
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = if (isArtist) TextAlign.Center else TextAlign.Start,
                 modifier = Modifier.fillMaxWidth()
             )
 
-            // Subtitle
             val subtitle = when (item) {
                 is SongItem -> item.artists.joinToString(", ") { it.name }
                 is AlbumItem -> item.year?.toString() ?: "Álbum"
@@ -451,7 +524,7 @@ private fun ArtistSectionCard(
                 is PlaylistItem -> item.author?.name ?: "Playlist"
             }
             Text(
-                text = subtitle,
+                subtitle,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
@@ -471,6 +544,3 @@ private fun ArtistSectionCard(
         }
     }
 }
-
-
-

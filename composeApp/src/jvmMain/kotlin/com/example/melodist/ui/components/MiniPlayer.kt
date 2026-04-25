@@ -37,9 +37,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.melodist.player.PlaybackState
 import com.example.melodist.utils.LocalPlayerViewModel
+import com.example.melodist.utils.isWideThumbnail
 import com.example.melodist.viewmodels.PlayerProgressState
 import com.example.melodist.viewmodels.QueueSource
 import com.example.melodist.viewmodels.RepeatMode
+import com.example.melodist.utils.upscaleThumbnailUrl
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -54,7 +56,7 @@ fun MiniPlayer(
     modifier: Modifier = Modifier
 ) {
     val playerViewModel = LocalPlayerViewModel.current
-    val state = playerViewModel.uiState.value
+    val state by playerViewModel.uiState.collectAsState()
     val song = state.currentSong ?: return
 
     val computedProgress = remember(progressState.positionMs, progressState.durationMs) {
@@ -65,7 +67,12 @@ fun MiniPlayer(
     var seekValue by remember { mutableStateOf<Float?>(null) }
     val sliderProgress = seekValue ?: computedProgress
     val isError = state.playbackState == PlaybackState.ERROR
-    val isAlbumQueue = state.queueSource is QueueSource.Album
+
+    val isPlaying = state.playbackState == PlaybackState.PLAYING
+    val isLoading = state.playbackState == PlaybackState.LOADING
+
+    val imageUrl = song.thumbnailUrl
+    val ratio = if(isWideThumbnail(imageUrl)) 16f/ 9f else 1f
 
     Surface(
         modifier = modifier.fillMaxWidth().height(88.dp),
@@ -86,68 +93,53 @@ fun MiniPlayer(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // —─ IZQUIERDA: Portada e Info —─—─—─—─—─—─—─—─—─—
-                Row(
-                    modifier = Modifier.weight(1f),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                BoxWithConstraints(
+                    modifier = Modifier.weight(1f).padding(vertical = 10.dp),
+                    contentAlignment = Alignment.CenterStart
                 ) {
-                    if (isAlbumQueue) {
-                        Box(
-                            modifier = Modifier
-                                .size(44.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-                                .clickable(onClick = onClickExpand)
-                                .pointerHoverIcon(PointerIcon.Hand),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            MelodistImage(
-                                url = song.thumbnailUrl,
-                                contentDescription = song.title,
-                                modifier = Modifier
-                                    .size(36.dp),
-                                contentScale = ContentScale.Crop,
-                                placeholderType = PlaceholderType.ALBUM,
-                                iconSize = 18.dp
-                            )
-                        }
-                    } else {
+                    val infoHeight = maxHeight
+                    val thumbSize = (infoHeight * 0.85f).coerceAtMost(64.dp)
+                    
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
                         MelodistImage(
-                            url = song.thumbnailUrl,
+                            url = upscaleThumbnailUrl(song.thumbnailUrl, 256),
                             contentDescription = song.title,
                             modifier = Modifier
-                                .width(72.dp)
-                                .height(40.5.dp)
+                                .sizeIn(maxWidth = thumbSize * ratio, maxHeight = thumbSize)
+                                .aspectRatio(ratio)
                                 .clickable(onClick = onClickExpand)
                                 .pointerHoverIcon(PointerIcon.Hand),
                             shape = RoundedCornerShape(8.dp),
-                            contentScale = ContentScale.Fit,
+                            contentScale = ContentScale.Crop,
                             placeholderType = PlaceholderType.SONG,
                             iconSize = 24.dp
                         )
-                    }
 
-                    Column(
-                        modifier = Modifier
-                            .widthIn(max = 200.dp)
-                            .clickable(onClick = onClickExpand)
-                            .pointerHoverIcon(PointerIcon.Hand),
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            text = song.title,
-                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                            color = MaterialTheme.colorScheme.onSurface,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = if (isError) state.error ?: "Error" else song.artists.joinToString(", ") { it.name },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable(onClick = onClickExpand)
+                                .pointerHoverIcon(PointerIcon.Hand),
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = song.title,
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = if (isError) state.error ?: "Error" else song.artists.joinToString(", ") { it.name },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
                 }
 
@@ -188,7 +180,6 @@ fun MiniPlayer(
                             )
                         }
 
-                        val isPlaying = state.playbackState == PlaybackState.PLAYING
                         FilledIconButton(
                             onClick = { playerViewModel.togglePlayPause() },
                             modifier = Modifier.size(46.dp).pointerHoverIcon(PointerIcon.Hand),
@@ -198,21 +189,17 @@ fun MiniPlayer(
                                 contentColor = MaterialTheme.colorScheme.surface
                             )
                         ) {
-                            if (state.playbackState == PlaybackState.LOADING) {
+                            if (isLoading) {
                                 CircularProgressIndicator(
                                     modifier = Modifier.size(20.dp),
                                     color = MaterialTheme.colorScheme.surface,
                                     strokeWidth = 2.dp
                                 )
                             } else {
-                                val rotation by animateFloatAsState(
-                                    targetValue = if (isPlaying) 180f else 0f
-                                )
                                 Icon(
-                                    if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                                    null, modifier = Modifier.size(32.dp).graphicsLayer(
-                                        rotationZ = rotation,
-                                    )
+                                    imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                                    contentDescription = if (isPlaying) "Pausar" else "Reproducir",
+                                    modifier = Modifier.size(32.dp)
                                 )
                             }
                         }
@@ -257,7 +244,7 @@ fun MiniPlayer(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            formatMs(seekValue?.let { (it * progressState.durationMs).toLong() }
+                            formatPlayerTimeValue(seekValue?.let { (it * progressState.durationMs).toLong() }
                                 ?: progressState.positionMs),
                             style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -275,7 +262,7 @@ fun MiniPlayer(
                         )
 
                         Text(
-                            formatMs(progressState.durationMs),
+                            formatPlayerTimeValue(progressState.durationMs),
                             style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.width(32.dp)
@@ -395,13 +382,10 @@ fun MiniPlayer(
         }
     }
 }
-// —————————————————————————————————————————————————————————————————————————————
-// Slider compacto — Eliminación del padding de Material 3
-// —————————————————————————————————————————————————————————————————————————————
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun CompactSlider(
+fun CompactSlider(
     value: Float,
     onValueChange: (Float) -> Unit,
     onValueChangeFinished: () -> Unit,
@@ -425,7 +409,7 @@ private fun CompactSlider(
             onValueChange = onValueChange,
             onValueChangeFinished = onValueChangeFinished,
             interactionSource = interactionSource,
-            modifier = modifier.height(16.dp), // Mantenerlo superdelegate
+            modifier = modifier.height(16.dp),
             colors = SliderDefaults.colors(
                 thumbColor = trackColor,
                 activeTrackColor = trackColor,
@@ -435,13 +419,4 @@ private fun CompactSlider(
             )
         )
     }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-
-private fun formatMs(ms: Long): String {
-    val total = ms / 1000
-    val m = total / 60
-    val s = total % 60
-    return "%d:%02d".format(m, s)
 }

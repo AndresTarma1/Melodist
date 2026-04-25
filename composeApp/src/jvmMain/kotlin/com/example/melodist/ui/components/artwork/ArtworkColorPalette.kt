@@ -7,9 +7,6 @@ import com.kmpalette.color
 import com.kmpalette.loader.rememberNetworkLoader
 import com.kmpalette.rememberPaletteState
 import io.ktor.http.Url
-import java.awt.image.BufferedImage
-import java.net.URI
-import javax.imageio.ImageIO
 
 
 /**
@@ -42,12 +39,18 @@ val LocalArtworkColors = staticCompositionLocalOf { ArtworkColors.Default }
 fun rememberArtworkColors(url: String?): ArtworkColors {
     val loader = rememberNetworkLoader()
     val paletteState = rememberPaletteState(loader = loader)
+    val paletteCache = remember { mutableStateMapOf<String, ArtworkColors>() }
 
     var colors by remember { mutableStateOf(ArtworkColors.Default) }
 
     LaunchedEffect(url) {
         if (url.isNullOrBlank()) {
             colors = ArtworkColors.Default
+            return@LaunchedEffect
+        }
+
+        paletteCache[url]?.let {
+            colors = it
             return@LaunchedEffect
         }
 
@@ -61,16 +64,18 @@ fun rememberArtworkColors(url: String?): ArtworkColors {
 
             val finalDominant = dominant ?: Color(0xFF1A1A2E)
 
-            colors = ArtworkColors(
+            val resolved = ArtworkColors(
                 dominant = finalDominant,
                 vibrant = vibrant ?: finalDominant,
                 muted = muted ?: finalDominant,
                 darkMuted = darkMuted ?: finalDominant,
                 isLight = finalDominant.luminance() > 0.5f
             )
+            paletteCache[url] = resolved
+            colors = resolved
 
-        } catch (e: Exception) {
-            colors = ArtworkColors.Default
+        } catch (_: Exception) {
+            // Conserva el último color válido para evitar parpadeos al fallar una portada.
         }
     }
 

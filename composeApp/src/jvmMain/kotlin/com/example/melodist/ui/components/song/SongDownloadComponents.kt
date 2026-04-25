@@ -38,7 +38,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.collectAsState
@@ -77,6 +76,9 @@ import org.koin.compose.koinInject
 import kotlin.math.roundToInt
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.filled.ArrowCircleDown
+import com.example.melodist.utils.withMissingMetadataResolved
+import org.jetbrains.jewel.foundation.modifier.onHover
 
 @Composable
 fun DownloadIndicator(
@@ -101,7 +103,7 @@ fun DownloadIndicator(
             )
         }
         is DownloadState.Completed -> Icon(
-            Icons.Default.DownloadDone,
+            Icons.Default.ArrowCircleDown,
             contentDescription = "Descargada",
             modifier = modifier.size(20.dp),
             tint = MaterialTheme.colorScheme.primary
@@ -150,21 +152,7 @@ fun rememberContextMenuPositionProvider(clickOffset: DpOffset): PopupPositionPro
     }
 }
 
-suspend fun SongItem.withMissingMetadataResolved(): SongItem {
-    val hasDuration = duration != null
-    if (hasDuration) return this
 
-    val playbackData = withContext(Dispatchers.IO) {
-        YTPlayerutils.playerResponseForMetadata(id).getOrNull()
-    }
-    val resolvedDuration = playbackData?.videoDetails?.lengthSeconds?.toIntOrNull()
-
-    return if (resolvedDuration != null && resolvedDuration > 0) {
-        copy(duration = resolvedDuration)
-    } else {
-        this
-    }
-}
 
 
 
@@ -206,9 +194,15 @@ fun AddToPlaylistDialog(
                     modifier = Modifier.fillMaxWidth().heightIn(min = 40.dp, max = 260.dp)
                 ) {
                     items(localPlaylists) { playlist ->
+                        var isHovered by remember { mutableStateOf(false) }
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .background(
+                                    color = if(isHovered) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else Color.Transparent,
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                                .onHover{ isHovered = it}
                                 .clip(RoundedCornerShape(8.dp))
                                 .clickable {
                                     playlistsViewModel.addSongToLocalPlaylist(playlist.id, song)

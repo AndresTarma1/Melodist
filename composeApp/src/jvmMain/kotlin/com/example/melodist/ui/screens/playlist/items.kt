@@ -172,7 +172,8 @@ internal fun SongListItem(
     onPlay: () -> Unit,
     isSelected: Boolean = false,
     isLocalPlaylist: Boolean = false,
-    onRemoveFromPlaylist: ((String) -> Unit)? = null
+    onRemoveFromPlaylist: ((String) -> Unit)? = null,
+    modifier: Modifier = Modifier,
 ) {
     val downloadViewModel = LocalDownloadViewModel.current
     val downloadState by rememberSongDownloadState(song.id, downloadViewModel)
@@ -181,7 +182,7 @@ internal fun SongListItem(
     var showContextMenu by remember { mutableStateOf(false) }
     var menuOffset by remember { mutableStateOf(DpOffset.Zero) }
 
-    Box {
+    Box(modifier = modifier) {
         BoxForContainerContextMenuItem(
             modifier = Modifier
                 .fillMaxWidth()

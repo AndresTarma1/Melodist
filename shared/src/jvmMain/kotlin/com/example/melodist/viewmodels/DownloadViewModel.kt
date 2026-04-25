@@ -190,6 +190,11 @@ class DownloadViewModel(
         refreshCacheSize()
     }
 
+    fun removeDownloads(songIds: List<String>) {
+        downloadService.removeDownloads(songIds)
+        refreshCacheSize()
+    }
+
 
     fun clearCache() {
         downloadService.clearCache()

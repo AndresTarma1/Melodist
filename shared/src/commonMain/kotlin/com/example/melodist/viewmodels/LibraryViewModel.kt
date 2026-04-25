@@ -13,12 +13,14 @@ import com.example.melodist.data.repository.savedArtistToArtistItem
 import com.example.melodist.data.repository.savedPlaylistToPlaylistItem
 import com.example.melodist.data.repository.savedSongToSongItem
 import com.example.melodist.db.MusicDatabase
+import com.example.melodist.utils.withMissingMetadataResolved
 import com.metrolist.innertube.YouTube
 import com.metrolist.innertube.models.AlbumItem
 import com.metrolist.innertube.models.Artist
 import com.metrolist.innertube.models.ArtistItem
 import com.metrolist.innertube.models.PlaylistItem
 import com.metrolist.innertube.models.SongItem
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -29,6 +31,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.uuid.ExperimentalUuidApi
 
 enum class LibraryTab {
@@ -266,7 +269,8 @@ class LibraryPlaylistsViewModel(
 
     fun addSongToLocalPlaylist(playlistId: String, song: SongItem) {
         viewModelScope.launch {
-            playlistRepository.addSongToPlaylist(playlistId, song)
+            val resolvedSong = withContext(Dispatchers.IO){ song.withMissingMetadataResolved()}
+            playlistRepository.addSongToPlaylist(playlistId, resolvedSong)
         }
     }
 

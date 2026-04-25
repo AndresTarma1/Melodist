@@ -1,5 +1,7 @@
 package com.example.melodist.ui.screens.playlist
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -28,6 +30,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.example.melodist.ui.components.dialogs.DownloadConfirmationDialog
 import com.example.melodist.ui.components.layout.AppVerticalScrollbar
 import com.example.melodist.ui.components.LoadingMoreSongsItem
 import com.example.melodist.ui.components.MelodistImage
@@ -56,6 +59,17 @@ internal fun PlaylistLayout(
     val isFullyDownloadedState = remember(songIds, downloadViewModel) {
         downloadViewModel.isFullyDownloadedFlow(songIds)
     }.collectAsState(initial = false)
+
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
+    if (showDeleteDialog) {
+        DownloadConfirmationDialog(
+            onConfirm = {
+                downloadViewModel.removeDownloads(songIds)
+            },
+            onDismiss = { showDeleteDialog = false }
+        )
+    }
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val isCompact = maxWidth < 980.dp
@@ -87,7 +101,15 @@ internal fun PlaylistLayout(
                 ),
                 actions = actions,
                 isDownloadingAny = { isAnyDownloadingState.value },
-                isFullyDownloaded = { isFullyDownloadedState.value }
+                isFullyDownloaded = { isFullyDownloadedState.value },
+                onDownloadClick = {
+                    val isDownloadsPlaylist = playlistPage.playlist.id == "LOCAL_DOWNLOADS"
+                    if (isFullyDownloadedState.value && !isDownloadsPlaylist) {
+                        showDeleteDialog = true
+                    } else if (!isAnyDownloadingState.value) {
+                        actions.onDownloadPlaylist()
+                    }
+                }
             )
         }
 
@@ -113,6 +135,12 @@ internal fun PlaylistLayout(
                         },
                         isLocalPlaylist = actions.isLocalPlaylist,
                         onRemoveFromPlaylist = actions.onRemoveSongFromPlaylist,
+                        modifier = Modifier.animateItem(
+                            placementSpec = spring(
+                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                stiffness = Spring.StiffnessMediumLow
+                            )
+                        )
                     )
                     if (index < state.songs.lastIndex) {
                         HorizontalDivider(
@@ -147,6 +175,7 @@ internal fun PlaylistInfoPanel(
     actions: PlaylistActions,
     isDownloadingAny: () -> Boolean,
     isFullyDownloaded: () -> Boolean,
+    onDownloadClick: () -> Unit
 ) {
     playlistPage.playlist.author?.let { author ->
         Surface(
@@ -309,7 +338,7 @@ internal fun PlaylistInfoPanel(
         DownloadAllButton(
             isDownloadingAny = isDownloadingAny,
             isFullyDownloaded = isFullyDownloaded,
-            onClick = actions.onDownloadPlaylist
+            onClick = onDownloadClick
         )
     }
 }

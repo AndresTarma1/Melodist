@@ -1,28 +1,42 @@
 package com.example.melodist
 
-import androidx.compose.animation.*
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ClosedCaption
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.OpenInFull
-import androidx.compose.material.icons.filled.OpenWith
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.QueuePlayNext
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
-import androidx.compose.material.icons.rounded.GraphicEq
-import androidx.compose.material3.Icon
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.Text
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.runtime.*
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -39,21 +53,21 @@ import com.example.melodist.navigation.RootComponent
 import com.example.melodist.player.PlaybackState
 import com.example.melodist.ui.components.artwork.LocalArtworkColors
 import com.example.melodist.ui.components.artwork.rememberArtworkColors
+import com.example.melodist.ui.components.skeletons.AnimatedEqualizer
 import com.example.melodist.ui.themes.MelodistTheme
-import com.example.melodist.utils.LocalSnackbarHostState
 import com.example.melodist.utils.LocalDownloadViewModel
-import com.example.melodist.utils.LocalLibraryViewModel
 import com.example.melodist.utils.LocalPlayerViewModel
+import com.example.melodist.utils.LocalSnackbarHostState
 import com.example.melodist.utils.LocalUserPreferences
+import com.example.melodist.viewmodels.AppViewModel
 import com.example.melodist.viewmodels.DownloadViewModel
 import com.example.melodist.viewmodels.LibraryViewModel
 import com.example.melodist.viewmodels.PlayerUiState
 import com.example.melodist.viewmodels.PlayerViewModel
 import com.kdroid.composetray.tray.api.Tray
-import dev.hydraulic.conveyor.control.SoftwareUpdateController
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import melodist.composeapp.generated.resources.Res
 import melodist.composeapp.generated.resources.music
 import org.jetbrains.compose.resources.painterResource
@@ -79,42 +93,23 @@ import java.awt.event.ComponentEvent
 @Composable
 fun ApplicationScope.App(
     rootComponent: RootComponent,
+    appViewModel: AppViewModel,
     playerViewModel: PlayerViewModel,
     downloadViewModel: DownloadViewModel,
-    libraryViewModel: LibraryViewModel,
     userPreferences: UserPreferencesRepository,
     onExit: () -> Unit,
     windowState: WindowState,
 ) {
-
     val scope = rememberCoroutineScope()
-
-    var updateInfo by remember { mutableStateOf<Pair<String, String>?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
+    val updateInfo by appViewModel.updateInfo.collectAsState()
 
     LaunchedEffect(Unit) {
-        val controller = SoftwareUpdateController.getInstance() ?: return@LaunchedEffect
-        val availability = controller.canTriggerUpdateCheckUI()
-        if (availability != SoftwareUpdateController.Availability.AVAILABLE) return@LaunchedEffect
-
-        val current = controller.currentVersion ?: return@LaunchedEffect
-        val latest = withContext(Dispatchers.IO) {
-            try {
-                controller.currentVersionFromRepository
-            } catch (_: SoftwareUpdateController.UpdateCheckException) {
-                null
-            }
-        } ?: return@LaunchedEffect
-
-        if (latest > current) {
-            updateInfo = current.toString() to latest.toString()
-        }
+        appViewModel.checkForUpdates()
     }
-
 
     var isVisible by remember { mutableStateOf(false) }
     val minimizeToTray by remember { userPreferences.minimizeToTray }.collectAsState(false)
-
 
     fun handleExit() {
         scope.launch {
@@ -131,8 +126,6 @@ fun ApplicationScope.App(
         }
     }
 
-
-    // ── Tray ─────────────────────────────────────────────────────────────────
     if (!isVisible || minimizeToTray) {
         val trayState by playerViewModel.uiState.collectAsState()
         val isPlaying = trayState.playbackState == PlaybackState.PLAYING
@@ -142,27 +135,31 @@ fun ApplicationScope.App(
             playerViewModel = playerViewModel,
             onToggleVisibility = { isVisible = !isVisible },
             onShow = { isVisible = true },
-            handleExit = { handleExit() }
+            handleExit = ::handleExit
         )
     }
 
-    // ── Theme ─────────────────────────────────────────────────────────────────
-    val playerState by playerViewModel.uiState.collectAsState()
-    val artworkColors = rememberArtworkColors(playerState.currentSong?.thumbnailUrl)
+    val currentSongFlow = remember(playerViewModel) {
+        playerViewModel.uiState.map { it.currentSong }.distinctUntilChanged()
+    }
+    val playbackStateFlow = remember(playerViewModel) {
+        playerViewModel.uiState.map { it.playbackState }.distinctUntilChanged()
+    }
+
+    val currentSong by currentSongFlow.collectAsState(initial = playerViewModel.uiState.value.currentSong)
+    val playbackState by playbackStateFlow.collectAsState(initial = playerViewModel.uiState.value.playbackState)
+    val artworkColors = rememberArtworkColors(currentSong?.thumbnailUrl)
     val themeMode by remember { userPreferences.themeMode }.collectAsState(ThemeMode.SYSTEM)
     val isDark = when (themeMode) {
         ThemeMode.DARK -> true
         ThemeMode.LIGHT -> false
-        else -> {
-            isSystemInDarkTheme()
-        }
+        ThemeMode.SYSTEM -> isSystemInDarkTheme()
     }
 
-    // ── Window ────────────────────────────────────────────────────────────────
     MelodistTheme(artworkColors = artworkColors, userPreferences = userPreferences) {
         val surfaceColor = MaterialTheme.colorScheme.surface
 
-        val titleBarStyle = if (isDark)
+        val titleBarStyle = if (isDark) {
             TitleBarStyle.dark(
                 colors = TitleBarColors.dark(
                     backgroundColor = surfaceColor,
@@ -170,7 +167,7 @@ fun ApplicationScope.App(
                     borderColor = surfaceColor,
                 )
             )
-        else
+        } else {
             TitleBarStyle.light(
                 colors = TitleBarColors.light(
                     backgroundColor = surfaceColor,
@@ -178,18 +175,19 @@ fun ApplicationScope.App(
                     borderColor = surfaceColor,
                 )
             )
+        }
 
         IntUiTheme(
-            theme = if (isDark)
+            theme = if (isDark) {
                 JewelTheme.darkThemeDefinition()
-            else
-                JewelTheme.lightThemeDefinition(),
+            } else {
+                JewelTheme.lightThemeDefinition()
+            },
             styling = ComponentStyling.decoratedWindow(titleBarStyle = titleBarStyle),
         ) {
             CompositionLocalProvider(
                 LocalArtworkColors provides artworkColors,
                 LocalSnackbarHostState provides snackbarHostState,
-                LocalLibraryViewModel provides libraryViewModel,
                 LocalPlayerViewModel provides playerViewModel,
                 LocalDownloadViewModel provides downloadViewModel,
                 LocalUserPreferences provides userPreferences,
@@ -201,30 +199,25 @@ fun ApplicationScope.App(
                     title = "Melodist",
                     icon = painterResource(Res.drawable.music),
                 ) {
-                    updateInfo?.let { (currentVersion, latestVersion) ->
+                    updateInfo?.let { info ->
                         AlertDialog(
-                            onDismissRequest = { updateInfo = null },
+                            onDismissRequest = { appViewModel.dismissUpdate() },
                             title = { Text("Actualización disponible") },
                             text = {
                                 Text(
                                     "Hay una nueva versión de Melodist disponible.\n\n" +
-                                            "Versión actual: $currentVersion\n" +
-                                            "Nueva versión: $latestVersion\n\n" +
+                                            "Versión actual: ${info.currentVersion}\n" +
+                                            "Nueva versión: ${info.latestVersion}\n\n" +
                                             "¿Deseas actualizar ahora?"
                                 )
                             },
                             confirmButton = {
-                                TextButton(
-                                    onClick = {
-                                        updateInfo = null
-                                        SoftwareUpdateController.getInstance()?.triggerUpdateCheckUI()
-                                    }
-                                ) {
+                                TextButton(onClick = { appViewModel.triggerUpdateUi() }) {
                                     Text("Actualizar")
                                 }
                             },
                             dismissButton = {
-                                TextButton(onClick = { updateInfo = null }) {
+                                TextButton(onClick = { appViewModel.dismissUpdate() }) {
                                     Text("Más tarde")
                                 }
                             }
@@ -250,16 +243,15 @@ fun ApplicationScope.App(
                         window.addComponentListener(listener)
                         onDispose { window.removeComponentListener(listener) }
                     }
+
                     TitleBar {
                         MelodistTitleBar(
-                            currentSong = playerState.currentSong?.title,
-                            isPlaying = playerState.playbackState == PlaybackState.PLAYING,
+                            currentSong = currentSong?.title,
+                            isPlaying = playbackState == PlaybackState.PLAYING,
                         )
                     }
 
-
                     NavigationDesktop(rootComponent)
-
                     SnackbarHost(hostState = snackbarHostState)
                 }
             }
@@ -276,7 +268,6 @@ private fun ApplicationScope.TrayCustom(
     onShow: () -> Unit,
     handleExit: () -> Unit
 ) {
-
     Tray(
         icon = Res.drawable.music,
         tooltip = trayState.currentSong?.title ?: "Melodist",
@@ -290,18 +281,25 @@ private fun ApplicationScope.TrayCustom(
         Item(
             icon = Icons.Filled.SkipNext,
             label = "Siguiente",
-            onClick = { playerViewModel.next() })
+            onClick = { playerViewModel.next() }
+        )
         Item(
             icon = Icons.Filled.SkipPrevious,
-            label = "Anterior", onClick = { playerViewModel.previous() })
+            label = "Anterior",
+            onClick = { playerViewModel.previous() }
+        )
         Divider()
         Item(
             icon = Icons.Filled.OpenInFull,
-            label = "Abrir Melodist", onClick = { onShow() })
+            label = "Abrir Melodist",
+            onClick = { onShow() }
+        )
         Divider()
         Item(
             icon = Icons.Filled.ClosedCaption,
-            label = "Salir", onClick = { handleExit() })
+            label = "Salir",
+            onClick = { handleExit() }
+        )
     }
 }
 
@@ -310,17 +308,17 @@ private fun TitleBarScope.MelodistTitleBar(
     currentSong: String?,
     isPlaying: Boolean,
 ) {
-     Row(
-         modifier = Modifier.align(Alignment.Start).padding(start = 12.dp),
-         verticalAlignment = Alignment.CenterVertically,
-         horizontalArrangement = Arrangement.spacedBy(6.dp),
-     ) {
-         Text(
-             text = "Melodist",
-             fontWeight = FontWeight.SemiBold,
-             color = MaterialTheme.colorScheme.onSurface,
-         )
-     }
+    Row(
+        modifier = Modifier.align(Alignment.Start).padding(start = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            text = "Melodist",
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+    }
 
     AnimatedContent(
         targetState = currentSong,
@@ -335,12 +333,18 @@ private fun TitleBarScope.MelodistTitleBar(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                Icon(
-                    imageVector = if (isPlaying) Icons.Rounded.GraphicEq else Icons.Filled.MusicNote,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(14.dp),
-                )
+                if (isPlaying) {
+                    AnimatedEqualizer(
+                        Modifier.size(width = 20.dp, height = 14.dp)
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Filled.MusicNote,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(14.dp),
+                    )
+                }
                 Text(
                     text = song,
                     fontSize = 12.sp,

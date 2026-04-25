@@ -1,5 +1,7 @@
 package com.example.melodist.ui.screens.library.tabs
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -25,6 +27,8 @@ import com.example.melodist.ui.components.MediaGridItem
 import com.example.melodist.ui.components.PlaceholderType
 import com.example.melodist.ui.components.layout.AppVerticalScrollbar
 import com.metrolist.innertube.models.ArtistItem
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyGridState
 
 @Composable
 fun ArtistsTab(
@@ -40,7 +44,6 @@ fun ArtistsTab(
         return
     }
     if (isLoadingYtm && ytmArtists.isEmpty()) {
-        YtmSectionHeader("Artistas suscritos", isLoading = true)
         LibraryGridSkeleton(count = 4, isCircle = true)
         return
     }
@@ -53,6 +56,7 @@ fun ArtistsTab(
     }
 
     val gridState = rememberLazyGridState()
+    val reorderableLazyGridState = rememberReorderableLazyGridState(gridState){from, to ->}
     Box(modifier = Modifier.fillMaxSize()) {
         LazyVerticalGrid(
             state = gridState,
@@ -65,17 +69,18 @@ fun ArtistsTab(
                 items = mergedArtists,
                 key = { (artist, source) -> "${source.name.lowercase()}_${artist.id}" }
             ) { (artist, source) ->
-                MediaGridItem(
-                    title = artist.title,
-                    subtitle = "Artista",
-                    thumbnailUrl = artist.thumbnail,
-                    placeholderType = PlaceholderType.ARTIST,
-                    shape = CircleShape,
-                    onClick = { onNavigate(Route.Artist(artist.id)) },
-                    onRemove = { onRemove(artist.id) },
-                    isRemovable = source == ItemContentSource.LOCAL,
-                    source = source
-                )
+
+                ReorderableItem(reorderableLazyGridState, key = artist)
+                {
+                    MediaGridItem(
+                        item = artist,
+                        onClick = { onNavigate(Route.Artist(artist.id)) },
+                        onRemove = { onRemove(artist.id) },
+                        isRemovable = source == ItemContentSource.LOCAL,
+                        source = source,
+                    )
+
+                }
             }
         }
 

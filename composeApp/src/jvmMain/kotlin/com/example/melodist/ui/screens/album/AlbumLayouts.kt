@@ -1,5 +1,7 @@
 package com.example.melodist.ui.screens
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -30,6 +32,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.example.melodist.ui.components.dialogs.DownloadConfirmationDialog
 import com.example.melodist.navigation.Route
 import com.example.melodist.ui.components.layout.AppVerticalScrollbar
 import com.example.melodist.ui.components.LoadingMoreSongsItem
@@ -49,8 +52,28 @@ internal fun AlbumScreenLayout(
     actions: AlbumScreenActions,
 ) {
     val playerViewModel = LocalPlayerViewModel.current
+    val downloadViewModel = LocalDownloadViewModel.current
     val onSurfaceColor = MaterialTheme.colorScheme.onSurface
     val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
+
+    val songIds = remember(state.songs) { state.songs.map { it.id } }
+    val isFullyDownloadedState = remember(songIds, downloadViewModel) {
+        downloadViewModel.isFullyDownloadedFlow(songIds)
+    }.collectAsState(initial = false)
+    val isAnyDownloadingState = remember(songIds, downloadViewModel) {
+        downloadViewModel.isAnyDownloadingFlow(songIds)
+    }.collectAsState(initial = false)
+
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
+    if (showDeleteDialog) {
+        DownloadConfirmationDialog(
+            onConfirm = {
+                downloadViewModel.removeDownloads(songIds)
+            },
+            onDismiss = { showDeleteDialog = false }
+        )
+    }
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val isCompact = maxWidth < 980.dp
@@ -126,6 +149,15 @@ internal fun AlbumInfoPanel(
     val isFullyDownloaded by remember(songIds, downloadViewModel) {
         downloadViewModel.isFullyDownloadedFlow(songIds)
     }.collectAsState(initial = false)
+
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
+    if (showDeleteDialog) {
+        DownloadConfirmationDialog(
+            onConfirm = { downloadViewModel.removeDownloads(songIds) },
+            onDismiss = { showDeleteDialog = false }
+        )
+    }
 
     Surface(
         shape = RoundedCornerShape(20.dp),
@@ -278,7 +310,13 @@ internal fun AlbumInfoPanel(
         }
 
         IconButton(
-            onClick = { downloadViewModel.downloadAll(songs) },
+            onClick = {
+                if (isFullyDownloaded) {
+                    showDeleteDialog = true
+                } else if (!isDownloading) {
+                    downloadViewModel.downloadAll(songs)
+                }
+            },
             modifier = Modifier
                 .size(44.dp)
                 .clip(CircleShape)
@@ -321,7 +359,13 @@ internal fun AlbumSongsList(
                 SongListItem(
                     albumIndex = index + 1,
                     song = song,
-                    onPlay = { onSongClick(index)}
+                    onPlay = { onSongClick(index)},
+                    modifier = Modifier.animateItem(
+                        placementSpec = spring(
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            stiffness = Spring.StiffnessMediumLow
+                        )
+                    )
                 )
                 if (index < songs.lastIndex) {
                     HorizontalDivider(

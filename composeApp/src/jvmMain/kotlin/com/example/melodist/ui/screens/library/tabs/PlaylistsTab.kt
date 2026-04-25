@@ -1,5 +1,7 @@
 package com.example.melodist.ui.screens.library.tabs
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -30,6 +32,9 @@ import com.example.melodist.ui.components.layout.AppVerticalScrollbar
 import com.example.melodist.utils.LocalDownloadViewModel
 import com.example.melodist.viewmodels.PlayerViewModel
 import com.metrolist.innertube.models.PlaylistItem
+import com.metrolist.innertube.models.YTItem
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyGridState
 
 @Composable
 fun PlaylistsTab(
@@ -40,6 +45,7 @@ fun PlaylistsTab(
     onRemove: (String) -> Unit,
     playerViewModel: PlayerViewModel? = null,
     onQuickPlayPlaylist: (playlistId: String, title: String, onFallback: () -> Unit) -> Unit,
+    onQuickShufflePlaylist: (playlistId: String, title: String, onFallback: () -> Unit) -> Unit,
 ) {
     val downloadViewModel = LocalDownloadViewModel.current
     val downloadedSongs by downloadViewModel.downloadedSongs.collectAsState()
@@ -61,6 +67,7 @@ fun PlaylistsTab(
 
     data class PlaylistGridEntry(
         val key: String,
+        val item: YTItem? = null,
         val title: String,
         val subtitle: String,
         val thumbnailUrl: String?,
@@ -68,6 +75,7 @@ fun PlaylistsTab(
         val shape: Shape,
         val onClick: () -> Unit,
         val onPlay: (() -> Unit)? = null,
+        val onShuffle: (() -> Unit)? = null,
         val isRemovable: Boolean,
         val onRemove: () -> Unit = {},
         val source: ItemContentSource,
@@ -86,6 +94,7 @@ fun PlaylistsTab(
                 add(
                     PlaylistGridEntry(
                         key = "ytm_${playlist.id}",
+                        item = playlist,
                         title = playlist.title,
                         subtitle = playlist.author?.name ?: playlist.songCountText ?: "Playlist",
                         thumbnailUrl = playlist.thumbnail,
@@ -94,6 +103,11 @@ fun PlaylistsTab(
                         onClick = { onNavigate(Route.Playlist(playlist.id)) },
                         onPlay = {
                             onQuickPlayPlaylist(playlist.id, playlist.title) {
+                                onNavigate(Route.Playlist(playlist.id))
+                            }
+                        },
+                        onShuffle = {
+                            onQuickShufflePlaylist(playlist.id, playlist.title) {
                                 onNavigate(Route.Playlist(playlist.id))
                             }
                         },
@@ -107,6 +121,7 @@ fun PlaylistsTab(
                 add(
                     PlaylistGridEntry(
                         key = "local_${playlist.id}",
+                        item = playlist,
                         title = playlist.title,
                         subtitle = playlist.author?.name ?: playlist.songCountText ?: "Playlist",
                         thumbnailUrl = playlist.thumbnail,
@@ -115,6 +130,11 @@ fun PlaylistsTab(
                         onClick = { onNavigate(Route.Playlist(playlist.id)) },
                         onPlay = {
                             onQuickPlayPlaylist(playlist.id, playlist.title) {
+                                onNavigate(Route.Playlist(playlist.id))
+                            }
+                        },
+                        onShuffle = {
+                            onQuickShufflePlaylist(playlist.id, playlist.title) {
                                 onNavigate(Route.Playlist(playlist.id))
                             }
                         },
@@ -142,6 +162,14 @@ fun PlaylistsTab(
                                 onNavigate(Route.Playlist("LOCAL_DOWNLOADS"))
                             }
                         },
+                        onShuffle = {
+                            if (downloadedSongs.isNotEmpty()) {
+                                playerViewModel?.playCustom(downloadedSongs, 0)
+                                playerViewModel?.toggleShuffle()
+                            } else {
+                                onNavigate(Route.Playlist("LOCAL_DOWNLOADS"))
+                            }
+                        },
                         isRemovable = false,
                         source = ItemContentSource.LOCAL,
                     )
@@ -160,6 +188,11 @@ fun PlaylistsTab(
                         onClick = { onNavigate(Route.Playlist(playlistInfo.playlistId)) },
                         onPlay = {
                             onQuickPlayPlaylist(playlistInfo.playlistId, playlistInfo.playlistName) {
+                                onNavigate(Route.Playlist(playlistInfo.playlistId))
+                            }
+                        },
+                        onShuffle = {
+                            onQuickShufflePlaylist(playlistInfo.playlistId, playlistInfo.playlistName) {
                                 onNavigate(Route.Playlist(playlistInfo.playlistId))
                             }
                         },
@@ -188,6 +221,8 @@ fun PlaylistsTab(
     }
 
     val gridState = rememberLazyGridState()
+    val reorderableLazyGridState = rememberReorderableLazyGridState(gridState){ form, to ->}
+
     Box(modifier = Modifier.fillMaxSize()) {
         LazyVerticalGrid(
             state = gridState,
@@ -197,18 +232,33 @@ fun PlaylistsTab(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(items = mergedPlaylists, key = { it.key }) { entry ->
-                MediaGridItem(
-                    title = entry.title,
-                    subtitle = entry.subtitle,
-                    thumbnailUrl = entry.thumbnailUrl,
-                    placeholderType = entry.placeholderType,
-                    shape = entry.shape,
-                    onClick = entry.onClick,
-                    onPlay = entry.onPlay,
-                    onRemove = entry.onRemove,
-                    isRemovable = entry.isRemovable,
-                    source = entry.source,
-                )
+                ReorderableItem(reorderableLazyGridState, key = entry.key){
+                    if (entry.item != null) {
+                        MediaGridItem(
+                            item = entry.item,
+                            onClick = entry.onClick,
+                            onPlay = entry.onPlay,
+                            onShuffle = entry.onShuffle,
+                            onRemove = entry.onRemove,
+                            isRemovable = entry.isRemovable,
+                            source = entry.source,
+                        )
+                    } else {
+                        MediaGridItem(
+                            title = entry.title,
+                            subtitle = entry.subtitle,
+                            thumbnailUrl = entry.thumbnailUrl,
+                            placeholderType = entry.placeholderType,
+                            shape = entry.shape,
+                            onClick = entry.onClick,
+                            onPlay = entry.onPlay,
+                            onShuffle = entry.onShuffle,
+                            onRemove = entry.onRemove,
+                            isRemovable = entry.isRemovable,
+                            source = entry.source,
+                        )
+                    }
+                }
             }
         }
 
@@ -216,9 +266,6 @@ fun PlaylistsTab(
             state = gridState,
             modifier = Modifier
                 .align(Alignment.CenterEnd)
-                .fillMaxHeight()
-                .width(12.dp)
-                .padding(vertical = 4.dp, horizontal = 2.dp)
         )
     }
 }

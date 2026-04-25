@@ -1,5 +1,7 @@
 package com.example.melodist.ui.screens.library.tabs
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -34,6 +36,7 @@ fun AlbumsTab(
     onNavigate: (Route) -> Unit,
     onRemove: (String) -> Unit,
     onQuickPlayAlbum: (browseId: String, title: String, onFallback: () -> Unit) -> Unit,
+    onQuickShuffleAlbum: (browseId: String, title: String, onFallback: () -> Unit) -> Unit,
 ) {
     val isEmpty = albums.isEmpty() && ytmAlbums.isEmpty() && !isLoadingYtm
     if (isEmpty) {
@@ -67,20 +70,27 @@ fun AlbumsTab(
                 key = { (album, source) -> "${source.name.lowercase()}_${album.browseId}" }
             ) { (album, source) ->
                 MediaGridItem(
-                    title = album.title,
-                    subtitle = album.artists?.firstOrNull()?.name ?: album.year?.toString() ?: "Album",
-                    thumbnailUrl = album.thumbnail,
-                    placeholderType = PlaceholderType.ALBUM,
-                    shape = RoundedCornerShape(12.dp),
+                    item = album,
                     onClick = { onNavigate(Route.Album(album.browseId)) },
                     onPlay = {
                         onQuickPlayAlbum(album.browseId, album.title) {
                             onNavigate(Route.Album(album.browseId))
                         }
                     },
+                    onShuffle = {
+                        onQuickShuffleAlbum(album.browseId, album.title) {
+                            onNavigate(Route.Album(album.browseId))
+                        }
+                    },
                     onRemove = { onRemove(album.browseId) },
                     isRemovable = source == ItemContentSource.LOCAL,
-                    source = source
+                    source = source,
+                    modifier = Modifier.animateItem(
+                        placementSpec = spring(
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            stiffness = Spring.StiffnessMediumLow
+                        )
+                    )
                 )
             }
         }

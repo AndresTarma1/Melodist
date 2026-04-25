@@ -256,7 +256,6 @@ private fun EqualizerBandsRow(
     bands: List<Float>,
     onBandsChange: (List<Float>) -> Unit
 ) {
-    val coroutineScope = rememberCoroutineScope()
     // Local state to avoid lag while dragging sliders
     var localBands by remember(bands) { mutableStateOf(bands) }
 

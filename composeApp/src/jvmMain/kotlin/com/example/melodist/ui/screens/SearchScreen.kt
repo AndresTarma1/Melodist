@@ -1,6 +1,8 @@
 package com.example.melodist.ui.screens
 
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -559,7 +561,10 @@ fun ResultsList(
                             )
                         }
 
-                        items(items) { item ->
+                        items(
+                            items = items,
+                            key = { it.id }
+                        ) { item ->
                             val downloadViewModel = LocalDownloadViewModel.current
                             val downloadState by if (item is SongItem) {
                                 rememberSongDownloadState(item.id, downloadViewModel)
@@ -574,7 +579,13 @@ fun ResultsList(
                             YoutubeListItem(
                                 item = item,
                                 source = source,
-                                onItemClick = onItemClick
+                                onItemClick = onItemClick,
+                                modifier = Modifier.animateItem(
+                                    placementSpec = spring(
+                                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                                        stiffness = Spring.StiffnessMediumLow
+                                    )
+                                )
                             )
                         }
 

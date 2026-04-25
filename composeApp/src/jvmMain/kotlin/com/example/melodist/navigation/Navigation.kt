@@ -1,6 +1,7 @@
 package com.example.melodist.navigation
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
@@ -155,24 +156,43 @@ fun NavigationDesktop(rootComponent: RootComponent) {
                             .clip(RoundedCornerShape(16.dp))
                             .background(MaterialTheme.colorScheme.surfaceContainer)
                     ) {
-                        if (isNowPlayingExpanded && currentSong != null) {
-                            NowPlayingLayout(
-                                state = playerState,
-                                song = currentSong,
-                                onCollapse = { isNowPlayingExpanded = false },
-                                onNavigate = { route ->
-                                    isNowPlayingExpanded = false
-                                    rootComponent.navigateTo(route.toConfig())
-                                }
+                        Children(
+                            stack = rootComponent.childStack,
+                            animation = stackAnimation(fade())
+                        ) { child ->
+                            ScreenRouter(
+                                instance = child.instance,
+                                rootComponent = rootComponent,
                             )
-                        } else {
-                            Children(
-                                stack = rootComponent.childStack,
-                                animation = stackAnimation(fade())
-                            ) { child ->
-                                ScreenRouter(
-                                    instance = child.instance,
-                                    rootComponent = rootComponent,
+                        }
+
+                        // NowPlaying como Overlay con animación de abajo hacia arriba
+                        androidx.compose.animation.AnimatedVisibility(
+                            visible = isNowPlayingExpanded && currentSong != null,
+                            enter = slideInVertically(
+                                animationSpec = spring(
+                                    dampingRatio = Spring.DampingRatioNoBouncy,
+                                    stiffness = Spring.StiffnessMediumLow
+                                ),
+                                initialOffsetY = { it }
+                            ) + fadeIn(),
+                            exit = slideOutVertically(
+                                animationSpec = spring(
+                                    dampingRatio = Spring.DampingRatioNoBouncy,
+                                    stiffness = Spring.StiffnessMediumLow
+                                ),
+                                targetOffsetY = { it }
+                            ) + fadeOut()
+                        ) {
+                            if (currentSong != null) {
+                                NowPlayingLayout(
+                                    state = playerState,
+                                    song = currentSong,
+                                    onCollapse = { isNowPlayingExpanded = false },
+                                    onNavigate = { route ->
+                                        isNowPlayingExpanded = false
+                                        rootComponent.navigateTo(route.toConfig())
+                                    }
                                 )
                             }
                         }
@@ -221,7 +241,7 @@ fun NavigationDesktop(rootComponent: RootComponent) {
 
 
                 }
-                AnimatedVisibility(
+                androidx.compose.animation.AnimatedVisibility(
                     visible = currentSong != null,
                     enter = slideInVertically(
                         animationSpec = spring(dampingRatio = 0.8f),

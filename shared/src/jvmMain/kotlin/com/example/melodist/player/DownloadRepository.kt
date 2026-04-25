@@ -231,6 +231,19 @@ class DownloadRepository(
         log.info("Removed download: $songId")
     }
 
+    fun removeDownloads(songIds: List<String>) {
+        _downloadStates.update { it - songIds.toSet() }
+        scope.launch(Dispatchers.IO) {
+            songIds.forEach { songId ->
+                cancelDownload(songId)
+                getCachedFile(songId)?.delete()
+                cleanupPartFiles(songId)
+                databaseDao.updateSongDownloadStatus(songId, false, null)
+            }
+        }
+        log.info("Removed downloads: ${songIds.size} songs")
+    }
+
     fun clearCache() {
         synchronized(activeJobs) {
             activeJobs.values.forEach { it.cancel() }

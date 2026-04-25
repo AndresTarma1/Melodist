@@ -30,6 +30,7 @@ class DownloadService(
     fun downloadAll(songs: List<SongItem>) = repo.downloadAll(songs)
     fun cancelDownload(songId: String) = repo.cancelDownload(songId)
     fun removeDownload(songId: String) = repo.removeDownload(songId)
+    fun removeDownloads(songIds: List<String>) = repo.removeDownloads(songIds)
     fun clearCache() = repo.clearCache()
     fun isDownloaded(songId: String): Boolean = repo.isDownloaded(songId)
 

@@ -109,7 +109,8 @@ fun HoverCornerActionButton(
                 imageVector = icon,
                 contentDescription = contentDescription,
                 tint = Color.White,
-                modifier = Modifier.size(iconSize)
+                modifier = Modifier.size(iconSize),
+
             )
         }
     }

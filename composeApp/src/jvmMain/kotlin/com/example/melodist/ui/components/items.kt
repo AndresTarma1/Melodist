@@ -22,14 +22,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudDone
-import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -67,7 +64,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import com.example.melodist.ui.components.context.SongContextMenu
+import com.example.melodist.ui.components.context.CollectionContextMenu
 import com.example.melodist.ui.helpers.contextMenuArea
+import com.example.melodist.utils.LocalPlayerViewModel
 import com.example.melodist.utils.thumbnailAspectRatio
 import com.metrolist.innertube.models.AlbumItem
 import com.metrolist.innertube.models.ArtistItem
@@ -87,6 +86,25 @@ data class CornerQuickPlayConfig(
     val onClick: () -> Unit,
 )
 
+private fun YTItem.mediaGridSubtitle(): String = when (this) {
+    is AlbumItem -> artists?.firstOrNull()?.name ?: year?.toString() ?: "Album"
+    is ArtistItem -> "Artista"
+    is PlaylistItem -> author?.name ?: songCountText ?: "Playlist"
+    is SongItem -> artists.firstOrNull()?.name ?: "Cancion"
+}
+
+private fun YTItem.mediaGridPlaceholderType(): PlaceholderType = when (this) {
+    is AlbumItem -> PlaceholderType.ALBUM
+    is ArtistItem -> PlaceholderType.ARTIST
+    is PlaylistItem -> PlaceholderType.PLAYLIST
+    is SongItem -> PlaceholderType.SONG
+}
+
+private fun YTItem.mediaGridShape(): Shape = when (this) {
+    is ArtistItem -> CircleShape
+    else -> RoundedCornerShape(12.dp)
+}
+
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun YouTubeGridItem(
@@ -104,6 +122,7 @@ fun YouTubeGridItem(
     subtitle: String,
     topStartOverlay: (@Composable BoxScope.() -> Unit)? = null,
     overlayContent: @Composable BoxScope.() -> Unit = {},
+    modifier: Modifier = Modifier,
 ) {
     val isArtist = item is ArtistItem
     val cardHeight = 180.dp
@@ -113,26 +132,17 @@ fun YouTubeGridItem(
 
     var isHovered by remember { mutableStateOf(false) }
 
-    val overlayAlpha by animateFloatAsState(if (isHovered) 0.38f else 0f, tween(160), label = "overlay")
-    val playIconAlpha by animateFloatAsState(if (isHovered && centerPlayVisible) 1f else 0f, tween(160), label = "play")
-    val playIconScale by animateFloatAsState(
-        if (isHovered && centerPlayVisible) 1f else 0.7f,
-        spring(Spring.DampingRatioMediumBouncy),
-        label = "playScale"
-    )
-    val menuBtnAlpha by animateFloatAsState(if (isHovered) 1f else 0f, tween(120), label = "menuBtn")
-    val quickPlayAlpha by animateFloatAsState(
-        if (isHovered && quickPlay != null) 1f else 0f,
-        tween(120),
-        label = "quickPlayBtn"
-    )
+    val overlayAlpha =if (isHovered) 0.38f else 0f
+    val playIconAlpha =if (isHovered && centerPlayVisible) 1f else 0f
+    val playIconScale =if (isHovered && centerPlayVisible) 1f else 0.7f
+    val menuBtnAlpha =if (isHovered) 1f else 0f
+    val quickPlayAlpha =if (isHovered && quickPlay != null) 1f else 0f
 
-    Box(modifier = Modifier.width(cardWidth + contentPadding * 2).padding(contentPadding)) {
+    Box(modifier = modifier.width(cardWidth + contentPadding * 2).padding(contentPadding)) {
         Column(horizontalAlignment = alignment) {
             BoxForContainerContextMenuItem(
                 modifier = Modifier
-                    .height(cardHeight)
-                    .width(cardWidth)
+                    .aspectRatio(aspectRatio)
                     .clip(RoundedCornerShape(12.dp))
                     .onPointerEvent(PointerEventType.Enter) { isHovered = true }
                     .onPointerEvent(PointerEventType.Exit) { isHovered = false }
@@ -258,34 +268,28 @@ fun MediaGridItem(
     shape: Shape,
     onClick: () -> Unit,
     onPlay: (() -> Unit)? = null,
+    onShuffle: (() -> Unit)? = null,
     onRemove: () -> Unit = {},
     isRemovable: Boolean = true,
     source: ItemContentSource = ItemContentSource.LOCAL,
+    modifier: Modifier = Modifier,
 ) {
     val isCircle = shape == CircleShape
     val alignment = if (isCircle) Alignment.CenterHorizontally else Alignment.Start
     val textAlign = if (isCircle) TextAlign.Center else TextAlign.Start
     var isImageHovered by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
+    var menuOffset by remember { mutableStateOf(DpOffset.Zero) }
     val showImageActions = placeholderType == PlaceholderType.ALBUM || placeholderType == PlaceholderType.PLAYLIST
-    val overlayAlpha by animateFloatAsState(
-        targetValue = if (isImageHovered && showImageActions) 0.32f else 0f,
-        animationSpec = tween(140),
-        label = "libraryOverlay"
-    )
-    val menuAlpha by animateFloatAsState(
-        targetValue = if (isImageHovered && showImageActions) 1f else 0f,
-        animationSpec = tween(120),
-        label = "libraryMenu"
-    )
-    val playAlpha by animateFloatAsState(
-        targetValue = if (isImageHovered && onPlay != null && showImageActions) 1f else 0f,
-        animationSpec = tween(120),
-        label = "libraryPlay"
-    )
+    val overlayAlpha = if (isImageHovered && showImageActions) 0.32f else 0f
+
+    val menuAlpha = if (isImageHovered && showImageActions) 1f else 0f
+
+    val playAlpha = if (isImageHovered && onPlay != null && showImageActions) 1f else 0f
+
     val sourceIcon = if (source == ItemContentSource.LOCAL) Icons.Default.PhoneAndroid else Icons.Default.CloudDone
 
-    Box {
+    Box(modifier = modifier) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -293,97 +297,104 @@ fun MediaGridItem(
                 .padding(8.dp),
             horizontalAlignment = alignment
         ) {
-            Box(
+            BoxForContainerContextMenuItem(
                 modifier = Modifier
-                    .clickable(onClick = onClick)
-                    .pointerHoverIcon(PointerIcon.Hand)
-                    .onPointerEvent(PointerEventType.Enter) { isImageHovered = true }
-                    .onPointerEvent(PointerEventType.Exit) { isImageHovered = false }
-            ) {
-                MelodistImage(
-                    url = thumbnailUrl,
-                    contentDescription = title,
-                    modifier = Modifier.aspectRatio(1f).fillMaxWidth(),
-                    shape = shape,
-                    placeholderType = placeholderType,
-                    iconSize = 40.dp,
-                    contentScale = ContentScale.Fit,
-                    alignment = if (isCircle) Alignment.TopCenter else Alignment.Center
-                )
-
+                    .pointerHoverIcon(PointerIcon.Hand),
+                enabled = showImageActions,
+                onHoverChange = { isImageHovered = it },
+                onMenuAction = { offset ->
+                    menuOffset = offset
+                    showMenu = true
+                }
+            ) { menuButtonModifier, openMenuFromButton ->
                 Box(
                     modifier = Modifier
-                        .matchParentSize()
-                        .background(
-                            Color.Black.copy(alpha = overlayAlpha),
-                            RoundedCornerShape(12.dp)
-                        )
-                        .clip(RoundedCornerShape(12.dp))
-                )
-
-                Surface(
-                    shape = CircleShape,
-                    color = Color.Black.copy(alpha = 0.50f),
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(6.dp)
-                        .size(24.dp)
+                        .clickable(onClick = onClick)
+                        .onPointerEvent(PointerEventType.Enter) { isImageHovered = true }
+                        .onPointerEvent(PointerEventType.Exit) { isImageHovered = false }
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = sourceIcon,
-                            contentDescription = if (source == ItemContentSource.LOCAL) "Local" else "YouTube Music",
-                            tint = Color.White,
-                            modifier = Modifier.size(14.dp)
-                        )
-                    }
-                }
+                    MelodistImage(
+                        url = thumbnailUrl,
+                        contentDescription = title,
+                        modifier = Modifier.aspectRatio(1f).fillMaxWidth(),
+                        shape = shape,
+                        placeholderType = placeholderType,
+                        iconSize = 40.dp,
+                        contentScale = ContentScale.Fit,
+                        alignment = if (isCircle) Alignment.TopCenter else Alignment.Center
+                    )
 
-                if (showImageActions) {
-                    IconButton(
-                        onClick = { showMenu = true },
+                    Box(
                         modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .size(32.dp)
-                            .padding(4.dp)
-                            .graphicsLayer { alpha = menuAlpha }
+                            .matchParentSize()
+                            .background(
+                                Color.Black.copy(alpha = overlayAlpha),
+                                RoundedCornerShape(12.dp)
+                            )
+                            .clip(RoundedCornerShape(12.dp))
+                    )
+
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.Black.copy(alpha = 0.50f),
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(6.dp)
+                            .size(24.dp)
                     ) {
-                        Icon(Icons.Default.MoreVert, "Opciones", modifier = Modifier.size(18.dp), tint = Color.White.copy(alpha = 0.9f))
-                        DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                            if (isRemovable) {
-                                DropdownMenuItem(
-                                    text = { Text("Eliminar de la biblioteca") },
-                                    onClick = { onRemove(); showMenu = false },
-                                    leadingIcon = { Icon(Icons.Default.MoreVert, null, tint = MaterialTheme.colorScheme.error) }
-                                )
-                            } else {
-                                DropdownMenuItem(
-                                    text = { Text("Menu proximamente") },
-                                    onClick = { showMenu = false },
-                                    leadingIcon = { Icon(Icons.Default.MoreHoriz, null) }
-                                )
-                            }
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = sourceIcon,
+                                contentDescription = if (source == ItemContentSource.LOCAL) "Local" else "YouTube Music",
+                                tint = Color.White,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                    }
+
+                    if (showImageActions) {
+                        IconButton(
+                            onClick = openMenuFromButton,
+                            modifier = menuButtonModifier
+                                .align(Alignment.TopEnd)
+                                .size(32.dp)
+                                .padding(4.dp)
+                                .graphicsLayer { alpha = menuAlpha }
+                        ) {
+                            Icon(Icons.Default.MoreVert, "Opciones", modifier = Modifier.size(18.dp), tint = Color.White.copy(alpha = 0.9f))
+                        }
+                    }
+
+                    if (onPlay != null && showImageActions) {
+                        FilledIconButton(
+                            onClick = onPlay,
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(6.dp)
+                                .size(34.dp)
+                                .graphicsLayer { alpha = playAlpha },
+                            colors = IconButtonDefaults.filledIconButtonColors(
+                                containerColor = Color.Black.copy(alpha = 0.55f),
+                                contentColor = Color.White
+                            )
+                        ) {
+                            Icon(Icons.Filled.PlayArrow, contentDescription = "Reproducir", modifier = Modifier.size(20.dp))
                         }
                     }
                 }
-
-                if (onPlay != null && showImageActions) {
-                    FilledIconButton(
-                        onClick = onPlay,
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(6.dp)
-                            .size(34.dp)
-                            .graphicsLayer { alpha = playAlpha },
-                        colors = IconButtonDefaults.filledIconButtonColors(
-                            containerColor = Color.Black.copy(alpha = 0.55f),
-                            contentColor = Color.White
-                        )
-                    ) {
-                        Icon(Icons.Filled.PlayArrow, contentDescription = "Reproducir", modifier = Modifier.size(20.dp))
-                    }
-                }
             }
+
+            CollectionContextMenu(
+                expanded = showMenu,
+                onDismiss = { showMenu = false },
+                title = title,
+                isPlaylist = placeholderType == PlaceholderType.PLAYLIST,
+                onOpen = onClick,
+                onPlay = onPlay,
+                onShuffle = onShuffle,
+                onRemoveFromLibrary = if (isRemovable) onRemove else null,
+                offset = menuOffset
+            )
             Spacer(Modifier.height(10.dp))
             Text(
                 title,
@@ -407,13 +418,42 @@ fun MediaGridItem(
     }
 }
 
+@Composable
+fun MediaGridItem(
+    item: YTItem,
+    onClick: () -> Unit,
+    onPlay: (() -> Unit)? = null,
+    onShuffle: (() -> Unit)? = null,
+    onRemove: () -> Unit = {},
+    isRemovable: Boolean = true,
+    source: ItemContentSource = ItemContentSource.LOCAL,
+    modifier: Modifier = Modifier,
+) {
+    MediaGridItem(
+        title = item.title,
+        subtitle = item.mediaGridSubtitle(),
+        thumbnailUrl = item.thumbnail,
+        placeholderType = item.mediaGridPlaceholderType(),
+        shape = item.mediaGridShape(),
+        onClick = onClick,
+        onPlay = onPlay,
+        onShuffle = onShuffle,
+        onRemove = onRemove,
+        isRemovable = isRemovable,
+        source = source,
+        modifier = modifier,
+    )
+}
+
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun YoutubeListItem(
     item: YTItem,
     source: ItemContentSource,
     onItemClick: (YTItem) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
+    val playerViewModel = LocalPlayerViewModel.current
     val shape = when (item) {
         is ArtistItem -> CircleShape
         is PlaylistItem -> RoundedCornerShape(8.dp)
@@ -433,9 +473,10 @@ fun YoutubeListItem(
 
     val density = LocalDensity.current
     val sourceIcon = if (source == ItemContentSource.LOCAL) Icons.Default.PhoneAndroid else Icons.Default.CloudDone
+    val isCollectionItem = item is AlbumItem || item is PlaylistItem
 
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 2.dp)
             .clip(RoundedCornerShape(8.dp))
@@ -444,7 +485,7 @@ fun YoutubeListItem(
             .clickable { onItemClick(item) }
             .pointerHoverIcon(PointerIcon.Hand)
             .contextMenuArea(
-                enabled = item is SongItem,
+                enabled = item is SongItem || isCollectionItem,
                 onHoverChange = { isHovered = it },
                 onMenuAction = { offset ->
                     menuOffset = offset
@@ -517,7 +558,7 @@ fun YoutubeListItem(
                 )
             },
             trailingContent = {
-                if (item is SongItem) {
+                if (item is SongItem || isCollectionItem) {
                     IconButton(
                         onClick = {
                             menuOffset = with(density) {
@@ -525,9 +566,9 @@ fun YoutubeListItem(
                             }
                             showMenu = true
                         },
-                        modifier = Modifier.onGloballyPositioned { buttonCoords ->
+                        modifier = Modifier.onGloballyPositioned { buttonCords ->
                             rootCoordinates.let { root ->
-                                buttonPosition = root?.localPositionOf(buttonCoords, Offset.Zero) ?: Offset.Zero
+                                buttonPosition = root?.localPositionOf(buttonCords, Offset.Zero) ?: Offset.Zero
                             }
                         }
                     ) {
@@ -546,6 +587,55 @@ fun YoutubeListItem(
                 expanded = showMenu,
                 onDismiss = { showMenu = false },
                 song = item,
+                offset = menuOffset
+            )
+        } else if (item is AlbumItem || item is PlaylistItem) {
+            CollectionContextMenu(
+                expanded = showMenu,
+                onDismiss = { showMenu = false },
+                title = item.title,
+                isPlaylist = item is PlaylistItem,
+                onOpen = { onItemClick(item) },
+                onPlay = {
+                    when (item) {
+                        is AlbumItem -> {
+                            playerViewModel.playAlbumFromBrowseId(
+                                browseId = item.browseId,
+                                title = item.title,
+                                onEmpty = { onItemClick(item) }
+                            )
+                        }
+
+                        is PlaylistItem -> {
+                            playerViewModel.playPlaylistFromId(
+                                playlistId = item.id,
+                                title = item.title,
+                                onEmpty = { onItemClick(item) }
+                            )
+                        }
+                    }
+                },
+                onShuffle = {
+                    when (item) {
+                        is AlbumItem -> {
+                            playerViewModel.playAlbumFromBrowseId(
+                                browseId = item.browseId,
+                                title = item.title,
+                                shuffle = true,
+                                onEmpty = { onItemClick(item) }
+                            )
+                        }
+
+                        is PlaylistItem -> {
+                            playerViewModel.playPlaylistFromId(
+                                playlistId = item.id,
+                                title = item.title,
+                                shuffle = true,
+                                onEmpty = { onItemClick(item) }
+                            )
+                        }
+                    }
+                },
                 offset = menuOffset
             )
         }

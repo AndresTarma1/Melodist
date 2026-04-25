@@ -17,7 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.melodist.navigation.Route
-import com.example.melodist.ui.components.BlurredImageBackground
+import com.example.melodist.ui.components.background.BlurredImageBackground
 import com.example.melodist.ui.components.PlaylistScreenSkeleton
 import com.example.melodist.ui.screens.playlist.PlaylistLayout
 import com.example.melodist.utils.LocalDownloadViewModel

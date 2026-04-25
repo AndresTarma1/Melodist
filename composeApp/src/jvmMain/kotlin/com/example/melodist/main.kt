@@ -17,8 +17,8 @@ import com.example.melodist.di.dataStoreModule
 import com.example.melodist.navigation.RootComponent
 import com.example.melodist.player.PlayerService
 import com.example.melodist.player.WindowsMediaSession
+import com.example.melodist.viewmodels.AppViewModel
 import com.example.melodist.viewmodels.DownloadViewModel
-import com.example.melodist.viewmodels.LibraryViewModel
 import com.example.melodist.viewmodels.PlayerViewModel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -60,10 +60,10 @@ fun main() {
         logStartupError("Error creando DownloadViewModel", e)
         throw e
     }
-    val libraryViewModel = try {
-        koinApp.koin.get<LibraryViewModel>()
+    val appViewModel = try {
+        koinApp.koin.get<AppViewModel>()
     } catch (e: Throwable) {
-        logStartupError("Error creando LibraryViewModel", e)
+        logStartupError("Error creando AppViewModel", e)
         throw e
     }
 
@@ -123,9 +123,9 @@ fun main() {
 
         App(
             rootComponent = rootComponent,
+            appViewModel = appViewModel,
             playerViewModel = playerViewModel,
             downloadViewModel = downloadViewModel,
-            libraryViewModel = libraryViewModel,
             userPreferences = userPreferencesRepository,
             windowState = windowState,
             onExit = ::doExit
