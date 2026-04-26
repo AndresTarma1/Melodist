@@ -115,9 +115,16 @@ class PlayerViewModel(
         }
     }
 
-    private fun downloadThumbToTemp(url: String?): String? {
-        if (url.isNullOrBlank()) return null
-        return try {
+    suspend fun downloadThumbToTemp(url: String?): String? = withContext(Dispatchers.IO)  {
+        if (url.isNullOrBlank()) return@withContext null
+        return@withContext try {
+            val tmpFile = java.io.File(System.getProperty("java.io.tmpdir"), "melodist_smtc_thumb.jpg")
+
+            // Si el archivo ya existe, reutilízalo (puedes agregar lógica para comparar URLs si es necesario)
+            if (tmpFile.exists()) {
+                return@withContext "file:///${tmpFile.absolutePath.replace('\\', '/')}"
+            }
+
             val conn = URI(url).toURL().openConnection() as HttpURLConnection
             conn.connectTimeout = 5_000
             conn.readTimeout = 10_000
@@ -126,7 +133,6 @@ class PlayerViewModel(
             val bytes = conn.inputStream.use { it.readBytes() }
             conn.disconnect()
 
-            val tmpFile = java.io.File(System.getProperty("java.io.tmpdir"), "melodist_smtc_thumb.jpg")
             tmpFile.writeBytes(bytes)
             "file:///${tmpFile.absolutePath.replace('\\', '/')}"
         } catch (e: Exception) {

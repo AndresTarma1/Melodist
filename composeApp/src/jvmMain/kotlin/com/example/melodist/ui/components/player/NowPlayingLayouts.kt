@@ -52,6 +52,7 @@ import sh.calvin.reorderable.rememberReorderableLazyListState
 import kotlin.time.Duration.Companion.milliseconds
 import androidx.compose.animation.core.RepeatMode as InfiniteRepeatMode
 
+import androidx.compose.material.icons.filled.PlayArrow // ¡Asegúrate de importar esto!
 @Composable
 fun NowPlayingLayout(
     state: PlayerUiState,
@@ -99,52 +100,6 @@ fun NowPlayingLayout(
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun AlbumDiscLarge(url: String?, title: String, highRes: Boolean) {
-    val highResUrl = if (highRes) upscaleThumbnailUrl(url, 1080) else url
-    val rotation by rememberInfiniteTransition(label = "nowPlayingAlbumDisc").animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(12000, easing = LinearEasing),
-            repeatMode = InfiniteRepeatMode.Restart
-        ),
-        label = "nowPlayingAlbumDiscRotation"
-    )
-
-    Box(
-        modifier = Modifier
-            .size(460.dp)
-            .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.82f)),
-        contentAlignment = Alignment.Center
-    ) {
-        Box(
-            modifier = Modifier
-                .size(420.dp)
-                .clip(CircleShape)
-                .rotate(rotation)
-        ) {
-            MelodistImage(
-                url = highResUrl,
-                contentDescription = title,
-                modifier = Modifier.fillMaxSize(),
-                shape = CircleShape,
-                placeholderType = PlaceholderType.ALBUM,
-                iconSize = 64.dp,
-                contentScale = ContentScale.Crop
-            )
-        }
-
-        Box(
-            modifier = Modifier
-                .size(44.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surface)
-        )
     }
 }
 
@@ -246,20 +201,13 @@ fun PlaybackQueuePanel(
                 ) { index, queueSong ->
                     val itemKey = state.queueSession.order.getOrNull(index) ?: index
                     ReorderableItem(reorderableState, key = itemKey) { isDragging ->
-                        val dragModifier = if (!queueLocked) Modifier.draggableHandle() else Modifier
+                        val dragModifier = if (!queueLocked) Modifier.longPressDraggableHandle() else Modifier
                         QueueItem(
                             song = queueSong,
-                            index = index,
                             isCurrent = index == state.currentIndex,
                             isDragging = isDragging,
                             dragModifier = dragModifier,
                             onClick = { playerViewModel.playAtIndex(index) },
-                            modifier = Modifier.animateItem(
-                                placementSpec = spring(
-                                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                                    stiffness = Spring.StiffnessMediumLow
-                                )
-                            )
                         )
                     }
                 }
@@ -402,10 +350,10 @@ fun SongHeader(
 }
 
 
+
 @Composable
 fun QueueItem(
     song: MediaMetadata,
-    index: Int,
     isCurrent: Boolean,
     isDragging: Boolean = false,
     dragModifier: Modifier = Modifier,
@@ -416,9 +364,12 @@ fun QueueItem(
     val downloadState by rememberSongDownloadState(song.id, downloadViewModel)
 
     var isHovered by remember { mutableStateOf(false) }
+
+    // Eliminamos el color de fondo para isHovered, ya que ahora queremos
+    // el efecto sobre la imagen
     val bgColor = if (isDragging) MaterialTheme.colorScheme.surfaceContainerHighest
-    else if (isHovered) MaterialTheme.colorScheme.secondaryContainer
     else Color.Transparent
+
     Surface(
         color = if (isCurrent && !isDragging)
             MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
@@ -429,59 +380,64 @@ fun QueueItem(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
+            .then(dragModifier) // 1. Aplicamos el drag modifier a TODO el ítem
             .clickable(onClick = onClick)
-            .pointerHoverIcon(PointerIcon.Hand)
+            // 2. Cursor de cruz si está arrastrando, mano si solo pasa por encima
+            .pointerHoverIcon(if (isDragging) PointerIcon.Crosshair else PointerIcon.Hand)
             .onHover { isHovered = it }
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp), // Mayor padding general
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp) // Mayor separación
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // Drag Handle
-            if (dragModifier != Modifier) {
-                Icon(
-                    imageVector = Icons.Rounded.DragHandle,
-                    contentDescription = "Arrastrar",
-                    modifier = dragModifier
-                        .pointerHoverIcon(PointerIcon.Hand)
-                        .size(24.dp), // Ícono más grande
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                )
-            }
+            // ¡ELIMINADO! Ya no necesitamos el Icon(Icons.Rounded.DragHandle) aquí
 
-            // Número o ícono de reproducción
-            Box(modifier = Modifier.width(22.dp), contentAlignment = Alignment.Center) { // Más ancho
+            Box {
+                // Thumbnail
+                MelodistImage(
+                    url = song.thumbnailUrl,
+                    contentDescription = song.title,
+                    modifier = Modifier.size(48.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    placeholderType = PlaceholderType.SONG,
+                    iconSize = 22.dp,
+                    contentScale = ContentScale.Crop
+                )
+
                 if (isCurrent) {
-                    AnimatedEqualizer(
-                        Modifier.size(18.dp)
-                    )
-                } else {
-                    Text(
-                        "${index + 1}",
-                        style = MaterialTheme.typography.labelMedium, // Textos más grandes
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                    )
+                    Box(
+                        modifier = Modifier.matchParentSize().background(
+                            Color.Black.copy(alpha = 0.3f), shape = RoundedCornerShape(8.dp)
+                        )
+                    ) {
+                        AnimatedEqualizer(
+                            modifier = Modifier.size(20.dp).align(Alignment.Center)
+                        )
+                    }
+                } else if (isHovered && !isDragging) {
+                    // 3. Overlay negro con icono de Play al hacer Hover
+                    Box(
+                        modifier = Modifier.matchParentSize().background(
+                            Color.Black.copy(alpha = 0.3f), shape = RoundedCornerShape(8.dp)
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.PlayArrow,
+                            contentDescription = "Reproducir",
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp).align(Alignment.Center)
+                        )
+                    }
                 }
             }
-
-            // Thumbnail
-            MelodistImage(
-                url = song.thumbnailUrl,
-                contentDescription = song.title,
-                modifier = Modifier.size(48.dp), // Imagen de carátula más grande
-                shape = RoundedCornerShape(8.dp),
-                placeholderType = PlaceholderType.SONG,
-                iconSize = 22.dp,
-                contentScale = ContentScale.Crop
-            )
 
             // Título + artistas
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     song.title,
-                    style = MaterialTheme.typography.bodyMedium.copy( // Cambiado de bodySmall
-                        fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Medium // Tipografía más destacada
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Medium
                     ),
                     color = if (isCurrent) MaterialTheme.colorScheme.primary
                     else MaterialTheme.colorScheme.onSurface,
@@ -490,7 +446,7 @@ fun QueueItem(
                 )
                 Text(
                     song.artists.joinToString(", ") { it.name },
-                    style = MaterialTheme.typography.bodySmall, // Cambiado de labelSmall
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -503,7 +459,7 @@ fun QueueItem(
             if (song.duration > 0) {
                 Text(
                     formatPlayerTimeValue(song.duration * 1000L),
-                    style = MaterialTheme.typography.labelMedium, // Texto un poco más grande
+                    style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                 )
             }
