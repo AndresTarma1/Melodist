@@ -544,7 +544,7 @@ private fun AboutCard() {
             // Badge corregido utilizando tokens correctos de M3
             Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer) {
                 Text(
-                    text = "v1.1.1",
+                    text = "v1.1.2",
                     style    = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                     color    = MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
