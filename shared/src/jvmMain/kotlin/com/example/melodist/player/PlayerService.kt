@@ -6,22 +6,24 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.logging.Logger
 
-class PlayerService {
+import com.example.melodist.domain.player.MusicPlayer
+
+class PlayerService : MusicPlayer {
 
     private val log = Logger.getLogger("PlayerService")
     private val mpvPlayer = MpvAudioPlayer()
 
     private val _playbackState = MutableStateFlow(PlaybackState.IDLE)
-    val playbackState: StateFlow<PlaybackState> = _playbackState.asStateFlow()
+    override val playbackState: StateFlow<PlaybackState> = _playbackState.asStateFlow()
 
     private val _position = MutableStateFlow(0L)
-    val position: StateFlow<Long> = _position.asStateFlow()
+    override val position: StateFlow<Long> = _position.asStateFlow()
 
     private val _duration = MutableStateFlow(0L)
-    val duration: StateFlow<Long> = _duration.asStateFlow()
+    override val duration: StateFlow<Long> = _duration.asStateFlow()
 
     private val _volume = MutableStateFlow(100)
-    val volume: StateFlow<Int> = _volume.asStateFlow()
+    override val volume: StateFlow<Int> = _volume.asStateFlow()
 
     private var initAttempted = false
 
@@ -41,7 +43,7 @@ class PlayerService {
         startPositionTicker()
     }
 
-    fun play(url: String) {
+    override fun play(url: String) {
         init()
         scope.launch {
             try {
@@ -55,19 +57,19 @@ class PlayerService {
         }
     }
 
-    fun pause() {
+    override fun pause() {
         mpvPlayer.pause()
     }
 
-    fun resume() {
+    override fun resume() {
         mpvPlayer.play()
     }
 
-    fun togglePlayPause() {
+    override fun togglePlayPause() {
         if (_playbackState.value == PlaybackState.PLAYING) pause() else resume()
     }
 
-    fun stop() {
+    override fun stop() {
         isTransitioning = false
         endNotified = false
         _playbackState.value = PlaybackState.IDLE
@@ -76,7 +78,7 @@ class PlayerService {
         mpvPlayer.stop()
     }
 
-    fun seekTo(millis: Long) {
+    override fun seekTo(millis: Long) {
         val dur = _duration.value
         if (dur > 0) {
             val endThresholdMs = 1000L
@@ -87,12 +89,12 @@ class PlayerService {
         }
     }
 
-    fun setVolume(value: Int) {
+    override fun setVolume(value: Int) {
         _volume.value = value
         mpvPlayer.volume = value.toFloat() / 100f
     }
 
-    fun setEqualizer(bands: List<Float>) {
+    override fun setEqualizer(bands: List<Float>) {
         // Send values to mpv
         mpvPlayer.setEqualizer(bands)
     }
@@ -144,7 +146,7 @@ class PlayerService {
         }
     }
 
-    fun stopAudioOnly() {
+    override fun stopAudioOnly() {
         isTransitioning = true
         scope.launch {
             try {

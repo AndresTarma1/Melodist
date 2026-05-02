@@ -38,6 +38,8 @@ data class AlbumScreenActions(
     val onToggleSave: () -> Unit,
     val onPlayAll: () -> Unit,
     val onShuffle: () -> Unit,
+    val onLike: ((String) -> Unit)? = null,
+    val onDislike: ((String) -> Unit)? = null
 )
 
 @Composable
@@ -88,6 +90,8 @@ fun AlbumScreenRoute(
                 )
             }
         },
+        onLike = { songId -> viewModel.likeSong(songId) },
+        onDislike = { songId -> viewModel.dislikeSong(songId) }
     )
 
     AlbumScreen(

@@ -2,9 +2,9 @@ package com.example.melodist.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.melodist.data.remote.ApiService
-import com.example.melodist.data.repository.AlbumRepository
-import com.metrolist.innertube.YouTube
+import com.example.melodist.domain.album.*
+import com.example.melodist.domain.song.LikeSongUseCase
+import com.example.melodist.domain.song.DislikeSongUseCase
 import com.metrolist.innertube.models.SongItem
 import com.metrolist.innertube.pages.AlbumPage
 import kotlinx.coroutines.delay
@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.logging.Logger
+import kotlin.time.Duration.Companion.milliseconds
 
 sealed class AlbumState {
     object Loading : AlbumState()
@@ -30,8 +31,14 @@ sealed class AlbumState {
 }
 
 class AlbumViewModel(
-    private val apiService: ApiService,
-    private val repository: AlbumRepository
+    private val loadAlbumUseCase: LoadAlbumUseCase,
+    private val loadAlbumContinuationUseCase: LoadAlbumContinuationUseCase,
+    private val getCachedAlbumUseCase: GetCachedAlbumUseCase,
+    private val isAlbumSavedUseCase: IsAlbumSavedUseCase,
+    private val saveAlbumUseCase: SaveAlbumUseCase,
+    private val removeAlbumUseCase: RemoveAlbumUseCase,
+    private val likeSongUseCase: LikeSongUseCase,
+    private val dislikeSongUseCase: DislikeSongUseCase
 ) : ViewModel() {
 
     private val log = Logger.getLogger("AlbumViewModel")
@@ -65,48 +72,69 @@ class AlbumViewModel(
         }
     }
 
+    private fun resetLoadState() {
+        _uiState.value = AlbumState.Loading
+        _songs.value = emptyList()
+        _continuation.value = null
+        _isLoadingMore.value = false
+    }
+
+    private fun buildSuccessState(
+        albumPage: AlbumPage,
+        isSaved: Boolean,
+    ): AlbumState.Success {
+        return AlbumState.Success(
+            albumPage = albumPage,
+            isSaved = isSaved,
+        )
+    }
+
+    private suspend fun loadCachedAlbum(browseId: String): Boolean {
+        val cachedSongs = getCachedAlbumUseCase.getSongs(browseId)
+        val cachedAlbum = getCachedAlbumUseCase.getItem(browseId)
+
+        if (cachedSongs == null || cachedAlbum == null) return false
+
+        log.info("Cargando álbum desde caché: $browseId (${cachedSongs.size} canciones)")
+        _songs.value = cachedSongs
+        _continuation.value = null
+        _uiState.value = buildSuccessState(
+            albumPage = AlbumPage(
+                album = cachedAlbum,
+                songs = cachedSongs,
+                otherVersions = emptyList()
+            ),
+            isSaved = true,
+        )
+        return true
+    }
+
+    private suspend fun loadRemoteAlbum(browseId: String) {
+        log.info("Álbum no cacheado, cargando desde YouTube: $browseId")
+        loadAlbumUseCase(browseId)
+            .onSuccess { page ->
+                _songs.value = page.songs
+                _continuation.value = null
+                _uiState.value = buildSuccessState(
+                    albumPage = page,
+                    isSaved = isAlbumSavedUseCase.once(browseId),
+                )
+            }
+            .onFailure {
+                _uiState.value = AlbumState.Error(it.message ?: "Error desconocido")
+            }
+    }
+
     fun loadAlbum(browseId: String) {
         if (_currentBrowseId.value == browseId) return
         _currentBrowseId.value = browseId
 
         viewModelScope.launch {
-            _uiState.value = AlbumState.Loading
-            _songs.value = emptyList()
-            _continuation.value = null
+            resetLoadState()
 
-            // 1. Intentar cargar desde caché local
-            val cachedSongs = repository.getCachedAlbumSongs(browseId)
-            val cachedAlbum = repository.getCachedAlbumItem(browseId)
-
-            if (cachedSongs != null && cachedAlbum != null) {
-                log.info("Cargando álbum desde caché: $browseId (${cachedSongs.size} canciones)")
-                _songs.value = cachedSongs
-                _continuation.value = null
-                _uiState.value = AlbumState.Success(
-                    albumPage = AlbumPage(
-                        album = cachedAlbum,
-                        songs = cachedSongs,
-                        otherVersions = emptyList()
-                    ),
-                    isSaved = true,
-                )
-                return@launch
+            if (!loadCachedAlbum(browseId)) {
+                loadRemoteAlbum(browseId)
             }
-
-            // 2. No está en caché → cargar desde YouTube
-            log.info("Álbum no cacheado, cargando desde YouTube: $browseId")
-            YouTube.album(browseId)
-                .onSuccess { page ->
-                    _songs.value = page.songs
-                    val saved = repository.isAlbumSavedOnce(browseId)
-                    _uiState.value = AlbumState.Success(
-                        albumPage = page,
-                        isSaved = saved,
-                    )
-                }
-                .onFailure {
-                    _uiState.value = AlbumState.Error(it.message ?: "Error desconocido")
-                }
         }
     }
 
@@ -118,16 +146,16 @@ class AlbumViewModel(
             _isLoadingMore.value = true
             var success = false
 
-            repeat(3) { attempt ->
-                if (success) return@repeat
-                YouTube.playlistContinuation(token)
-                .onSuccess { page ->
-                        if (page.songs.isNotEmpty()) _songs.value += page.songs
-                        _continuation.value = page.continuation?.takeIf { it.isNotBlank() }
-                        success = true
-                    }
-                    .onFailure { delay(500L * (attempt + 1)) }
-            }
+             repeat(3) { attempt ->
+                 if (success) return@repeat
+                 loadAlbumContinuationUseCase(token)
+                 .onSuccess { page ->
+                         if (page.songs.isNotEmpty()) _songs.value += page.songs
+                         _continuation.value = page.continuation?.takeIf { it.isNotBlank() }
+                         success = true
+                     }
+                     .onFailure { delay((500L * (attempt + 1)).milliseconds) }
+             }
 
             if (!success) log.warning("Falló la carga de más canciones tras 3 intentos")
             _isLoadingMore.value = false
@@ -142,7 +170,7 @@ class AlbumViewModel(
 
             repeat(3) { attempt ->
                 if (fetched) return@repeat
-                YouTube.playlistContinuation(token)
+                loadAlbumContinuationUseCase(token)
                     .onSuccess { page ->
                         if (page.songs.isNotEmpty()) _songs.value += page.songs
                         nextToken = page.continuation?.takeIf { it.isNotBlank() }
@@ -150,7 +178,7 @@ class AlbumViewModel(
                     }
                     .onFailure {
                         log.warning("Error cargando continuación (intento ${attempt + 1}): ${it.message}")
-                        delay(500L * (attempt + 1))
+                        delay((500L * (attempt + 1)).milliseconds)
                     }
             }
 
@@ -194,19 +222,35 @@ class AlbumViewModel(
 
         viewModelScope.launch {
             if (state.isSaved) {
-                repository.removeAlbum(state.albumPage.album.browseId)
+                removeAlbumUseCase(state.albumPage.album.browseId)
                 updateSuccess { copy(isSaved = false) }
                 log.info("Álbum eliminado de guardados: ${state.albumPage.album.browseId}")
             } else {
                 updateSuccess { copy(isSaving = true) }
                 try {
-                    repository.saveAlbumWithSongs(state.albumPage.album, _songs.value)
+                    saveAlbumUseCase(state.albumPage.album, _songs.value)
                     updateSuccess { copy(isSaved = true) }
                     log.info("Álbum guardado con ${_songs.value.size} canciones: ${state.albumPage.album.browseId}")
                 } finally {
                     updateSuccess { copy(isSaving = false) }
                 }
             }
+        }
+    }
+
+    fun likeSong(songId: String) {
+        viewModelScope.launch {
+            likeSongUseCase(songId)
+                .onSuccess { log.info("Song liked: $songId") }
+                .onFailure { log.warning("Failed to like song: ${it.message}") }
+        }
+    }
+
+    fun dislikeSong(songId: String) {
+        viewModelScope.launch {
+            dislikeSongUseCase(songId)
+                .onSuccess { log.info("Song disliked: $songId") }
+                .onFailure { log.warning("Failed to dislike song: ${it.message}") }
         }
     }
 }

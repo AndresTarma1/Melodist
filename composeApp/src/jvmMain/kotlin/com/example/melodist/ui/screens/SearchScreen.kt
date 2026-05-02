@@ -57,20 +57,21 @@ import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.melodist.db.entities.SearchHistoryEntry
+import com.example.melodist.domain.search.SearchFilterOption
+import com.example.melodist.domain.search.SearchHistoryItem
 import com.example.melodist.navigation.Route
 import com.example.melodist.ui.components.layout.AppVerticalScrollbar
 import com.example.melodist.ui.components.ChipRowSkeleton
 import com.example.melodist.ui.components.layout.HorizontalScrollableRow
 import com.example.melodist.ui.components.ItemContentSource
 import com.example.melodist.ui.components.SongSkeleton
+import com.example.melodist.ui.components.YoutubeItemList
 import com.example.melodist.ui.components.YoutubeListItem
 import com.example.melodist.ui.helpers.rememberSongDownloadState
 import com.example.melodist.utils.LocalDownloadViewModel
 import com.example.melodist.utils.LocalPlayerViewModel
 import com.example.melodist.viewmodels.PlayerViewModel
 import com.example.melodist.viewmodels.SearchState
-import com.metrolist.innertube.YouTube
 import com.metrolist.innertube.models.AlbumItem
 import com.metrolist.innertube.models.ArtistItem
 import com.metrolist.innertube.models.PlaylistItem
@@ -82,14 +83,14 @@ data class SearchScreenState(
     val uiState: SearchState = SearchState.Idle,
     val query: String = "",
     val suggestions: List<String> = emptyList(),
-    val filter: YouTube.SearchFilter? = null,
-    val searchHistory: List<SearchHistoryEntry> = emptyList(),
+    val filter: SearchFilterOption? = null,
+    val searchHistory: List<SearchHistoryItem> = emptyList(),
 )
 
 data class SearchActions(
     val onQueryChange: (String) -> Unit,
     val onSearch: () -> Unit,
-    val onFilterChange: (YouTube.SearchFilter?) -> Unit,
+    val onFilterChange: (SearchFilterOption?) -> Unit,
     val onLoadMore: () -> Unit,
     val onNavigate: (Route) -> Unit,
     val onDeleteHistoryEntry: (String) -> Unit,
@@ -200,7 +201,7 @@ fun SearchSection(
     query: String,
     active: Boolean,
     suggestions: List<String>,
-    searchHistory: List<SearchHistoryEntry>,
+    searchHistory: List<SearchHistoryItem>,
     onActiveChange: (Boolean) -> Unit,
     onQueryChange: (String) -> Unit,
     onSearch: (String) -> Unit,
@@ -434,16 +435,16 @@ private fun EmptyStateText() {
 
 @Composable
 fun FilterRow(
-    selectedFilter: YouTube.SearchFilter?,
-    onFilterSelected: (YouTube.SearchFilter?) -> Unit
+    selectedFilter: SearchFilterOption?,
+    onFilterSelected: (SearchFilterOption?) -> Unit
 ) {
     val filters = listOf(
-        "Todo" to null,
-        "Videos" to YouTube.SearchFilter.FILTER_VIDEO,
-        "Canciones" to YouTube.SearchFilter.FILTER_SONG,
-        "Álbumes" to YouTube.SearchFilter.FILTER_ALBUM,
-        "Artistas" to YouTube.SearchFilter.FILTER_ARTIST,
-        "Playlists" to YouTube.SearchFilter.FILTER_COMMUNITY_PLAYLIST
+        null to "Todo",
+        SearchFilterOption.VIDEOS to "Videos",
+        SearchFilterOption.SONGS to "Canciones",
+        SearchFilterOption.ALBUMS to "Álbumes",
+        SearchFilterOption.ARTISTS to "Artistas",
+        SearchFilterOption.PLAYLISTS to "Playlists"
     )
 
     Row(
@@ -458,7 +459,7 @@ fun FilterRow(
             contentPadding = PaddingValues(horizontal = 0.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            items(filters){ (label, f) ->
+            items(filters){ (f, label) ->
                 val isSelected = selectedFilter == f
                 FilterChip(
                     selected = isSelected,
@@ -480,8 +481,8 @@ fun FilterRow(
 fun ResultsList(
     uiState: SearchState,
     onItemClick: (YTItem) -> Unit,
-    filter: YouTube.SearchFilter?,
-    onFilterChange: (YouTube.SearchFilter?) -> Unit,
+    filter: SearchFilterOption?,
+    onFilterChange: (SearchFilterOption?) -> Unit,
     onLoadMore: () -> Unit,
 ) {
     val scrollable = rememberLazyListState()

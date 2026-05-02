@@ -4,38 +4,39 @@ import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.coroutines.mapToOneOrNull
 import com.example.melodist.db.MelodistDatabase
-import com.example.melodist.db.SavedArtist
+import com.example.melodist.domain.artist.ArtistRepository
 import com.metrolist.innertube.models.ArtistItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 
-class ArtistRepository(private val database: MelodistDatabase) {
-    fun getSavedArtists(): Flow<List<SavedArtist>> {
+class ArtistRepositoryImpl(private val database: MelodistDatabase) : ArtistRepository {
+    override fun getSavedArtists(): Flow<List<ArtistItem>> {
         return database.savedArtistQueries.selectAll()
             .asFlow()
             .mapToList(Dispatchers.IO)
+            .map { list -> list.map { savedArtistToArtistItem(it) } }
     }
 
-    fun isArtistSaved(id: String): Flow<Boolean> {
+    override fun isArtistSaved(id: String): Flow<Boolean> {
         return database.savedArtistQueries.exists(id)
             .asFlow()
             .mapToOneOrNull(Dispatchers.IO)
             .map { it ?: false }
     }
 
-    suspend fun saveArtist(artist: ArtistItem, subscriberCount: String? = null) = withContext(Dispatchers.IO) {
+    override suspend fun saveArtist(artist: ArtistItem) = withContext(Dispatchers.IO) {
         database.savedArtistQueries.insert(
             id = artist.id,
             title = artist.title,
             thumbnail = artist.thumbnail,
-            subscriberCount = subscriberCount,
+            subscriberCount = null, // Or get it from artist if available
             savedAt = System.currentTimeMillis()
         )
     }
 
-    suspend fun removeArtist(id: String) = withContext(Dispatchers.IO) {
+    override suspend fun removeArtist(id: String) = withContext(Dispatchers.IO) {
         database.savedArtistQueries.delete(id)
     }
 }

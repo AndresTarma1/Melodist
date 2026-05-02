@@ -2,20 +2,26 @@ package com.example.melodist.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.melodist.data.repository.SearchRepository
-import com.example.melodist.db.entities.SearchHistoryEntry
-import com.metrolist.innertube.YouTube
+import com.example.melodist.domain.search.AddSearchQueryUseCase
+import com.example.melodist.domain.search.ClearSearchHistoryUseCase
+import com.example.melodist.domain.search.DeleteSearchQueryUseCase
+import com.example.melodist.domain.search.LoadSearchSuggestionsUseCase
+import com.example.melodist.domain.search.ObserveSearchHistoryUseCase
+import com.example.melodist.domain.search.SearchContinuationUseCase
+import com.example.melodist.domain.search.SearchFilterOption
+import com.example.melodist.domain.search.SearchResultOutcome
+import com.example.melodist.domain.search.SearchUseCase
 import com.metrolist.innertube.models.YTItem
 import com.metrolist.innertube.pages.SearchSummaryPage
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.logging.Logger
+import kotlin.time.Duration.Companion.milliseconds
 
 sealed class SearchState {
     data class Success(val items: List<YTItem>, val continuation: String? = null, val isLoadingMore: Boolean = false) : SearchState()
@@ -26,7 +32,13 @@ sealed class SearchState {
 }
 
 class SearchViewModel(
-    private val searchRepository: SearchRepository
+    observeSearchHistory: ObserveSearchHistoryUseCase,
+    private val addSearchQuery: AddSearchQueryUseCase,
+    private val deleteSearchQuery: DeleteSearchQueryUseCase,
+    private val clearSearchHistory: ClearSearchHistoryUseCase,
+    private val loadSearchSuggestions: LoadSearchSuggestionsUseCase,
+    private val searchUseCase: SearchUseCase,
+    private val searchContinuationUseCase: SearchContinuationUseCase,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<SearchState>(SearchState.Idle)
@@ -41,7 +53,7 @@ class SearchViewModel(
     /**
      * Search history as a reactive StateFlow.
      */
-    val searchHistory: StateFlow<List<SearchHistoryEntry>> = searchRepository.getSearchHistory()
+    val searchHistory = observeSearchHistory()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     private var suggestionsJob: Job? = null
@@ -49,18 +61,14 @@ class SearchViewModel(
         suggestionsJob?.cancel()
 
         suggestionsJob = viewModelScope.launch {
-            delay(300)
-            YouTube.searchSuggestions(query)
-                .onSuccess {
-                    _suggestions.value = it.queries
-                }
-                .onFailure {
-                    _suggestions.value = emptyList()
-                }
+            delay(300.milliseconds)
+            loadSearchSuggestions(query)
+                .onSuccess { _suggestions.value = it }
+                .onFailure { _suggestions.value = emptyList() }
         }
     }
 
-    private val _filter = MutableStateFlow<YouTube.SearchFilter?>(null)
+    private val _filter = MutableStateFlow<SearchFilterOption?>(null)
     val filter = _filter.asStateFlow()
 
     fun onQueryChange(newQuery: String) {
@@ -72,7 +80,7 @@ class SearchViewModel(
         }
     }
 
-    fun onFilterChange(newFilter: YouTube.SearchFilter?) {
+    fun onFilterChange(newFilter: SearchFilterOption?) {
         _filter.value = newFilter
         search()
     }
@@ -86,31 +94,22 @@ class SearchViewModel(
             return
         }
 
-        // Save the query to search history
         viewModelScope.launch {
-            searchRepository.addSearchQuery(_searchQuery.value)
+            addSearchQuery(_searchQuery.value)
         }
 
         searchJob = viewModelScope.launch {
             _uiState.value = SearchState.Loading
-            if (_filter.value === null) {
-                YouTube.searchSummary(_searchQuery.value)
-                    .onSuccess {
-                        _uiState.value = SearchState.SummarySuccess(it)
+            searchUseCase(_searchQuery.value, _filter.value)
+                .onSuccess { result ->
+                    when (result) {
+                        is SearchResultOutcome.Summary -> _uiState.value = SearchState.SummarySuccess(result.page)
+                        is SearchResultOutcome.Items -> _uiState.value = SearchState.Success(result.page.items, result.page.continuation)
                     }
-                    .onFailure {
-                        _uiState.value = SearchState.Error(it.message ?: "Unknown error")
-                    }
-            } else {
-                YouTube.search(
-                    query = _searchQuery.value,
-                    filter = _filter.value!!
-                ).onSuccess { listItems ->
-                    _uiState.value = SearchState.Success(listItems.items, listItems.continuation)
-                }.onFailure {
+                }
+                .onFailure {
                     _uiState.value = SearchState.Error(it.message ?: "Unknown error")
                 }
-            }
         }
     }
 
@@ -124,7 +123,7 @@ class SearchViewModel(
         viewModelScope.launch {
             _uiState.value = current.copy(isLoadingMore = true)
 
-            YouTube.searchContinuation(current.continuation)
+            searchContinuationUseCase(current.continuation)
                 .onSuccess { response ->
                     _uiState.value = current.copy(
                         items = (current.items + response.items).distinctBy { it.id },
@@ -134,6 +133,7 @@ class SearchViewModel(
                 }
                 .onFailure {
                     Logger.getGlobal().warning("Failed to load continuation: ${it.message}")
+                    _uiState.value = current.copy(isLoadingMore = false)
                 }
         }
     }
@@ -143,7 +143,7 @@ class SearchViewModel(
      */
     fun deleteHistoryEntry(query: String) {
         viewModelScope.launch {
-            searchRepository.deleteSearchQuery(query)
+            deleteSearchQuery(query)
         }
     }
 
@@ -152,7 +152,7 @@ class SearchViewModel(
      */
     fun clearHistory() {
         viewModelScope.launch {
-            searchRepository.clearSearchHistory()
+            clearSearchHistory()
         }
     }
 }

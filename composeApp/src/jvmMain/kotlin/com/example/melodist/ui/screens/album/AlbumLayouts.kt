@@ -117,6 +117,8 @@ internal fun AlbumScreenLayout(
                 onSongClick = { index ->
                     playerViewModel.playAlbum(state.songs, index, albumPage.album.browseId, albumPage.album.title)
                 },
+                onLike = actions.onLike,
+                onDislike = actions.onDislike
             )
         }
         }
@@ -347,6 +349,8 @@ internal fun AlbumSongsList(
     hasMore: Boolean,
     onLoadMore: () -> Unit,
     onSongClick: (index: Int) -> Unit,
+    onLike: ((String) -> Unit)? = null,
+    onDislike: ((String) -> Unit)? = null
 ) {
     val scrollState = rememberLazyListState()
 
@@ -360,6 +364,8 @@ internal fun AlbumSongsList(
                     albumIndex = index + 1,
                     song = song,
                     onPlay = { onSongClick(index)},
+                    onLike = onLike,
+                    onDislike = onDislike,
                     modifier = Modifier.animateItem(
                         placementSpec = spring(
                             dampingRatio = Spring.DampingRatioMediumBouncy,

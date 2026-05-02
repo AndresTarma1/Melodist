@@ -4,7 +4,7 @@ import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.coroutines.mapToOneOrNull
 import com.example.melodist.db.MelodistDatabase
-import com.example.melodist.db.SavedAlbum
+import com.example.melodist.domain.album.AlbumRepository
 import com.metrolist.innertube.models.AlbumItem
 import com.metrolist.innertube.models.Artist
 import com.metrolist.innertube.models.SongItem
@@ -14,25 +14,26 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 
-class AlbumRepository(private val database: MelodistDatabase) {
-    fun getSavedAlbums(): Flow<List<SavedAlbum>> {
+class AlbumRepositoryImpl(private val database: MelodistDatabase) : AlbumRepository {
+    override fun getSavedAlbums(): Flow<List<AlbumItem>> {
         return database.savedAlbumQueries.selectAll()
             .asFlow()
             .mapToList(Dispatchers.IO)
+            .map { list -> list.map { savedAlbumToAlbumItem(it) } }
     }
 
-    fun isAlbumSaved(browseId: String): Flow<Boolean> {
-        return database.savedAlbumQueries.exists(browseId)
+    override fun isAlbumSaved(id: String): Flow<Boolean> {
+        return database.savedAlbumQueries.exists(id)
             .asFlow()
             .mapToOneOrNull(Dispatchers.IO)
             .map { it ?: false }
     }
 
-    suspend fun isAlbumSavedOnce(browseId: String): Boolean = withContext(Dispatchers.IO) {
+    override suspend fun isAlbumSavedOnce(browseId: String): Boolean = withContext(Dispatchers.IO) {
         database.savedAlbumQueries.exists(browseId).executeAsOneOrNull() ?: false
     }
 
-    suspend fun saveAlbum(album: AlbumItem) = withContext(Dispatchers.IO) {
+    override suspend fun saveAlbum(album: AlbumItem) = withContext(Dispatchers.IO) {
         database.savedAlbumQueries.insert(
             browseId = album.browseId,
             playlistId = album.playlistId,
@@ -45,7 +46,7 @@ class AlbumRepository(private val database: MelodistDatabase) {
         )
     }
 
-    suspend fun saveAlbumWithSongs(album: AlbumItem, songs: List<SongItem>) = withContext(Dispatchers.IO) {
+    override suspend fun saveAlbumWithSongs(album: AlbumItem, songs: List<SongItem>) = withContext(Dispatchers.IO) {
         database.transaction {
             database.savedAlbumQueries.insert(
                 browseId = album.browseId,
@@ -125,7 +126,7 @@ class AlbumRepository(private val database: MelodistDatabase) {
         }
     }
 
-    suspend fun getCachedAlbumSongs(browseId: String): List<SongItem>? = withContext(Dispatchers.IO) {
+    override suspend fun getCachedAlbumSongs(browseId: String): List<SongItem>? = withContext(Dispatchers.IO) {
         val isSaved = database.savedAlbumQueries.exists(browseId).executeAsOne()
         if (!isSaved) return@withContext null
 
@@ -142,14 +143,14 @@ class AlbumRepository(private val database: MelodistDatabase) {
         songs.map { song -> dbSongToSongItem(song, artistsBySong[song.id] ?: emptyList()) }
     }
 
-    fun getCachedAlbumItem(browseId: String): AlbumItem? {
+    override suspend fun getCachedAlbumItem(browseId: String): AlbumItem? {
         val saved = database.savedAlbumQueries.selectById(browseId).executeAsOneOrNull()
             ?: return null
         return savedAlbumToAlbumItem(saved)
     }
 
-    suspend fun removeAlbum(browseId: String) = withContext(Dispatchers.IO) {
-        database.savedAlbumQueries.delete(browseId)
-        database.songAlbumMapQueries.deleteSongAlbumMapsByAlbum(browseId)
+    override suspend fun removeAlbum(id: String) = withContext(Dispatchers.IO) {
+        database.savedAlbumQueries.delete(id)
+        database.songAlbumMapQueries.deleteSongAlbumMapsByAlbum(id)
     }
 }

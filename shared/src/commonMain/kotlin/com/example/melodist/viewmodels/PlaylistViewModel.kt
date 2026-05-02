@@ -2,10 +2,16 @@ package com.example.melodist.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.melodist.data.remote.ApiService
-import com.example.melodist.data.repository.PlaylistRepository
-import com.example.melodist.data.repository.SongRepository
-import com.metrolist.innertube.YouTube
+import com.example.melodist.domain.playlist.GetCachedPlaylistUseCase
+import com.example.melodist.domain.playlist.IsPlaylistSavedUseCase
+import com.example.melodist.domain.playlist.LoadPlaylistContinuationUseCase
+import com.example.melodist.domain.playlist.LoadPlaylistUseCase
+import com.example.melodist.domain.playlist.RemovePlaylistUseCase
+import com.example.melodist.domain.playlist.RemoveSongFromPlaylistUseCase
+import com.example.melodist.domain.playlist.SavePlaylistUseCase
+import com.example.melodist.domain.song.GetDownloadedSongsUseCase
+import com.example.melodist.domain.song.LikeSongUseCase
+import com.example.melodist.domain.song.DislikeSongUseCase
 import com.metrolist.innertube.models.SongItem
 import com.metrolist.innertube.models.PlaylistItem
 import com.metrolist.innertube.pages.PlaylistPage
@@ -35,9 +41,16 @@ sealed class PlaylistState {
 }
 
 class PlaylistViewModel(
-    private val apiService: ApiService,
-    private val repository: PlaylistRepository,
-    private val songRepository: SongRepository
+    private val loadPlaylistUseCase: LoadPlaylistUseCase,
+    private val loadPlaylistContinuationUseCase: LoadPlaylistContinuationUseCase,
+    private val getCachedPlaylistUseCase: GetCachedPlaylistUseCase,
+    private val isPlaylistSavedUseCase: IsPlaylistSavedUseCase,
+    private val savePlaylistUseCase: SavePlaylistUseCase,
+    private val removePlaylistUseCase: RemovePlaylistUseCase,
+    private val removeSongFromPlaylistUseCase: RemoveSongFromPlaylistUseCase,
+    private val getDownloadedSongsUseCase: GetDownloadedSongsUseCase,
+    private val likeSongUseCase: LikeSongUseCase,
+    private val dislikeSongUseCase: DislikeSongUseCase
 ) : ViewModel() {
 
     private val log = Logger.getLogger("PlaylistViewModel")
@@ -71,105 +84,128 @@ class PlaylistViewModel(
         }
     }
 
+    private fun resetLoadState() {
+        _uiState.value = PlaylistState.Loading
+        _songs.value = emptyList()
+        _continuation.value = null
+        _isLoadingMore.value = false
+    }
+
+    private fun buildSuccessState(
+        playlistPage: PlaylistPage,
+        isFromCache: Boolean,
+        isSaved: Boolean,
+    ): PlaylistState.Success {
+        return PlaylistState.Success(
+            playlistPage = playlistPage,
+            isFromCache = isFromCache,
+            isSaved = isSaved,
+        )
+    }
+
+    private suspend fun loadDownloadsPlaylist(playlistId: String): Boolean {
+        if (playlistId != "LOCAL_DOWNLOADS") return false
+
+        val downloadedSongs = getDownloadedSongsUseCase()
+        _songs.value = downloadedSongs
+        _continuation.value = null
+        _uiState.value = buildSuccessState(
+            playlistPage = PlaylistPage(
+                playlist = PlaylistItem(
+                    id = playlistId,
+                    title = "Descargas",
+                    author = null,
+                    songCountText = "${downloadedSongs.size} canciones",
+                    thumbnail = downloadedSongs.firstOrNull()?.thumbnail,
+                    playEndpoint = null,
+                    shuffleEndpoint = null,
+                    radioEndpoint = null
+                ),
+                songs = downloadedSongs,
+                songsContinuation = null,
+                continuation = null
+            ),
+            isFromCache = true,
+            isSaved = true,
+        )
+        return true
+    }
+
+    private suspend fun loadLocalPlaylist(playlistId: String): Boolean {
+        if (!playlistId.startsWith("LOCAL_")) return false
+
+        val localPlaylist = getCachedPlaylistUseCase.getItem(playlistId)
+        val localSongs = getCachedPlaylistUseCase.getSongs(playlistId) ?: emptyList()
+
+        if (localPlaylist == null) return false
+
+        _songs.value = localSongs
+        _continuation.value = null
+        _uiState.value = buildSuccessState(
+            playlistPage = PlaylistPage(
+                playlist = localPlaylist,
+                songs = localSongs,
+                songsContinuation = null,
+                continuation = null
+            ),
+            isFromCache = true,
+            isSaved = true,
+        )
+        return true
+    }
+
+    private suspend fun loadCachedPlaylist(playlistId: String): Boolean {
+        val cachedSongs = getCachedPlaylistUseCase.getSongs(playlistId)
+        val cachedPlaylist = getCachedPlaylistUseCase.getItem(playlistId)
+
+        if (cachedSongs == null || cachedPlaylist == null) return false
+
+        log.info("Cargando playlist desde caché local: $playlistId (${cachedSongs.size} canciones)")
+        _songs.value = cachedSongs
+        _continuation.value = null
+        _uiState.value = buildSuccessState(
+            playlistPage = PlaylistPage(
+                playlist = cachedPlaylist,
+                songs = cachedSongs,
+                songsContinuation = null,
+                continuation = null
+            ),
+            isFromCache = true,
+            isSaved = isPlaylistSavedUseCase.once(playlistId),
+        )
+        return true
+    }
+
+    private suspend fun loadRemotePlaylist(playlistId: String) {
+        log.info("Playlist no cacheada, cargando desde YouTube: $playlistId")
+        loadPlaylistUseCase(playlistId)
+            .onSuccess { page ->
+                _songs.value = page.songs
+                _continuation.value = page.songsContinuation?.takeIf { it.isNotBlank() }
+                _uiState.value = buildSuccessState(
+                    playlistPage = page,
+                    isFromCache = false,
+                    isSaved = isPlaylistSavedUseCase.once(playlistId),
+                )
+            }
+            .onFailure {
+                _uiState.value = PlaylistState.Error(it.message ?: "Error desconocido")
+            }
+    }
+
     fun loadPlaylist(playlistId: String) {
         if (_currentPlaylistId.value == playlistId && playlistId != "LOCAL_DOWNLOADS") return
         _currentPlaylistId.value = playlistId
 
         viewModelScope.launch {
-            _uiState.value = PlaylistState.Loading
-            _songs.value = emptyList()
-            _continuation.value = null
+            resetLoadState()
 
-            // Special case: local downloads playlist
-            if (playlistId == "LOCAL_DOWNLOADS") {
-                val downloadedSongs = songRepository.getDownloadedSongs()
-                _songs.value = downloadedSongs
-                _continuation.value = null
-                _uiState.value = PlaylistState.Success(
-                    playlistPage = PlaylistPage(
-                        playlist = PlaylistItem(
-                            id = playlistId,
-                            title = "Descargas",
-                            author = null,
-                            songCountText = "${downloadedSongs.size} canciones",
-                            thumbnail = downloadedSongs.firstOrNull()?.thumbnail,
-                            playEndpoint = null,
-                            shuffleEndpoint = null,
-                            radioEndpoint = null
-                        ),
-                        songs = downloadedSongs,
-                        songsContinuation = null,
-                        continuation = null
-                    ),
-                    isFromCache = true,
-                    isSaved = true,
-                )
-                return@launch
+            when {
+                loadDownloadsPlaylist(playlistId) -> Unit
+                loadLocalPlaylist(playlistId) -> Unit
+                loadCachedPlaylist(playlistId) -> Unit
+                else -> loadRemotePlaylist(playlistId)
             }
-
-            // Special case: local playlists created in the app
-            if (playlistId.startsWith("LOCAL_")) {
-                val localPlaylist = repository.getCachedPlaylistItem(playlistId)
-                val localSongs = repository.getCachedPlaylistSongs(playlistId) ?: emptyList()
-
-                if (localPlaylist != null) {
-                    _songs.value = localSongs
-                    _continuation.value = null
-                    _uiState.value = PlaylistState.Success(
-                        playlistPage = PlaylistPage(
-                            playlist = localPlaylist,
-                            songs = localSongs,
-                            songsContinuation = null,
-                            continuation = null
-                        ),
-                        isFromCache = true,
-                        isSaved = true,
-                    )
-                    return@launch
-                }
-            }
-
-            // 1. Intentar cargar desde caché local
-            val cachedSongs = repository.getCachedPlaylistSongs(playlistId)
-            val cachedPlaylist = repository.getCachedPlaylistItem(playlistId)
-
-            if (cachedSongs != null && cachedPlaylist != null) {
-                log.info("Cargando playlist desde caché local: $playlistId (${cachedSongs.size} canciones)")
-                _songs.value = cachedSongs
-                _continuation.value = null
-                val saved = repository.isPlaylistSavedOnce(playlistId)
-                _uiState.value = PlaylistState.Success(
-                    playlistPage = PlaylistPage(
-                        playlist = cachedPlaylist,
-                        songs = cachedSongs,
-                        songsContinuation = null,
-                        continuation = null
-                    ),
-                    isFromCache = true,
-                    isSaved = saved,
-                )
-                return@launch
-            }
-
-            // 2. No está en caché → buscar en YouTube
-            log.info("Playlist no cacheada, cargando desde YouTube: $playlistId")
-            YouTube.playlist(playlistId)
-                .onSuccess { page ->
-                    if(page.songs.isNotEmpty()){
-
-                    _songs.value = page.songs
-                    _continuation.value = if (page.songsContinuation != null) page.songsContinuation else null
-                    val saved = repository.isPlaylistSavedOnce(playlistId)
-                    _uiState.value = PlaylistState.Success(
-                        playlistPage = page,
-                        isFromCache = false,
-                        isSaved = saved,
-                    )
-                    }
-                }
-                .onFailure {
-                    _uiState.value = PlaylistState.Error(it.message ?: "Error desconocido")
-                }
         }
     }
 
@@ -183,7 +219,7 @@ class PlaylistViewModel(
 
             repeat(3) { attempt ->
                 if (success) return@repeat
-                YouTube.playlistContinuation(token)
+                loadPlaylistContinuationUseCase(token)
                 .onSuccess { page ->
                         if (page.songs.isNotEmpty()) {
                             _songs.value += page.songs
@@ -210,7 +246,7 @@ class PlaylistViewModel(
             repeat(3) { attempt ->
                 if (fetched) return@repeat
 
-                YouTube.playlistContinuation(token!!)
+                loadPlaylistContinuationUseCase(token!!)
                     .onSuccess { page ->
                         if (page.songs.isNotEmpty()) {
                             accumulatedSongs.addAll(page.songs)
@@ -260,7 +296,7 @@ class PlaylistViewModel(
 
         viewModelScope.launch {
             if (state.isSaved) {
-                repository.removePlaylist(playlistId)
+                removePlaylistUseCase(playlistId)
                 updateSuccess { copy(isSaved = false) }
                 log.info("Playlist eliminada de guardados: $playlistId")
             } else {
@@ -273,7 +309,7 @@ class PlaylistViewModel(
                         _songs.value
                     }
 
-                    repository.savePlaylistWithSongs(
+                    savePlaylistUseCase(
                         playlist = state.playlistPage.playlist,
                         songs = allSongs
                     )
@@ -285,6 +321,7 @@ class PlaylistViewModel(
             }
         }
     }
+
 
     fun downloadPlaylist(onDownloadExecute: (List<SongItem>) -> Unit ) {
         viewModelScope.launch(Dispatchers.IO) {
@@ -299,7 +336,7 @@ class PlaylistViewModel(
         if (!playlistId.startsWith("LOCAL_")) return
 
         viewModelScope.launch {
-            repository.removeSongFromPlaylist(playlistId, songId)
+            removeSongFromPlaylistUseCase(playlistId, songId)
             val updatedSongs = _songs.value.filterNot { it.id == songId }
             _songs.value = updatedSongs
             val updatedPlaylist = state.playlistPage.playlist.copy(
@@ -313,6 +350,22 @@ class PlaylistViewModel(
                     ),
                 )
             }
+        }
+    }
+
+    fun likeSong(songId: String) {
+        viewModelScope.launch {
+            likeSongUseCase(songId)
+                .onSuccess { log.info("Song liked: $songId") }
+                .onFailure { log.warning("Failed to like song: ${it.message}") }
+        }
+    }
+
+    fun dislikeSong(songId: String) {
+        viewModelScope.launch {
+            dislikeSongUseCase(songId)
+                .onSuccess { log.info("Song disliked: $songId") }
+                .onFailure { log.warning("Failed to dislike song: ${it.message}") }
         }
     }
 }

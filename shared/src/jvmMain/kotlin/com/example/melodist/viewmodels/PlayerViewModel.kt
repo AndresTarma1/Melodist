@@ -2,7 +2,6 @@ package com.example.melodist.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.melodist.data.remote.ApiService
 import com.example.melodist.data.repository.UserPreferencesRepository
 import com.example.melodist.models.MediaMetadata
 import com.example.melodist.models.toMediaMetadata
@@ -10,15 +9,19 @@ import com.example.melodist.player.AgeRestrictedException
 import com.example.melodist.player.AudioStreamResolver
 import com.example.melodist.player.DownloadService
 import com.example.melodist.player.PlaybackState
-import com.example.melodist.player.PlayerService
+import com.example.melodist.domain.player.MusicPlayer
+import com.example.melodist.domain.player.GetRelatedSongsUseCase
+import com.example.melodist.domain.album.LoadAlbumUseCase
+import com.example.melodist.domain.playlist.LoadPlaylistUseCase
 import com.example.melodist.player.WindowsMediaSession
+import com.example.melodist.domain.player.UpdatePlaybackMetadataUseCase
 import com.example.melodist.utils.withMissingMetadataResolved
-import com.metrolist.innertube.YouTube
 import com.metrolist.innertube.models.SongItem
-import com.metrolist.innertube.models.WatchEndpoint
+import java.io.File
 import java.net.HttpURLConnection
 import java.net.URI
 import java.util.logging.Logger
+import java.util.UUID
 import kotlin.jvm.JvmName
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -34,10 +37,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class PlayerViewModel(
-    private val playerService: PlayerService,
+    private val playerService: MusicPlayer,
     private val streamResolver: AudioStreamResolver,
     private val mediaSession: WindowsMediaSession,
-    private val apiService: ApiService,
+    private val loadAlbumUseCase: LoadAlbumUseCase,
+    private val updatePlaybackMetadataUseCase: UpdatePlaybackMetadataUseCase,
+    private val loadPlaylistUseCase: LoadPlaylistUseCase,
+    private val getRelatedSongsUseCase: GetRelatedSongsUseCase,
     userPreferences: UserPreferencesRepository
 ) : ViewModel() {
 
@@ -98,46 +104,19 @@ class PlayerViewModel(
                 .distinctUntilChanged()
                 .collectLatest { song ->
                     if (song != null) {
-                        val thumbUri = withContext(Dispatchers.IO) {
-                            downloadThumbToTemp(song.thumbnailUrl)
+                        try {
+                            updatePlaybackMetadataUseCase(song)
+                        } catch (e: Exception) {
+                            log.warning("Failed to update playback metadata: ${e.message}")
                         }
-
-                        mediaSession.updateMetadata(
-                            title = song.title,
-                            artist = song.artists.joinToString(", ") { it.name },
-                            album = song.album?.title ?: "",
-                            thumbnailUrl = thumbUri
-                        )
                     } else {
-                        mediaSession.resetToIdle()
+                        try {
+                            updatePlaybackMetadataUseCase.reset()
+                        } catch (e: Exception) {
+                            log.warning("Failed to reset playback metadata: ${e.message}")
+                        }
                     }
                 }
-        }
-    }
-
-    suspend fun downloadThumbToTemp(url: String?): String? = withContext(Dispatchers.IO)  {
-        if (url.isNullOrBlank()) return@withContext null
-        return@withContext try {
-            val tmpFile = java.io.File(System.getProperty("java.io.tmpdir"), "melodist_smtc_thumb.jpg")
-
-            // Si el archivo ya existe, reutilízalo (puedes agregar lógica para comparar URLs si es necesario)
-            if (tmpFile.exists()) {
-                return@withContext "file:///${tmpFile.absolutePath.replace('\\', '/')}"
-            }
-
-            val conn = URI(url).toURL().openConnection() as HttpURLConnection
-            conn.connectTimeout = 5_000
-            conn.readTimeout = 10_000
-            conn.setRequestProperty("User-Agent", "Mozilla/5.0")
-            conn.connect()
-            val bytes = conn.inputStream.use { it.readBytes() }
-            conn.disconnect()
-
-            tmpFile.writeBytes(bytes)
-            "file:///${tmpFile.absolutePath.replace('\\', '/')}"
-        } catch (e: Exception) {
-            log.fine("SMTC thumb download failed: ${e.message}")
-            url
         }
     }
 
@@ -168,11 +147,15 @@ class PlayerViewModel(
         onEmpty: (() -> Unit)? = null
     ) {
         viewModelScope.launch {
-            val songs = apiService.getAlbum(browseId).getOrNull()?.songs.orEmpty()
-            if (songs.isNotEmpty()) {
-                playAlbum(songs, startIndex, browseId, title)
-                if (shuffle) toggleShuffle()
-            } else {
+            loadAlbumUseCase(browseId).onSuccess { page ->
+                val songs = page.songs
+                if (songs.isNotEmpty()) {
+                    playAlbum(songs, startIndex, browseId, title)
+                    if (shuffle) toggleShuffle()
+                } else {
+                    onEmpty?.invoke()
+                }
+            }.onFailure {
                 onEmpty?.invoke()
             }
         }
@@ -186,11 +169,15 @@ class PlayerViewModel(
         onEmpty: (() -> Unit)? = null
     ) {
         viewModelScope.launch {
-            val songs = apiService.getPlaylist(playlistId).getOrNull()?.songs.orEmpty()
-            if (songs.isNotEmpty()) {
-                playPlaylist(songs, startIndex, playlistId, title)
-                if (shuffle) toggleShuffle()
-            } else {
+            loadPlaylistUseCase(playlistId).onSuccess { page ->
+                val songs = page.songs
+                if (songs.isNotEmpty()) {
+                    playPlaylist(songs, startIndex, playlistId, title)
+                    if (shuffle) toggleShuffle()
+                } else {
+                    onEmpty?.invoke()
+                }
+            }.onFailure {
                 onEmpty?.invoke()
             }
         }
@@ -469,28 +456,13 @@ class PlayerViewModel(
     }
 
     private fun fetchRelatedQueue(song: MediaMetadata, sessionSeed: QueueSession) {
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val endpoint = WatchEndpoint(videoId = song.id)
-                val result = YouTube.next(endpoint).getOrNull() ?: return@launch
+        viewModelScope.launch {
+            getRelatedSongsUseCase(song.id).onSuccess { related ->
                 val originalSongId = song.id
-
                 _uiState.update { state ->
                     if (state.currentSong?.id != originalSongId || sessionSeed.source !is QueueSource.Single) return@update state
 
-                    val suggestedCurrent = result.items.find { it.id == originalSongId }?.toMediaMetadata()
-                    val related = result.items
-                        .filter { it.id != originalSongId }
-                        .map { it.toMediaMetadata() }
-                    val items = listOfNotNull(
-                        state.currentSong?.let {
-                            if (it.duration <= 0 && suggestedCurrent != null && suggestedCurrent.duration > 0) {
-                                it.copy(duration = suggestedCurrent.duration)
-                            } else {
-                                it
-                            }
-                        }
-                    ) + related
+                    val items = listOfNotNull(state.currentSong) + related
                     val order = items.indices.toList()
 
                     state.copy(
@@ -507,7 +479,6 @@ class PlayerViewModel(
                         )
                     )
                 }
-            } catch (_: Exception) {
             }
         }
     }

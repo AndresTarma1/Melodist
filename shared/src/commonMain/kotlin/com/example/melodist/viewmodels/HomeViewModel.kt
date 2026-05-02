@@ -2,9 +2,8 @@ package com.example.melodist.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.metrolist.innertube.YouTube
+import com.example.melodist.domain.home.LoadHomeUseCase
 import com.metrolist.innertube.pages.HomePage
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -30,14 +29,12 @@ sealed class HomeUiEvent {
 }
 
 class HomeViewModel(
+    private val loadHomeUseCase: LoadHomeUseCase,
     loginState: StateFlow<Boolean>? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<HomeState>(HomeState.Loading)
     val uiState: StateFlow<HomeState> = _uiState.asStateFlow()
-
-    // Para disparar efectos de una sola vez hacia la UI (snackbars, navegar, etc.)
-    val events = MutableSharedFlow<String>(extraBufferCapacity = 1)
 
     init {
         loadHome()
@@ -78,7 +75,7 @@ class HomeViewModel(
 
     private fun fetchHome(params: String?) {
         viewModelScope.launch {
-            YouTube.home(params = params)
+            loadHomeUseCase(params = params)
                 .onSuccess { page ->
                     _uiState.value = HomeState.Success(page = page, selectedParams = params)
                 }
@@ -98,7 +95,7 @@ class HomeViewModel(
         _uiState.value = current.copy(isLoadingMore = true)
 
         viewModelScope.launch {
-            YouTube.home(continuation = continuation)
+            loadHomeUseCase(continuation = continuation)
                 .onSuccess { newPage ->
                     _uiState.value = current.copy(
                         page = newPage.copy(

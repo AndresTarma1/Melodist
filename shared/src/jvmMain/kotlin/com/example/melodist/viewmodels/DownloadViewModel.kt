@@ -5,7 +5,7 @@ import androidx.lifecycle.ViewModel
 
 import androidx.lifecycle.viewModelScope
 
-import com.example.melodist.data.repository.SongRepository
+import com.example.melodist.domain.song.GetDownloadedSongsUseCase
 import com.example.melodist.db.DatabaseDao
 
 import com.example.melodist.player.DownloadService
@@ -49,7 +49,7 @@ class DownloadViewModel(
 
     private val databaseDao: DatabaseDao,
 
-    private val songRepository: SongRepository
+    private val getDownloadedSongsUseCase: GetDownloadedSongsUseCase
 
 ) : ViewModel() {
 
@@ -82,7 +82,7 @@ class DownloadViewModel(
     init {
 
         viewModelScope.launch {
-            _downloadedSongs.value = songRepository.getDownloadedSongs()
+            _downloadedSongs.value = getDownloadedSongsUseCase()
             refreshDerivedDownloadedCollections()
             _isLoading.value = false
         }
@@ -281,4 +281,3 @@ class DownloadViewModel(
         }.distinctUntilChanged()
 
 }
-

@@ -70,14 +70,29 @@ class WindowsMediaSession {
     }
 
     fun updateMetadata(title: String, artist: String, album: String, thumbnailUrl: String? = null) {
-        session?.setMetadata(
+        val mediaSession = session ?: return
+        val normalizedTitle = title.ifBlank { "Melodist" }
+        val normalizedArtist = artist.ifBlank { "Artista desconocido" }
+
+        mediaSession.setMetadata(
             MediaSessionMetadata(
-                title = title.ifBlank { "Melodist" },
-                artist = artist.ifBlank { "Artista desconocido" },
+                title = normalizedTitle,
+                artist = normalizedArtist,
                 album = album,
-                art_url = thumbnailUrl
+                art_url = null
             )
         )
+
+        if (thumbnailUrl != null) {
+            mediaSession.setMetadata(
+                MediaSessionMetadata(
+                    title = normalizedTitle,
+                    artist = normalizedArtist,
+                    album = album,
+                    art_url = thumbnailUrl
+                )
+            )
+        }
     }
 
     fun setPlaybackStatus(isPlaying: Boolean, isPaused: Boolean) {

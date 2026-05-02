@@ -133,6 +133,8 @@ internal fun PlaylistLayout(
                                 playlistPage.playlist.title
                             )
                         },
+                        onLike = actions.onLike,
+                        onDislike = actions.onDislike,
                         isLocalPlaylist = actions.isLocalPlaylist,
                         onRemoveFromPlaylist = actions.onRemoveSongFromPlaylist,
                         modifier = Modifier.animateItem(

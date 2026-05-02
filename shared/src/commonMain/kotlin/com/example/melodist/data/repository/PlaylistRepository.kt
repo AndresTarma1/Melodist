@@ -5,7 +5,7 @@ import com.example.melodist.db.Playlist
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.coroutines.mapToOneOrNull
-import com.example.melodist.db.SavedPlaylist
+import com.example.melodist.domain.playlist.PlaylistRepository
 import com.metrolist.innertube.models.Artist
 import com.metrolist.innertube.models.PlaylistItem
 import com.metrolist.innertube.models.SongItem
@@ -14,9 +14,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 
-class PlaylistRepository(
-    val database: MelodistDatabase
-) {
+class PlaylistRepositoryImpl(
+    private val database: MelodistDatabase
+) : PlaylistRepository {
 
     suspend fun createPlaylist(playlist: Playlist) {
         database.transaction {
@@ -39,24 +39,25 @@ class PlaylistRepository(
         }
     }
 
-    fun getSavedPlaylists(): Flow<List<SavedPlaylist>> {
+    override fun getSavedPlaylists(): Flow<List<PlaylistItem>> {
         return database.savedPlaylistQueries.selectAll()
             .asFlow()
             .mapToList(Dispatchers.IO)
+            .map { list -> list.map { savedPlaylistToPlaylistItem(it) } }
     }
 
-    fun isPlaylistSaved(id: String): Flow<Boolean> {
+    override fun isPlaylistSaved(id: String): Flow<Boolean> {
         return database.savedPlaylistQueries.exists(id)
             .asFlow()
             .mapToOneOrNull(Dispatchers.IO)
             .map { it ?: false }
     }
 
-    suspend fun isPlaylistSavedOnce(id: String): Boolean = withContext(Dispatchers.IO) {
+    override suspend fun isPlaylistSavedOnce(id: String): Boolean = withContext(Dispatchers.IO) {
         database.savedPlaylistQueries.exists(id).executeAsOneOrNull() ?: false
     }
 
-    suspend fun savePlaylist(playlist: PlaylistItem) = withContext(Dispatchers.IO) {
+    override suspend fun savePlaylist(playlist: PlaylistItem) = withContext(Dispatchers.IO) {
         database.savedPlaylistQueries.insert(
             id = playlist.id,
             title = playlist.title,
@@ -68,12 +69,12 @@ class PlaylistRepository(
         )
     }
 
-    suspend fun removePlaylist(id: String) = withContext(Dispatchers.IO) {
+    override suspend fun removePlaylist(id: String) = withContext(Dispatchers.IO) {
         database.savedPlaylistQueries.delete(id)
         database.playlistSongMapQueries.deletePlaylistSongMapsByPlaylist(id)
     }
 
-    suspend fun savePlaylistWithSongs(playlist: PlaylistItem, songs: List<SongItem>) = withContext(Dispatchers.IO) {
+    override suspend fun savePlaylistWithSongs(playlist: PlaylistItem, songs: List<SongItem>) = withContext(Dispatchers.IO) {
         database.transaction {
             database.savedPlaylistQueries.insert(
                 id = playlist.id,
@@ -145,7 +146,7 @@ class PlaylistRepository(
         }
     }
 
-    suspend fun addSongToPlaylist(playlistId: String, song: SongItem) = withContext(Dispatchers.IO) {
+    override suspend fun addSongToPlaylist(playlistId: String, song: SongItem) = withContext(Dispatchers.IO) {
         val alreadyExists = database.playlistSongMapQueries.selectByPlaylist(playlistId).executeAsList()
             .any { it.songId == song.id }
         if (alreadyExists) return@withContext
@@ -209,7 +210,7 @@ class PlaylistRepository(
         }
     }
 
-    suspend fun removeSongFromPlaylist(playlistId: String, songId: String) = withContext(Dispatchers.IO) {
+    override suspend fun removeSongFromPlaylist(playlistId: String, songId: String) = withContext(Dispatchers.IO) {
         val rows = database.playlistSongMapQueries.selectByPlaylist(playlistId).executeAsList()
         val row = rows.firstOrNull { it.songId == songId } ?: return@withContext
         database.playlistSongMapQueries.deletePlaylistSongMap(row.id)
@@ -220,7 +221,7 @@ class PlaylistRepository(
         }
     }
 
-    suspend fun getCachedPlaylistSongs(playlistId: String): List<SongItem>? = withContext(Dispatchers.IO) {
+    override suspend fun getCachedPlaylistSongs(playlistId: String): List<SongItem>? = withContext(Dispatchers.IO) {
         val isSaved = database.savedPlaylistQueries.exists(playlistId).executeAsOne()
         if (!isSaved) return@withContext null
 
@@ -239,7 +240,7 @@ class PlaylistRepository(
         }
     }
 
-    fun getCachedPlaylistItem(playlistId: String): PlaylistItem? {
+    override suspend fun getCachedPlaylistItem(playlistId: String): PlaylistItem? {
         val saved = database.savedPlaylistQueries.selectById(playlistId).executeAsOneOrNull()
             ?: return null
         return savedPlaylistToPlaylistItem(saved)

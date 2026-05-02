@@ -1,9 +1,5 @@
 package com.example.melodist.ui.components
 
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -53,9 +49,7 @@ import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
@@ -65,7 +59,7 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import com.example.melodist.ui.components.context.SongContextMenu
 import com.example.melodist.ui.components.context.CollectionContextMenu
-import com.example.melodist.ui.helpers.contextMenuArea
+import com.example.melodist.ui.screens.shared.formatDuration
 import com.example.melodist.utils.LocalPlayerViewModel
 import com.example.melodist.utils.thumbnailAspectRatio
 import com.metrolist.innertube.models.AlbumItem
@@ -468,70 +462,81 @@ fun YoutubeListItem(
     var showMenu by remember { mutableStateOf(false) }
     var menuOffset by remember { mutableStateOf(DpOffset.Zero) }
     var isHovered by remember { mutableStateOf(false) }
-    var buttonPosition by remember { mutableStateOf(Offset.Zero) }
-    var rootCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
 
-    val density = LocalDensity.current
     val sourceIcon = if (source == ItemContentSource.LOCAL) Icons.Default.PhoneAndroid else Icons.Default.CloudDone
     val isCollectionItem = item is AlbumItem || item is PlaylistItem
+    val isActionable = item is SongItem || isCollectionItem
 
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 2.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .onGloballyPositioned { rootCoordinates = it }
-            .background(if (isHovered) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f) else Color.Transparent)
-            .clickable { onItemClick(item) }
-            .pointerHoverIcon(PointerIcon.Hand)
-            .contextMenuArea(
-                enabled = item is SongItem || isCollectionItem,
-                onHoverChange = { isHovered = it },
-                onMenuAction = { offset ->
-                    menuOffset = offset
-                    showMenu = true
-                }
-            )
-    ) {
-        androidx.compose.material3.ListItem(
-            modifier = Modifier.fillMaxWidth(),
-            colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = Color.Transparent),
-            headlineContent = {
-                Text(
-                    text = item.title,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold)
+    val onPrimaryAction: (() -> Unit)? = when (item) {
+        is SongItem -> { { playerViewModel.playSingle(item) } }
+        is AlbumItem -> {
+            {
+                playerViewModel.playAlbumFromBrowseId(
+                    browseId = item.browseId,
+                    title = item.title,
+                    onEmpty = { onItemClick(item) }
                 )
-            },
-            supportingContent = {
-                val subtitle = when (item) {
-                    is SongItem -> {
-                        val artists = item.artists.joinToString { it.name }
-                        val album = item.album?.name?.let { " • $it" } ?: ""
-                        "$artists$album"
-                    }
-                    is AlbumItem -> {
-                        val artists = item.artists?.joinToString { it.name } ?: "Álbum"
-                        "Álbum • $artists"
-                    }
-                    is ArtistItem -> "Artista"
-                    is PlaylistItem -> {
-                        val author = item.author?.name?.let { " • $it" } ?: ""
-                        "Playlist$author"
-                    }
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Surface(
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.surfaceContainerHighest,
-                        modifier = Modifier.size(16.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(sourceIcon, null, modifier = Modifier.size(10.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+
+        is PlaylistItem -> {
+            {
+                playerViewModel.playPlaylistFromId(
+                    playlistId = item.id,
+                    title = item.title,
+                    onEmpty = { onItemClick(item) }
+                )
+            }
+        }
+
+        else -> null
+    }
+
+    Box(modifier = modifier.fillMaxWidth()) {
+        BoxForContainerContextMenuItem(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 2.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .clickable { onItemClick(item) }
+                .pointerHoverIcon(PointerIcon.Hand),
+            enabled = isActionable,
+            onHoverChange = { isHovered = it },
+            onMenuAction = { offset ->
+                menuOffset = offset
+                showMenu = true
+            }
+        ) { menuButtonModifier, openMenuFromButton ->
+            androidx.compose.material3.ListItem(
+                modifier = Modifier.fillMaxWidth(),
+                colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = Color.Transparent),
+                headlineContent = {
+                    Text(
+                        text = item.title,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold)
+                    )
+                },
+                supportingContent = {
+                    val subtitle = when (item) {
+                        is SongItem -> {
+                            val artists = item.artists.joinToString { it.name }
+                            val album = item.album?.name?.let { " • $it" } ?: ""
+                            "$artists$album"
+                        }
+
+                        is AlbumItem -> {
+                            val artists = item.artists?.joinToString { it.name } ?: "Álbum"
+                            "Álbum • $artists"
+                        }
+
+                        is ArtistItem -> "Artista"
+                        is PlaylistItem -> {
+                            val author = item.author?.name?.let { " • $it" } ?: ""
+                            "Playlist$author"
                         }
                     }
-                    Spacer(Modifier.width(6.dp))
                     Text(
                         text = subtitle,
                         maxLines = 1,
@@ -539,48 +544,108 @@ fun YoutubeListItem(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                }
-            },
-            leadingContent = {
-                MelodistImage(
-                    url = item.thumbnail,
-                    contentDescription = item.title,
-                    modifier = Modifier.size(imageSize),
-                    shape = shape,
-                    placeholderType = when (item) {
-                        is ArtistItem -> PlaceholderType.ARTIST
-                        is AlbumItem -> PlaceholderType.ALBUM
-                        is PlaylistItem -> PlaceholderType.PLAYLIST
-                        else -> PlaceholderType.SONG
-                    },
-                    contentScale = ContentScale.Crop,
-                    iconSize = if (item is PlaylistItem) 28.dp else 24.dp
-                )
-            },
-            trailingContent = {
-                if (item is SongItem || isCollectionItem) {
-                    IconButton(
-                        onClick = {
-                            menuOffset = with(density) {
-                                DpOffset(buttonPosition.x.toDp(), buttonPosition.y.toDp())
+                },
+                leadingContent = {
+                    Box(
+                        modifier = Modifier
+                            .size(imageSize)
+                            .onPointerEvent(PointerEventType.Enter) { isHovered = true }
+                            .onPointerEvent(PointerEventType.Exit) { isHovered = false },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        MelodistImage(
+                            url = item.thumbnail,
+                            contentDescription = item.title,
+                            modifier = Modifier.matchParentSize(),
+                            shape = shape,
+                            placeholderType = when (item) {
+                                is ArtistItem -> PlaceholderType.ARTIST
+                                is AlbumItem -> PlaceholderType.ALBUM
+                                is PlaylistItem -> PlaceholderType.PLAYLIST
+                                else -> PlaceholderType.SONG
+                            },
+                            contentScale = ContentScale.Crop,
+                            iconSize = if (item is PlaylistItem) 28.dp else 24.dp
+                        )
+
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .background(
+                                    Color.Black.copy(alpha = if (isHovered && onPrimaryAction != null) 0.40f else 0f),
+                                    shape = shape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PlayArrow,
+                                contentDescription = null,
+                                tint = Color.White.copy(alpha = if (isHovered && onPrimaryAction != null) 1f else 0f),
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+                },
+                trailingContent = {
+                    if (isActionable) {
+                        if (isHovered) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(2.dp),
+                            ) {
+                                if (onPrimaryAction != null) {
+                                    IconButton(
+                                        onClick = onPrimaryAction,
+                                        modifier = Modifier.size(36.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.PlayArrow,
+                                            contentDescription = "Reproducir",
+                                            modifier = Modifier.size(20.dp),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+
+                                IconButton(
+                                    onClick = openMenuFromButton,
+                                    modifier = menuButtonModifier.size(36.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.MoreVert,
+                                        contentDescription = "Más opciones",
+                                        modifier = Modifier.size(20.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
-                            showMenu = true
-                        },
-                        modifier = Modifier.onGloballyPositioned { buttonCords ->
-                            rootCoordinates.let { root ->
-                                buttonPosition = root?.localPositionOf(buttonCords, Offset.Zero) ?: Offset.Zero
+                        } else {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                    modifier = Modifier.size(16.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(sourceIcon, null, modifier = Modifier.size(10.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                                if (item is SongItem && (item.duration ?: 0) > 0) {
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(
+                                        text = formatDuration(item.duration ?: 0),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.width(40.dp),
+                                        textAlign = TextAlign.End,
+                                    )
+                                }
                             }
                         }
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.MoreVert,
-                            contentDescription = "Más opciones",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
                     }
                 }
-            }
-        )
+            )
+        }
 
         if (item is SongItem) {
             SongContextMenu(
@@ -640,6 +705,22 @@ fun YoutubeListItem(
             )
         }
     }
+}
+
+@OptIn(ExperimentalComposeUiApi::class)
+@Composable
+fun YoutubeItemList(
+    item: YTItem,
+    source: ItemContentSource,
+    onItemClick: (YTItem) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    YoutubeListItem(
+        item = item,
+        source = source,
+        onItemClick = onItemClick,
+        modifier = modifier,
+    )
 }
 
 

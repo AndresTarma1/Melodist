@@ -170,6 +170,8 @@ internal fun SongListItem(
     albumIndex: Int? = null,
     song: SongItem,
     onPlay: () -> Unit,
+    onLike: ((String) -> Unit)? = null,
+    onDislike: ((String) -> Unit)? = null,
     isSelected: Boolean = false,
     isLocalPlaylist: Boolean = false,
     onRemoveFromPlaylist: ((String) -> Unit)? = null,
@@ -181,6 +183,8 @@ internal fun SongListItem(
     var isHovered by remember { mutableStateOf(false) }
     var showContextMenu by remember { mutableStateOf(false) }
     var menuOffset by remember { mutableStateOf(DpOffset.Zero) }
+    var isLiked by remember { mutableStateOf(false) }
+    var isDisliked by remember { mutableStateOf(false) }
 
     Box(modifier = modifier) {
         BoxForContainerContextMenuItem(
@@ -278,25 +282,41 @@ internal fun SongListItem(
                             if (isHovered) {
                                 // Estado hover: mostrar acciones
                                 IconButton(
-                                    onClick = { /* TODO: Dislike */ },
+                                    onClick = {
+                                        if (isDisliked) {
+                                            isDisliked = false
+                                        } else {
+                                            isDisliked = true
+                                            isLiked = false
+                                            onDislike?.invoke(song.id)
+                                        }
+                                    },
                                     modifier = Modifier.size(36.dp)
                                 ) {
                                     Icon(
                                         Icons.Outlined.ThumbDown,
                                         null,
                                         modifier = Modifier.size(20.dp),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        tint = if (isDisliked) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                                 IconButton(
-                                    onClick = { /* TODO: Like */ },
+                                    onClick = {
+                                        if (isLiked) {
+                                            isLiked = false
+                                        } else {
+                                            isLiked = true
+                                            isDisliked = false
+                                            onLike?.invoke(song.id)
+                                        }
+                                    },
                                     modifier = Modifier.size(36.dp)
                                 ) {
                                     Icon(
                                         Icons.Outlined.ThumbUp,
                                         null,
                                         modifier = Modifier.size(20.dp),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        tint = if (isLiked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                                 IconButton(

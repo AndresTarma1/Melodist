@@ -2,11 +2,11 @@ package com.example.melodist.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.melodist.data.remote.ApiService
-import com.example.melodist.data.repository.AlbumRepository
-import com.example.melodist.data.repository.ArtistRepository
-import com.example.melodist.data.repository.PlaylistRepository
-import com.example.melodist.data.repository.SongRepository
+import com.example.melodist.domain.album.*
+import com.example.melodist.domain.artist.*
+import com.example.melodist.domain.playlist.*
+import com.example.melodist.domain.song.*
+import com.example.melodist.domain.library.*
 import com.example.melodist.data.repository.dbSongToSongItem
 import com.example.melodist.data.repository.savedAlbumToAlbumItem
 import com.example.melodist.data.repository.savedArtistToArtistItem
@@ -14,7 +14,6 @@ import com.example.melodist.data.repository.savedPlaylistToPlaylistItem
 import com.example.melodist.data.repository.savedSongToSongItem
 import com.example.melodist.db.MusicDatabase
 import com.example.melodist.utils.withMissingMetadataResolved
-import com.metrolist.innertube.YouTube
 import com.metrolist.innertube.models.AlbumItem
 import com.metrolist.innertube.models.Artist
 import com.metrolist.innertube.models.ArtistItem
@@ -52,27 +51,34 @@ sealed class YtmLibraryState {
 }
 
 class LibraryViewModel(
-    private val apiService: ApiService,
-    private val albumRepository: AlbumRepository,
-    private val artistRepository: ArtistRepository,
-    private val songRepository: SongRepository,
-    private val playlistRepository: PlaylistRepository,
+    private val getYtmLibraryUseCase: GetYtmLibraryUseCase,
+    private val getSavedSongsUseCase: GetSavedSongsUseCase,
+    private val getSavedAlbumsUseCase: GetSavedAlbumsUseCase,
+    private val getSavedArtistsUseCase: GetSavedArtistsUseCase,
+    private val getSavedPlaylistsUseCase: GetSavedPlaylistsUseCase,
+    private val removeSongUseCase: RemoveSongUseCase,
+    private val removeAlbumUseCase: RemoveAlbumUseCase,
+    private val removeArtistUseCase: RemoveArtistUseCase,
+    private val removePlaylistUseCase: RemovePlaylistUseCase,
+    private val savePlaylistUseCase: SavePlaylistUseCase,
+    private val loadAlbumUseCase: LoadAlbumUseCase,
+    private val loadPlaylistUseCase: LoadPlaylistUseCase,
     loginState: StateFlow<Boolean>? = null
 ) : ViewModel() {
 
     private val _selectedTab = MutableStateFlow<LibraryTab?>(LibraryTab.LIBRARY)
     val selectedTab = _selectedTab.asStateFlow()
 
-    val savedSongs = songRepository.getSavedSongs().map { it.map(::savedSongToSongItem) }
+    val savedSongs = getSavedSongsUseCase()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
-    val savedAlbums = albumRepository.getSavedAlbums().map { it.map(::savedAlbumToAlbumItem) }
+    val savedAlbums = getSavedAlbumsUseCase()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
-    val savedArtists = artistRepository.getSavedArtists().map { it.map(::savedArtistToArtistItem) }
+    val savedArtists = getSavedArtistsUseCase()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
-    val savedPlaylists = playlistRepository.getSavedPlaylists().map { it.map(::savedPlaylistToPlaylistItem) }
+    val savedPlaylists = getSavedPlaylistsUseCase()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     val continuation = MutableStateFlow<String?>(null)
@@ -101,29 +107,18 @@ class LibraryViewModel(
     fun loadYtmLibrary() {
         _ytmState.value = YtmLibraryState.Loading
         viewModelScope.launch {
-            try {
-                // Playlists
-                val playlists = YouTube.library("FEmusic_liked_playlists")
-                    .getOrNull()?.items?.filterIsInstance<PlaylistItem>() ?: emptyList()
-
-
-                // Álbumes guardados (tabIndex 1)
-                val ytmAlbums = YouTube.library("FEmusic_liked_albums", tabIndex = 0)
-                    .getOrNull()?.items?.filterIsInstance<AlbumItem>() ?: emptyList()
-
-                // Artistas suscritos (tabIndex 2)
-                val ytmArtists = YouTube.library("FEmusic_library_corpus_artists", tabIndex = 0)
-                    .getOrNull()?.items?.filterIsInstance<ArtistItem>() ?: emptyList()
-
-                _ytmState.value = YtmLibraryState.Success(
-                    playlists = playlists,
-                    likedSongs = emptyList(),
-                    albums = ytmAlbums,
-                    artists = ytmArtists,
-                )
-            } catch (e: Exception) {
-                _ytmState.value = YtmLibraryState.Error(e.message ?: "Error al cargar biblioteca")
-            }
+            getYtmLibraryUseCase()
+                .onSuccess { library ->
+                    _ytmState.value = YtmLibraryState.Success(
+                        playlists = library.playlists,
+                        likedSongs = library.likedSongs,
+                        albums = library.albums,
+                        artists = library.artists,
+                    )
+                }
+                .onFailure {
+                    _ytmState.value = YtmLibraryState.Error(it.message ?: "Error al cargar biblioteca")
+                }
         }
     }
 
@@ -133,10 +128,10 @@ class LibraryViewModel(
 
     fun selectMixedTab() { _selectedTab.value = LibraryTab.LIBRARY }
 
-    fun removeSong(id: String) { viewModelScope.launch { songRepository.removeSong(id) } }
-    fun removeAlbum(browseId: String) { viewModelScope.launch { albumRepository.removeAlbum(browseId) } }
-    fun removeArtist(id: String) { viewModelScope.launch { artistRepository.removeArtist(id) } }
-    fun removePlaylist(id: String) { viewModelScope.launch { playlistRepository.removePlaylist(id) } }
+    fun removeSong(id: String) { viewModelScope.launch { removeSongUseCase(id) } }
+    fun removeAlbum(browseId: String) { viewModelScope.launch { removeAlbumUseCase(browseId) } }
+    fun removeArtist(id: String) { viewModelScope.launch { removeArtistUseCase(id) } }
+    fun removePlaylist(id: String) { viewModelScope.launch { removePlaylistUseCase(id) } }
 
     /**
      * Creates a new local playlist
@@ -155,7 +150,7 @@ class LibraryViewModel(
                 shuffleEndpoint = null,
                 radioEndpoint = null
             )
-            playlistRepository.savePlaylist(playlist)
+            savePlaylistUseCase(playlist)
         }
     }
 
@@ -173,7 +168,7 @@ class LibraryViewModel(
                 shuffleEndpoint = null,
                 radioEndpoint = null
             )
-            playlistRepository.savePlaylistWithSongs(playlist, listOf(song))
+            savePlaylistUseCase(playlist, listOf(song))
         }
     }
 
@@ -185,10 +180,10 @@ class LibraryViewModel(
         onFallback: () -> Unit = {}
     ) {
         viewModelScope.launch {
-            try {
-                val songs = YouTube.album(browseId).getOrNull()?.songs.orEmpty()
+            loadAlbumUseCase(browseId).onSuccess { page ->
+                val songs = page.songs
                 if (songs.isNotEmpty()) onResolved(songs) else onFallback()
-            } catch (_: Exception) {
+            }.onFailure {
                 onFallback()
             }
         }
@@ -200,10 +195,10 @@ class LibraryViewModel(
         onFallback: () -> Unit = {}
     ) {
         viewModelScope.launch {
-            try {
-                val songs = YouTube.playlist(playlistId).getOrNull()?.songs.orEmpty()
+            loadPlaylistUseCase(playlistId).onSuccess { page ->
+                val songs = page.songs
                 if (songs.isNotEmpty()) onResolved(songs) else onFallback()
-            } catch (_: Exception) {
+            }.onFailure {
                 onFallback()
             }
         }
@@ -212,33 +207,33 @@ class LibraryViewModel(
 
 
 class LibrarySongsViewModel(
-    private val songRepository: SongRepository,
-    private val albumRepository: AlbumRepository,
-    private val playlistRepository: PlaylistRepository,
-    private val artistRepository: ArtistRepository,
+    private val getSavedSongsUseCase: GetSavedSongsUseCase,
 ) : ViewModel() {
-    val savedSongs = songRepository.getSavedSongs().map { it.map(::savedSongToSongItem) }
+    val savedSongs = getSavedSongsUseCase()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 }
 
 class LibraryAlbumsViewModel(
-    private val albumRepository: AlbumRepository,
+    private val getSavedAlbumsUseCase: GetSavedAlbumsUseCase,
 ) : ViewModel() {
-    val savedAlbums = albumRepository.getSavedAlbums().map { it.map(::savedAlbumToAlbumItem) }
+    val savedAlbums = getSavedAlbumsUseCase()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 }
 
 class LibraryArtistsViewModel(
-    private val artistRepository: ArtistRepository,
+    private val getSavedArtistsUseCase: GetSavedArtistsUseCase,
 ) : ViewModel() {
-    val savedArtists = artistRepository.getSavedArtists().map { it.map(::savedArtistToArtistItem) }
+    val savedArtists = getSavedArtistsUseCase()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 }
 
 class LibraryPlaylistsViewModel(
-    private val playlistRepository: PlaylistRepository,
+    private val getSavedPlaylistsUseCase: GetSavedPlaylistsUseCase,
+    private val savePlaylistUseCase: SavePlaylistUseCase,
+    private val addSongToPlaylistUseCase: AddSongToPlaylistUseCase,
+    private val removeSongFromPlaylistUseCase: RemoveSongFromPlaylistUseCase,
 ) : ViewModel() {
-    val savedPlaylists = playlistRepository.getSavedPlaylists().map { it.map(::savedPlaylistToPlaylistItem) }
+    val savedPlaylists = getSavedPlaylistsUseCase()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     val localPlaylists = savedPlaylists.map { playlists ->
@@ -259,24 +254,20 @@ class LibraryPlaylistsViewModel(
                 shuffleEndpoint = null,
                 radioEndpoint = null
             )
-            if (song == null) {
-                playlistRepository.savePlaylist(playlist)
-            } else {
-                playlistRepository.savePlaylistWithSongs(playlist, listOf(song))
-            }
+            savePlaylistUseCase(playlist, song?.let { listOf(it) })
         }
     }
 
     fun addSongToLocalPlaylist(playlistId: String, song: SongItem) {
         viewModelScope.launch {
             val resolvedSong = withContext(Dispatchers.IO){ song.withMissingMetadataResolved()}
-            playlistRepository.addSongToPlaylist(playlistId, resolvedSong)
+            addSongToPlaylistUseCase(playlistId, resolvedSong)
         }
     }
 
     fun removeSongFromLocalPlaylist(playlistId: String, songId: String) {
         viewModelScope.launch {
-            playlistRepository.removeSongFromPlaylist(playlistId, songId)
+            removeSongFromPlaylistUseCase(playlistId, songId)
         }
     }
 }

@@ -2,8 +2,7 @@ package com.example.melodist.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.melodist.data.remote.ApiService
-import com.example.melodist.data.repository.ArtistRepository
+import com.example.melodist.domain.artist.*
 import com.metrolist.innertube.YouTube
 import com.metrolist.innertube.pages.ArtistPage
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -24,8 +23,10 @@ sealed class ArtistState {
 }
 @OptIn(ExperimentalCoroutinesApi::class)
 class ArtistViewModel(
-    private val apiService: ApiService,
-    private val repository: ArtistRepository
+    private val loadArtistUseCase: LoadArtistUseCase,
+    private val isArtistSavedUseCase: IsArtistSavedUseCase,
+    private val saveArtistUseCase: SaveArtistUseCase,
+    private val removeArtistUseCase: RemoveArtistUseCase
 ) : ViewModel() {
 
     private val log = Logger.getLogger("ArtistViewModel")
@@ -37,7 +38,7 @@ class ArtistViewModel(
     val isSaved: StateFlow<Boolean> = _currentBrowseId
         .flatMapLatest{ id ->
             if (id == null) flowOf(false)
-            else repository.isArtistSaved(id)
+            else isArtistSavedUseCase(id)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
 
@@ -46,7 +47,7 @@ class ArtistViewModel(
 
         viewModelScope.launch {
             _uiState.value = ArtistState.Loading
-            YouTube.artist(browseId)
+            loadArtistUseCase(browseId)
                 .onSuccess {
                     _uiState.value = ArtistState.Success(it)
                 }
@@ -62,12 +63,9 @@ class ArtistViewModel(
 
         viewModelScope.launch {
             if (isSaved.value) {
-                repository.removeArtist(state.artistPage.artist.id)
+                removeArtistUseCase(state.artistPage.artist.id)
             } else {
-                repository.saveArtist(
-                    artist = state.artistPage.artist,
-                    subscriberCount = state.artistPage.subscriberCountText
-                )
+                saveArtistUseCase(state.artistPage.artist)
             }
         }
     }

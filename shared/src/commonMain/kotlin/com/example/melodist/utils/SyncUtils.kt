@@ -1,9 +1,9 @@
 package com.example.melodist.utils
 
-import com.example.melodist.data.repository.AlbumRepository
-import com.example.melodist.data.repository.ArtistRepository
-import com.example.melodist.data.repository.PlaylistRepository
-import com.example.melodist.data.repository.SongRepository
+import com.example.melodist.domain.album.AlbumRepository
+import com.example.melodist.domain.artist.ArtistRepository
+import com.example.melodist.domain.playlist.PlaylistRepository
+import com.example.melodist.domain.song.SongRepository
 import com.example.melodist.db.DatabaseDao
 import com.example.melodist.db.entities.PlaylistEntity
 import com.metrolist.innertube.YouTube
