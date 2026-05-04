@@ -1,74 +1,86 @@
 # Melodist (Beta)
 
-> Estado: **En desarrollo** · **1.1.2** · Orientado a **Windows** · Basado en **Metrolist** · Construido con amplio uso de **IA (IAPS)**
+> **Estado:** En desarrollo (v1.1.2) · **Solo compatible con Windows** · Basado en Metrolist.
 
-Este proyecto es una app de escritorio de streaming de música (Compose Multiplatform) enfocada a Windows, inspirada en [Metrolist](https://github.com/MetrolistGroup/Metrolist) y acelerada con herramientas de IA para iterar el diseño y la lógica.
+Melodist es un reproductor de música de escritorio orientado a Windows que utiliza el stack de Compose Multiplatform. Está enfocado en ofrecer una experiencia de streaming ligera y fluida, integrándose directamente con YouTube Music y utilizando MPV como motor de audio nativo.
+
+Este proyecto ha sido desarrollado con un uso intensivo de herramientas de IA para agilizar la lógica y el diseño de la interfaz.
 
 ## Características
 
-- 🎵 **Streaming de YouTube Music** — Reproduce cualquier canción, álbum, playlist o artista (Soporte WebM/Opus)
-- 🔍 **Búsqueda integrada** — Historial persistente con SQLDelight
-- 📚 **Librería personal** — Álbumes guardados, playlists, descargas, favoritos
-- 🎨 **Temas dinámicos** — Material Design 3 con colores extraídos de la carátula
-- ⬇️ **Descargas en caché** — Chunked/resumable (HTTP Range), sin transcodificación
-- 🔊 **MPV Nativo** — Motor de audio ultraligero y potente basado en `libmpv` (Sin VLC)
-- ⌨️ **Teclas multimedia** — Play/Pause, Next, Previous, Stop globales (JNativeHook)
-- 🔔 **System Tray** — Minimizar a la bandeja con controles de reproducción
-- 🪟 **Title bar personalizado** — Sin barra nativa, integrado con el tema M3
-- 🍪 **Cookies de YouTube** — Soporte para contenido personalizado (Home, playlists privadas)
-- ⚙️ **Configuración** — Calidad de audio, tema, resolución de carátulas, caché de imágenes
+- 🎵 **Streaming de YouTube Music:** Reproducción de canciones, álbumes y playlists (soporte WebM/Opus).
+- 🔊 **Motor MPV Nativo:** Audio de alta calidad y bajo consumo mediante `libmpv` (sin depender de VLC).
+- 🎨 **Interfaz Dinámica:** Material Design 3 con temas que se adaptan automáticamente a los colores de la carátula.
+- 🔍 **Búsqueda e Historial:** Búsqueda integrada con persistencia local mediante SQLDelight.
+- ⬇️ **Descargas y Caché:** Sistema de descargas reanudables y caché de canciones para ahorro de ancho de banda.
+- ⌨️ **Controles Globales:** Soporte para teclas multimedia del teclado y controles en la bandeja del sistema (System Tray).
+- 🍪 **Soporte de Cookies:** Permite cargar contenido personalizado y playlists privadas de YouTube.
 
-## Arquitectura
+## Requisitos
 
-```
+- **Sistema Operativo:** Windows 10/11 (Única plataforma probada y soportada).
+- **JDK:** Java 21 o superior.
+- **MPV:** El proyecto ya incluye los binarios necesarios (`libmpv-2.dll`) en `mpv-resources`.
+
+## Estructura del Proyecto
+
+```text
 Melodist/
-├── composeApp/     ← UI (Compose Desktop, screens, navegación, temas)
-├── shared/         ← Lógica de negocio (ViewModels, player, DB, preferencias)
-├── innertube/      ← Cliente de YouTube Music (NO MODIFICAR)
-├── server/         ← Servidor Ktor (experimental)
-└── mpv-resources/  ← Binarios de MPV (libmpv-2.dll)
+├── composeApp/     # Interfaz de usuario (Desktop), pantallas y navegación.
+├── shared/         # Lógica de negocio, ViewModels, base de datos y reproductores.
+├── innertube/      # Cliente interno para la API de YouTube Music (No modificar).
+├── server/         # Servidor Ktor (Funcionalidad experimental).
+└── mpv-resources/  # Binarios y cabeceras de MPV para Windows.
 ```
 
-## Tecnologías
+## Tecnologías (Stack)
 
-| Stack | Librería |
-|-------|----------|
-| UI | Compose Multiplatform + Material 3 |
-| Navegación | Decompose |
-| DI | Koin |
-| Base de datos | SQLDelight (JDBC SQLite) |
-| Streaming | MPV (Nativo vía JNA) |
-| Imágenes | Coil 3 (memoria + disco) |
-| Media keys | JNativeHook |
-| HTTP | Ktor Client / OkHttp |
-| Serialización | Kotlinx Serialization |
+- **UI:** Compose Multiplatform + Material 3.
+- **Navegación:** Decompose.
+- **DI:** Koin.
+- **Base de Datos:** SQLDelight (SQLite).
+- **Audio:** MPV vía JNA.
+- **Red:** Ktor Client / OkHttp.
+- **Serialización:** Kotlinx Serialization.
 
-## Estado y alcance
-- **Beta 1.0.3**: características en evolución, posibles bugs.
-- **Sin VLC**: migración total a MPV para mayor ligereza y soporte de codecs (Opus/WebM).
-- **Rutas Estándar**: almacenamiento unificado en `%LOCALAPPDATA%/Melodist`.
-- **IA-driven**: se apoyó intensamente en asistencia de IA (IAPS) para diseño, UI y refactors.
+## Configuración y Ejecución
 
-## Build y ejecución (Desktop / JVM)
+### Desarrollo
+Para ejecutar la aplicación en modo desarrollo:
+```powershell
+.\gradlew.bat :composeApp:run
+```
 
-- Ejecutar en modo desarrollo:
-  ```powershell
-  .\gradlew.bat :composeApp:run
-  ```
-- Empaquetar instalador MSI/EXE (vía Conveyor):
-  ```powershell
-  conveyor make windows-msi
-  ```
+### Tests
+El proyecto incluye pruebas unitarias básicas. Para ejecutarlas:
+```powershell
+.\gradlew.bat test
+```
 
-## Rutas de datos (Windows Estándar)
+### Construcción (Build)
+Para generar un instalador (MSI/EXE) se utiliza **Conveyor**:
+```powershell
+conveyor make windows-msi
+```
+*Nota: La configuración de empaquetado está definida en `conveyor.conf`.*
 
-| Contenido | Ruta |
+## Variables de Entorno y Rutas
+
+La aplicación utiliza la variable de entorno estándar de Windows `%LOCALAPPDATA%` para almacenar sus datos.
+
+| Contenido | Ruta aproximada |
 |-----------|------|
 | **Base de Datos** | `%LOCALAPPDATA%/Melodist/melodist.db` |
-| **Preferencias** | `%LOCALAPPDATA%/Melodist/data/` |
-| **Canciones en Caché** | `%LOCALAPPDATA%/Melodist/cache/songs/` |
-| **Caché de Imágenes** | `%LOCALAPPDATA%/Melodist/cache/image_cache/` |
-| **Cookies / Logs** | `%LOCALAPPDATA%/Melodist/logs/` |
+| **Configuración** | `%LOCALAPPDATA%/Melodist/data/` |
+| **Caché de Música** | `%LOCALAPPDATA%/Melodist/cache/songs/` |
+| **Logs** | `%LOCALAPPDATA%/Melodist/logs/` |
 
----
-Más info sobre [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html) y Compose Multiplatform en la documentación oficial.
+## Notas de Desarrollo
+
+- **TODO:** Implementar soporte para otras plataformas (actualmente bloqueado por dependencias nativas de MPV y JNativeHook configuradas para Windows).
+- **TODO:** Mejorar la cobertura de tests unitarios y de UI.
+- **TODO:** Estabilizar el módulo `server`.
+
+## Licencia
+
+Este proyecto está bajo la licencia [LICENSE.md](LICENSE.md) (si no existe, consultar con los autores). Inspirado en el proyecto Metrolist.

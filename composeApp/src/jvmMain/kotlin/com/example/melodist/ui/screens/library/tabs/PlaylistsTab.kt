@@ -152,7 +152,7 @@ fun PlaylistsTab(
                         title = "Descargas",
                         subtitle = "$downloadedCount canciones",
                         thumbnailUrl = downloadedSongs.firstOrNull()?.thumbnail,
-                        placeholderType = PlaceholderType.PLAYLIST,
+                        placeholderType = PlaceholderType.DOWNLOADS,
                         shape = RoundedCornerShape(12.dp),
                         onClick = { onNavigate(Route.Playlist("LOCAL_DOWNLOADS")) },
                         onPlay = {

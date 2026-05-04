@@ -10,6 +10,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -58,6 +59,13 @@ fun PlaylistScreenRoute(
     val successState = uiState as? PlaylistState.Success
     val playerViewModel = LocalPlayerViewModel.current
     val downloadViewModel = LocalDownloadViewModel.current
+    val downloadedSongs by downloadViewModel.downloadedSongs.collectAsState()
+
+    LaunchedEffect(successState?.playlistPage?.playlist?.id, downloadedSongs) {
+        if (successState?.playlistPage?.playlist?.id == "LOCAL_DOWNLOADS") {
+            viewModel.refreshLocalDownloadsPlaylist()
+        }
+    }
 
     val actions = remember(viewModel, successState != null) {
         PlaylistActions(

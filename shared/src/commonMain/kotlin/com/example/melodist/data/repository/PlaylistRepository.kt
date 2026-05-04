@@ -205,7 +205,11 @@ class PlaylistRepository(
         )
 
         database.savedPlaylistQueries.selectById(playlistId).executeAsOneOrNull()?.let {
-            database.savedPlaylistQueries.updateSongCountText("${currentCount + 1} canciones", playlistId)
+            database.savedPlaylistQueries.updateSongCountTextAndThumbnail(
+                songCountText = "${currentCount + 1} canciones",
+                thumbnail = song.thumbnail,
+                id = playlistId
+            )
         }
     }
 
@@ -216,7 +220,15 @@ class PlaylistRepository(
 
         val remaining = database.playlistSongMapQueries.countByPlaylist(playlistId).executeAsOne()
         database.savedPlaylistQueries.selectById(playlistId).executeAsOneOrNull()?.let {
-            database.savedPlaylistQueries.updateSongCountText("${remaining} canciones", playlistId)
+            val fallbackThumbnail = database.playlistSongMapQueries.songsByPlaylist(playlistId)
+                .executeAsList()
+                .lastOrNull()
+                ?.thumbnailUrl
+            database.savedPlaylistQueries.updateSongCountTextAndThumbnail(
+                songCountText = "$remaining canciones",
+                thumbnail = fallbackThumbnail,
+                id = playlistId
+            )
         }
     }
 
@@ -244,5 +256,4 @@ class PlaylistRepository(
             ?: return null
         return savedPlaylistToPlaylistItem(saved)
     }
-
 }

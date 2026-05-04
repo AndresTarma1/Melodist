@@ -82,8 +82,7 @@ class DownloadViewModel(
     init {
 
         viewModelScope.launch {
-            _downloadedSongs.value = songRepository.getDownloadedSongs()
-            refreshDerivedDownloadedCollections()
+            refreshDownloadedSongs()
             _isLoading.value = false
         }
 
@@ -95,7 +94,7 @@ class DownloadViewModel(
 
                 if (completedIds != lastCompletedSongIds) {
                     lastCompletedSongIds = completedIds
-                    refreshDerivedDownloadedCollections()
+                    refreshDownloadedSongs()
                 }
             }
         }
@@ -187,17 +186,24 @@ class DownloadViewModel(
 
     fun removeDownload(songId: String) {
         downloadService.removeDownload(songId)
+        _downloadedSongs.value = _downloadedSongs.value.filterNot { it.id == songId }
+        viewModelScope.launch { refreshDerivedDownloadedCollections() }
         refreshCacheSize()
     }
 
     fun removeDownloads(songIds: List<String>) {
         downloadService.removeDownloads(songIds)
+        val ids = songIds.toSet()
+        _downloadedSongs.value = _downloadedSongs.value.filterNot { it.id in ids }
+        viewModelScope.launch { refreshDerivedDownloadedCollections() }
         refreshCacheSize()
     }
 
 
     fun clearCache() {
         downloadService.clearCache()
+        _downloadedSongs.value = emptyList()
+        viewModelScope.launch { refreshDerivedDownloadedCollections() }
         refreshCacheSize()
     }
 
@@ -216,6 +222,12 @@ class DownloadViewModel(
             val size = DownloadService.getCacheSizeBytes()
             _cacheSizeText.value = DownloadService.formatSize(size)
         }
+    }
+
+    private suspend fun refreshDownloadedSongs() = withContext(Dispatchers.IO) {
+        _downloadedSongs.value = songRepository.getDownloadedSongs()
+        refreshDerivedDownloadedCollections()
+        refreshCacheSize()
     }
 
     private suspend fun refreshDerivedDownloadedCollections() = withContext(Dispatchers.IO) {

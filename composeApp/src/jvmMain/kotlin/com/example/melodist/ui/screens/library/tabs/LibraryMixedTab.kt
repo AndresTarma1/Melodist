@@ -159,7 +159,7 @@ fun LibraryMixedTab(
                         title = "Descargas",
                         subtitle = "$downloadedCount canciones",
                         thumbnailUrl = downloadedSongs.firstOrNull()?.thumbnail,
-                        placeholderType = PlaceholderType.PLAYLIST,
+                        placeholderType = PlaceholderType.DOWNLOADS,
                         shape = RoundedCornerShape(12.dp),
                         source = ItemContentSource.LOCAL,
                         onClick = { onNavigate(Route.Playlist("LOCAL_DOWNLOADS")) },

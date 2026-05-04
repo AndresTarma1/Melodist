@@ -127,6 +127,7 @@ class DownloadRepository(
             if (getCachedFile(songId) != null) {
                 updateSongDownloadStatus(songId, true, System.currentTimeMillis())
                 _downloadStates.update { it + (songId to DownloadState.Completed) }
+                return@launch
             }
 
             try {

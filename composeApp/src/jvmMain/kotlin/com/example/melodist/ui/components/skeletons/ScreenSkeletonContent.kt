@@ -13,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.melodist.ui.components.layout.HorizontalScrollableRow
@@ -52,40 +53,82 @@ internal fun PlaylistScreenSkeletonContent() {
 @Composable
 internal fun ArtistScreenSkeletonContent() {
     val brush = shimmerBrush()
+    val surface = MaterialTheme.colorScheme.surface
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 48.dp, vertical = 24.dp)
-            .padding(top = 32.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(196.dp), contentAlignment = Alignment.Center) {
-                Box(Modifier.size(196.dp).clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.35f)))
-                Box(Modifier.size(180.dp).clip(CircleShape).background(brush))
-            }
-            Spacer(Modifier.width(32.dp))
-            Column {
-                Box(Modifier.width(220.dp).height(36.dp).clip(RoundedCornerShape(4.dp)).background(brush))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(520.dp)
+                .background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.28f))
+        ) {
+            Box(Modifier.fillMaxSize().background(brush))
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colorStops = arrayOf(
+                                0.00f to Color.Transparent,
+                                0.30f to Color.Transparent,
+                                0.58f to surface.copy(alpha = 0.36f),
+                                0.78f to surface.copy(alpha = 0.82f),
+                                1.00f to surface
+                            )
+                        )
+                    )
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.horizontalGradient(
+                            colorStops = arrayOf(
+                                0.00f to Color.Black.copy(alpha = 0.36f),
+                                0.70f to Color.Transparent
+                            )
+                        )
+                    )
+            )
+
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth()
+                    .padding(horizontal = 40.dp, vertical = 32.dp)
+            ) {
+                Box(Modifier.width(320.dp).height(54.dp).clip(RoundedCornerShape(4.dp)).background(brush))
+                Spacer(Modifier.height(10.dp))
+                Box(Modifier.width(180.dp).height(18.dp).clip(RoundedCornerShape(4.dp)).background(brush))
+                Spacer(Modifier.height(14.dp))
+                Box(Modifier.fillMaxWidth(0.48f).height(15.dp).clip(RoundedCornerShape(4.dp)).background(brush))
                 Spacer(Modifier.height(6.dp))
-                Box(Modifier.width(140.dp).height(16.dp).clip(RoundedCornerShape(4.dp)).background(brush))
-                Spacer(Modifier.height(4.dp))
-                Box(Modifier.width(100.dp).height(13.dp).clip(RoundedCornerShape(4.dp)).background(brush))
-                Spacer(Modifier.height(20.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Box(Modifier.size(44.dp).clip(CircleShape).background(brush))
-                    Box(Modifier.size(56.dp).clip(CircleShape).background(brush))
-                    Box(Modifier.size(44.dp).clip(CircleShape).background(brush))
+                Box(Modifier.fillMaxWidth(0.34f).height(15.dp).clip(RoundedCornerShape(4.dp)).background(brush))
+                Spacer(Modifier.height(22.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Box(Modifier.width(118.dp).height(42.dp).clip(CircleShape).background(brush))
+                    Box(Modifier.width(96.dp).height(42.dp).clip(CircleShape).background(brush))
+                    Box(Modifier.width(150.dp).height(42.dp).clip(CircleShape).background(brush))
+                    Box(Modifier.size(36.dp).clip(CircleShape).background(brush))
                 }
             }
         }
-        Spacer(Modifier.height(40.dp))
-        repeat(3) {
-            ArtistSectionSkeleton(brush)
-            Spacer(Modifier.height(24.dp))
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 32.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(28.dp)
+        ) {
+            repeat(3) {
+                ArtistSectionSkeleton(brush)
+            }
         }
+        Spacer(Modifier.height(24.dp))
     }
 }
 

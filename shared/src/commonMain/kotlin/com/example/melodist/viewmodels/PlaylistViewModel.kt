@@ -173,6 +173,29 @@ class PlaylistViewModel(
         }
     }
 
+    fun refreshLocalDownloadsPlaylist() {
+        if (_currentPlaylistId.value != "LOCAL_DOWNLOADS") return
+
+        viewModelScope.launch {
+            val downloadedSongs = songRepository.getDownloadedSongs()
+            _songs.value = downloadedSongs
+            updateSuccess {
+                val updatedPlaylist = playlistPage.playlist.copy(
+                    songCountText = "${downloadedSongs.size} canciones",
+                    thumbnail = downloadedSongs.firstOrNull()?.thumbnail
+                )
+                copy(
+                    playlistPage = playlistPage.copy(
+                        playlist = updatedPlaylist,
+                        songs = downloadedSongs,
+                    ),
+                    isFromCache = true,
+                    isSaved = true,
+                )
+            }
+        }
+    }
+
     fun loadMoreSongs() {
         val token = _continuation.value ?: return
         if (_isLoadingMore.value) return

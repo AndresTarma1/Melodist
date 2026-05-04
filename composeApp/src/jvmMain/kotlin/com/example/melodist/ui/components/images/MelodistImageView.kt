@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Album
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
@@ -33,7 +34,7 @@ import coil3.compose.SubcomposeAsyncImage
 import com.example.melodist.utils.LocalUserPreferences
 
 enum class PlaceholderType {
-    SONG, ALBUM, ARTIST, PLAYLIST
+    SONG, ALBUM, ARTIST, PLAYLIST, DOWNLOADS
 }
 
 @Composable
@@ -71,11 +72,14 @@ fun MelodistImage(
         PlaceholderType.ALBUM -> Icons.Default.Album
         PlaceholderType.ARTIST -> Icons.Default.Person
         PlaceholderType.PLAYLIST -> Icons.Default.MusicNote
+        PlaceholderType.DOWNLOADS -> Icons.Default.Download
     }
 
     val placeholderTint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
     val placeholderBg = MaterialTheme.colorScheme.surfaceContainerHighest
     val imagesEnabled by LocalUserPreferences.current.imagesEnabled.collectAsState(true)
+
+    val finalIconSize = if (placeholderType == PlaceholderType.DOWNLOADS) 64.dp else iconSize
 
     if (url.isNullOrBlank() || !imagesEnabled) {
         Box(
@@ -85,7 +89,7 @@ fun MelodistImage(
             Icon(
                 imageVector = placeholderIcon,
                 contentDescription = contentDescription,
-                modifier = Modifier.size(iconSize),
+                modifier = Modifier.size(finalIconSize),
                 tint = placeholderTint
             )
         }

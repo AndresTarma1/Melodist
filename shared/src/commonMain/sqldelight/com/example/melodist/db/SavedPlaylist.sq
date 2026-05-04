@@ -27,6 +27,9 @@ DELETE FROM SavedPlaylist WHERE id = ?;
 updateSongCountText:
 UPDATE SavedPlaylist SET songCountText = ? WHERE id = ?;
 
+updateSongCountTextAndThumbnail:
+UPDATE SavedPlaylist SET songCountText = ?, thumbnail = ? WHERE id = ?;
+
 deleteAll:
 DELETE FROM SavedPlaylist;
 
