@@ -76,6 +76,7 @@ import com.metrolist.innertube.models.ArtistItem
 import com.metrolist.innertube.models.PlaylistItem
 import com.metrolist.innertube.models.SongItem
 import com.metrolist.innertube.models.YTItem
+import com.metrolist.innertube.pages.ChartsPage
 import org.jetbrains.jewel.foundation.modifier.onHover
 
 data class SearchScreenState(
@@ -84,6 +85,7 @@ data class SearchScreenState(
     val suggestions: List<String> = emptyList(),
     val filter: YouTube.SearchFilter? = null,
     val searchHistory: List<SearchHistoryEntry> = emptyList(),
+    val charts: ChartsPage? = null,
 )
 
 data class SearchActions(
@@ -109,13 +111,15 @@ fun SearchScreenRoute(
     val suggestions by viewModel.suggestions.collectAsState()
     val filter by viewModel.filter.collectAsState()
     val searchHistory by viewModel.searchHistory.collectAsState()
+    val charts by viewModel.charts.collectAsState()
 
     val state = SearchScreenState(
         uiState = uiState,
         query = query,
         suggestions = suggestions,
         filter = filter,
-        searchHistory = searchHistory
+        searchHistory = searchHistory,
+        charts = charts
     )
 
     val actions = remember(viewModel, onNavigate) {
@@ -169,6 +173,7 @@ fun SearchScreen(
 
             ResultsList(
                 uiState = state.uiState,
+                charts = state.charts,
                 filter = state.filter,
                 onItemClick = { item ->
                     when (item) {
@@ -479,6 +484,7 @@ fun FilterRow(
 @Composable
 fun ResultsList(
     uiState: SearchState,
+    charts: ChartsPage?,
     onItemClick: (YTItem) -> Unit,
     filter: YouTube.SearchFilter?,
     onFilterChange: (YouTube.SearchFilter?) -> Unit,
@@ -538,6 +544,13 @@ fun ResultsList(
             )
         }
 
+        SearchState.Idle -> {
+            SearchChartsContent(
+                charts = charts,
+                onItemClick = onItemClick,
+            )
+        }
+
         else -> {
 
             if (items.isEmpty()) {
@@ -559,6 +572,12 @@ fun ResultsList(
                                 selectedFilter = filter,
                                 onFilterSelected = onFilterChange
                             )
+                        }
+
+                        charts?.sections?.firstOrNull()?.let { section ->
+                            item {
+                                SearchChartPreview(section = section, onItemClick = onItemClick)
+                            }
                         }
 
                         items(
@@ -611,6 +630,57 @@ fun ResultsList(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun SearchChartsContent(
+    charts: ChartsPage?,
+    onItemClick: (YTItem) -> Unit,
+) {
+    if (charts == null) {
+        EmptyStateView(Icons.AutoMirrored.Filled.TrendingUp, "Explora tendencias y busca tu musica")
+        return
+    }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        charts.sections.take(3).forEach { section ->
+            item {
+                SearchChartPreview(section = section, onItemClick = onItemClick)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchChartPreview(
+    section: ChartsPage.ChartSection,
+    onItemClick: (YTItem) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.72f))
+            .padding(14.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.AutoMirrored.Filled.TrendingUp, null, tint = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.size(8.dp))
+            Text(section.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        }
+        Spacer(Modifier.height(8.dp))
+        section.items.take(5).forEachIndexed { index, item ->
+            YoutubeListItem(
+                item = item,
+                source = ItemContentSource.YOUTUBE,
+                onItemClick = onItemClick,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }

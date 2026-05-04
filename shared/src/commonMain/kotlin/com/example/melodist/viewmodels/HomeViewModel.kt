@@ -3,6 +3,7 @@ package com.example.melodist.viewmodels
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.metrolist.innertube.YouTube
+import com.metrolist.innertube.pages.ChartsPage
 import com.metrolist.innertube.pages.HomePage
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,16 +37,27 @@ class HomeViewModel(
     private val _uiState = MutableStateFlow<HomeState>(HomeState.Loading)
     val uiState: StateFlow<HomeState> = _uiState.asStateFlow()
 
+    private val _charts = MutableStateFlow<ChartsPage?>(null)
+    val charts: StateFlow<ChartsPage?> = _charts.asStateFlow()
+
     // Para disparar efectos de una sola vez hacia la UI (snackbars, navegar, etc.)
     val events = MutableSharedFlow<String>(extraBufferCapacity = 1)
 
     init {
         loadHome()
+        loadCharts()
 
         loginState
             ?.drop(1)
             ?.onEach { forceReload() }
             ?.launchIn(viewModelScope)
+    }
+
+    private fun loadCharts() {
+        viewModelScope.launch {
+            YouTube.getChartsPage()
+                .onSuccess { _charts.value = it }
+        }
     }
 
     fun onEvent(event: HomeUiEvent) {

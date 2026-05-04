@@ -35,6 +35,7 @@ import com.metrolist.innertube.models.ArtistItem
 import com.metrolist.innertube.models.PlaylistItem
 import com.metrolist.innertube.models.SongItem
 import com.metrolist.innertube.models.YTItem
+import com.metrolist.innertube.pages.ChartsPage
 import com.metrolist.innertube.pages.HomePage
 
 // ──────────────────────────────────────────────
@@ -47,9 +48,11 @@ fun HomeScreenRoute(
 ) {
     val playerViewModel = LocalPlayerViewModel.current
     val uiState by viewModel.uiState.collectAsState()
+    val charts by viewModel.charts.collectAsState()
 
     HomeScreen(
         uiState = uiState,
+        charts = charts,
         onEvent = viewModel::onEvent,
         onNavigate = onNavigate,
         playerViewModel = playerViewModel,
@@ -63,6 +66,7 @@ fun HomeScreenRoute(
 @Composable
 fun HomeScreen(
     uiState: HomeState,
+    charts: ChartsPage?,
     onEvent: (HomeUiEvent) -> Unit,
     onNavigate: (Route) -> Unit,
     playerViewModel: PlayerViewModel? = null,
@@ -99,6 +103,7 @@ fun HomeScreen(
 
                 is HomeState.Success -> HomeScreenContent(
                     page = uiState.page,
+                    charts = charts,
                     selectedParams = uiState.selectedParams,
                     isLoadingMore = uiState.isLoadingMore,
                     onChipClick = { params -> onEvent(HomeUiEvent.ChipSelected(params)) },
@@ -122,6 +127,7 @@ fun HomeScreen(
 @Composable
 fun HomeScreenContent(
     page: HomePage,
+    charts: ChartsPage?,
     selectedParams: String?,
     isLoadingMore: Boolean,
     onChipClick: (String?) -> Unit,
@@ -155,6 +161,12 @@ fun HomeScreenContent(
             }
 
             // Secciones de contenido
+            charts?.sections
+                ?.take(2)
+                ?.forEach { section ->
+                    HomeChartsSection(section, onNavigate, playerViewModel)
+                }
+
             page.sections.forEach { section ->
                 HomeSectionRow(
                     section = section,
@@ -348,5 +360,42 @@ fun HomeScreenError(message: String, onRetry: () -> Unit) {
         )
         Spacer(modifier = Modifier.height(24.dp))
         Button(onClick = onRetry) { Text("Reintentar") }
+    }
+}
+
+@Composable
+private fun HomeChartsSection(
+    section: ChartsPage.ChartSection,
+    onNavigate: (Route) -> Unit,
+    playerViewModel: PlayerViewModel?,
+) {
+    Column(modifier = Modifier.padding(top = 12.dp, bottom = 12.dp, end = 16.dp)) {
+        Text(
+            text = section.title,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Black,
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+        )
+
+        val sectionScrollState = rememberLazyListState()
+        HorizontalScrollableRow(
+            modifier = Modifier.fillMaxWidth(),
+            state = sectionScrollState,
+            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            items(
+                count = section.items.take(12).size,
+                key = { index -> "chart_${section.title}_${section.items[index].id}" }
+            ) { index ->
+                val item = section.items[index]
+                HomeSectionItem(
+                    item = item,
+                    onNavigate = onNavigate,
+                    playerViewModel = playerViewModel,
+                    modifier = Modifier.animateItem()
+                )
+            }
+        }
     }
 }

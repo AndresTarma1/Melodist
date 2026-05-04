@@ -6,6 +6,7 @@ import com.example.melodist.data.repository.SearchRepository
 import com.example.melodist.db.entities.SearchHistoryEntry
 import com.metrolist.innertube.YouTube
 import com.metrolist.innertube.models.YTItem
+import com.metrolist.innertube.pages.ChartsPage
 import com.metrolist.innertube.pages.SearchSummaryPage
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -32,6 +33,9 @@ class SearchViewModel(
     private val _uiState = MutableStateFlow<SearchState>(SearchState.Idle)
     val uiState = _uiState.asStateFlow()
 
+    private val _charts = MutableStateFlow<ChartsPage?>(null)
+    val charts = _charts.asStateFlow()
+
     private val _suggestions = MutableStateFlow<List<String>>(emptyList())
     val suggestions = _suggestions.asStateFlow()
 
@@ -43,6 +47,13 @@ class SearchViewModel(
      */
     val searchHistory: StateFlow<List<SearchHistoryEntry>> = searchRepository.getSearchHistory()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    init {
+        viewModelScope.launch {
+            YouTube.getChartsPage()
+                .onSuccess { _charts.value = it }
+        }
+    }
 
     private var suggestionsJob: Job? = null
     private fun fetchSuggestions(query: String) {
