@@ -3,6 +3,7 @@ package com.example.melodist.ui.components.layout
 import androidx.compose.foundation.LocalScrollbarStyle
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.VerticalScrollbar
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.rememberScrollbarAdapter
@@ -27,7 +28,7 @@ fun AppVerticalScrollbar(
 ) {
     VerticalScrollbar(
         adapter = rememberScrollbarAdapter(state),
-        modifier = modifier,
+        modifier = modifier.padding(vertical = 20.dp),
         style = appScrollbarStyle()
     )
 }
@@ -39,7 +40,7 @@ fun AppVerticalScrollbar(
 ) {
     VerticalScrollbar(
         adapter = rememberScrollbarAdapter(state),
-        modifier = modifier,
+        modifier = modifier.padding(vertical = 20.dp),
         style = appScrollbarStyle()
     )
 }
@@ -51,7 +52,7 @@ fun AppVerticalScrollbar(
 ) {
     VerticalScrollbar(
         adapter = rememberScrollbarAdapter(state),
-        modifier = modifier,
+        modifier = modifier.padding(vertical = 20.dp),
         style = appScrollbarStyle()
     )
 }

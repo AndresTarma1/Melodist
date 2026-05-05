@@ -7,6 +7,7 @@ import com.kmpalette.color
 import com.kmpalette.loader.rememberNetworkLoader
 import com.kmpalette.rememberPaletteState
 import io.ktor.http.Url
+import kotlinx.coroutines.delay
 
 
 /**
@@ -35,11 +36,12 @@ data class ArtworkColors(
  */
 val LocalArtworkColors = staticCompositionLocalOf { ArtworkColors.Default }
 
+private val artworkPaletteCache = mutableMapOf<String, ArtworkColors>()
+
 @Composable
 fun rememberArtworkColors(url: String?): ArtworkColors {
     val loader = rememberNetworkLoader()
     val paletteState = rememberPaletteState(loader = loader)
-    val paletteCache = remember { mutableStateMapOf<String, ArtworkColors>() }
 
     var colors by remember { mutableStateOf(ArtworkColors.Default) }
 
@@ -49,12 +51,13 @@ fun rememberArtworkColors(url: String?): ArtworkColors {
             return@LaunchedEffect
         }
 
-        paletteCache[url]?.let {
+        artworkPaletteCache[url]?.let {
             colors = it
             return@LaunchedEffect
         }
 
         try {
+            delay(180)
             paletteState.generate(Url(url))
 
             val dominant = paletteState.palette?.dominantSwatch?.color
@@ -71,7 +74,7 @@ fun rememberArtworkColors(url: String?): ArtworkColors {
                 darkMuted = darkMuted ?: finalDominant,
                 isLight = finalDominant.luminance() > 0.5f
             )
-            paletteCache[url] = resolved
+            artworkPaletteCache[url] = resolved
             colors = resolved
 
         } catch (_: Exception) {

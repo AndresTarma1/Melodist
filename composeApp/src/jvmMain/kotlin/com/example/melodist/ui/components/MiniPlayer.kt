@@ -24,6 +24,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerIcon
@@ -44,7 +46,7 @@ import com.example.melodist.viewmodels.RepeatMode
 import com.example.melodist.utils.upscaleThumbnailUrl
 
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun MiniPlayer(
     progressState: PlayerProgressState,
@@ -71,8 +73,9 @@ fun MiniPlayer(
     val isPlaying = state.playbackState == PlaybackState.PLAYING
     val isLoading = state.playbackState == PlaybackState.LOADING
 
-    val imageUrl = song.thumbnailUrl
-    val ratio = if(isWideThumbnail(imageUrl)) 16f/ 9f else 1f
+    val ratio = remember(song.thumbnailUrl) {
+        if (isWideThumbnail(song.thumbnailUrl)) 16f / 9f else 1f
+    }
 
     Surface(
         modifier = modifier.fillMaxWidth().height(88.dp),
@@ -105,7 +108,7 @@ fun MiniPlayer(
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         MelodistImage(
-                            url = upscaleThumbnailUrl(song.thumbnailUrl, 256),
+                            url = song.thumbnailUrl,
                             contentDescription = song.title,
                             modifier = Modifier
                                 .sizeIn(maxWidth = thumbSize * ratio, maxHeight = thumbSize)
@@ -143,12 +146,14 @@ fun MiniPlayer(
                     }
                 }
 
-                // —─ CENTRO: Controles y Progreso (Espaciado corregido) —─—─—─—─—─
+                // —— CENTRO: Controles y Progreso ——
                 Column(
                     modifier = Modifier.weight(1.6f),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterVertically)
+                    verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically)
                 ) {
+                    // ... (Fila de botones anterior) ...
+
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)
@@ -203,17 +208,16 @@ fun MiniPlayer(
                                 )
                             }
                         }
-
                         IconButton(
-                            onClick = { playerViewModel.next() },
-                            modifier = Modifier.size(40.dp).pointerHoverIcon(PointerIcon.Hand)
+                                onClick = { playerViewModel.next() },
+                        modifier = Modifier.size(40.dp).pointerHoverIcon(PointerIcon.Hand)
                         ) {
-                            Icon(
-                                Icons.Rounded.SkipNext, "siguiente",
-                                tint = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.size(32.dp)
-                            )
-                        }
+                        Icon(
+                            Icons.Rounded.SkipNext, "siguiente",
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
 
                         // Botón Repetir
                         IconButton(
@@ -236,37 +240,34 @@ fun MiniPlayer(
                             )
                         }
                     }
-
-                    // Slider con mayor separación visual
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Text(
-                            formatPlayerTimeValue(seekValue?.let { (it * progressState.durationMs).toLong() }
-                                ?: progressState.positionMs),
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.width(32.dp)
+                        TimeText(progressState.positionMs, seekValue)
+
+                        val animatedProgress by animateFloatAsState(
+                            targetValue = sliderProgress,
+                            animationSpec = ProgressIndicatorDefaults.ProgressAnimationSpec,
+                            label = "progressAnim"
                         )
 
-                        CompactSlider(
-                            value = sliderProgress,
-                            onValueChange = { seekValue = it },
-                            onValueChangeFinished = {
-                                seekValue?.let { playerViewModel.seekTo((it * progressState.durationMs).toLong()) }
-                                seekValue = null
-                            },
-                            modifier = Modifier.weight(1f)
-                        )
+                        // MEJORA: Usar un Slider transparente sobre el Wavy para permitir Seek
+                        Box(modifier = Modifier.weight(1f).height(24.dp), contentAlignment = Alignment.Center) {
+                            LinearWavyProgressIndicator(
+                                progress = { animatedProgress },
+                                waveSpeed = 15.dp, // Un poco más rápido para dar sensación de fluidez
+                                modifier = Modifier.fillMaxWidth(),
+                                // Si quieres que el wavy se vea "lleno" desde el inicio:
+                                amplitude = { progress ->
+                                    // Esto hace que la onda sea constante sin importar el progreso
+                                    if (progress > 0f) 1f else 0f
+                                }
+                            )
+                        }
 
-                        Text(
-                            formatPlayerTimeValue(progressState.durationMs),
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.width(32.dp)
-                        )
+                        TimeText(progressState.durationMs)
                     }
                 }
 
@@ -381,6 +382,20 @@ fun MiniPlayer(
             }
         }
     }
+}
+
+@Composable
+fun TimeText(millis: Long, seekValue: Float? = null) {
+    Text(
+        text = formatPlayerTimeValue(millis),
+        style = MaterialTheme.typography.labelSmall.copy(
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Medium,
+            fontFeatureSettings = "tnum" // Números monoespaciados para que no "bailen"
+        ),
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.width(36.dp)
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

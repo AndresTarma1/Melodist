@@ -48,6 +48,7 @@ fun HorizontalScrollableRow(
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth() // Ocupa todo el ancho para simular la integración nativa
                 .height(10.dp)
+                .padding(horizontal = 20.dp)
                     ,
             style = scrollbarStyle
         )

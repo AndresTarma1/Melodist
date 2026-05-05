@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.ContentScale
@@ -62,6 +63,10 @@ internal fun PlaylistLayout(
     }.collectAsState(initial = false)
 
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var selectedSongIds by remember(state.songs) { mutableStateOf<Set<String>>(emptySet()) }
+    val selectedSongs = remember(state.songs, selectedSongIds) {
+        state.songs.filter { it.id in selectedSongIds }
+    }
 
     if (showDeleteDialog) {
         DownloadConfirmationDialog(
@@ -83,40 +88,43 @@ internal fun PlaylistLayout(
                 .fillMaxSize()
                 .padding(top = if (isCompact) 20.dp else 32.dp, end = horizontalPadding, start = horizontalPadding, bottom = 16.dp)
         ) {
-        Column(
-            modifier = Modifier
-                .width(sidePanelWidth)
-                .fillMaxHeight()
-                .verticalScroll(rememberScrollState())
-                .padding(top = 8.dp, bottom = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            PlaylistInfoPanel(
-                playlistPage = playlistPage,
-                coverSize = coverSize,
-                controls = PlaylistInfoPanelControls(
-                    isSaved = state.isSaved,
-                    isSaving = state.isSaving,
-                    isLoadingForPlay = state.isLoadingForPlay,
-                ),
-                actions = actions,
-                isDownloadingAny = { isAnyDownloadingState.value },
-                isFullyDownloaded = { isFullyDownloadedState.value },
-                onDownloadClick = {
-                    val isDownloadsPlaylist = playlistPage.playlist.id == "LOCAL_DOWNLOADS"
-                    if (isFullyDownloadedState.value && !isDownloadsPlaylist) {
-                        showDeleteDialog = true
-                    } else if (!isAnyDownloadingState.value) {
-                        actions.onDownloadPlaylist()
+
+            Column(
+                modifier = Modifier
+                    .width(sidePanelWidth)
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 24.dp, vertical = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                PlaylistInfoPanel(
+                    playlistPage = playlistPage,
+                    coverSize = coverSize,
+                    controls = PlaylistInfoPanelControls(
+                        isSaved = state.isSaved,
+                        isSaving = state.isSaving,
+                        isLoadingForPlay = state.isLoadingForPlay,
+                    ),
+                    actions = actions,
+                    isDownloadingAny = { isAnyDownloadingState.value },
+                    isFullyDownloaded = { isFullyDownloadedState.value },
+                    onDownloadClick = {
+                        val isDownloadsPlaylist = playlistPage.playlist.id == "LOCAL_DOWNLOADS"
+                        if (isFullyDownloadedState.value && !isDownloadsPlaylist) {
+                            showDeleteDialog = true
+                        } else if (!isAnyDownloadingState.value) {
+                            actions.onDownloadPlaylist()
+                        }
                     }
-                }
-            )
+                )
+
         }
 
         Spacer(Modifier.width(if (isCompact) 16.dp else 32.dp))
 
-        Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+
+        Box(modifier = Modifier.weight(1f).fillMaxSize()) {
             val lazyListState = rememberLazyListState()
 
             LazyColumn(
@@ -128,11 +136,20 @@ internal fun PlaylistLayout(
                     SongListItem(
                         song = song,
                         onPlay = {
-                            playerViewModel.playPlaylist(
-                                state.songs, index,
-                                playlistPage.playlist.id,
-                                playlistPage.playlist.title
-                            )
+                            if (selectedSongIds.isNotEmpty()) {
+                                selectedSongIds = if (song.id in selectedSongIds) selectedSongIds - song.id else selectedSongIds + song.id
+                            } else {
+                                playerViewModel.playPlaylist(
+                                    state.songs, index,
+                                    playlistPage.playlist.id,
+                                    playlistPage.playlist.title
+                                )
+                            }
+                        },
+                        isSelected = song.id in selectedSongIds,
+                        selectionMode = selectedSongIds.isNotEmpty(),
+                        onSelectionChange = { selected ->
+                            selectedSongIds = if (selected) selectedSongIds + song.id else selectedSongIds - song.id
                         },
                         isLocalPlaylist = actions.isLocalPlaylist,
                         onRemoveFromPlaylist = actions.onRemoveSongFromPlaylist,
@@ -157,8 +174,17 @@ internal fun PlaylistLayout(
                 state = lazyListState,
                 modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(12.dp)
             )
+
+            MultiSongSelectionBar(
+                selectedSongs = selectedSongs,
+                isLocalPlaylist = actions.isLocalPlaylist,
+                onClearSelection = { selectedSongIds = emptySet() },
+                onRemoveFromPlaylist = actions.onRemoveSongFromPlaylist,
+                modifier = Modifier.align(Alignment.BottomCenter)
+            )
         }
         }
+
     }
 }
 
@@ -345,6 +371,7 @@ internal fun PlaylistInfoPanel(
 }
 
 // Nuevo Composable aislado para evitar redibujar el panel completo
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun DownloadAllButton(
     isDownloadingAny: () -> Boolean,
@@ -363,9 +390,9 @@ internal fun DownloadAllButton(
             .pointerHoverIcon(PointerIcon.Hand)
     ) {
         if (downloading) {
-            CircularProgressIndicator(
+            CircularWavyProgressIndicator(
                 modifier = Modifier.size(18.dp),
-                strokeWidth = 2.dp,
+                stroke = Stroke(2F),
                 color = MaterialTheme.colorScheme.primary
             )
         } else {

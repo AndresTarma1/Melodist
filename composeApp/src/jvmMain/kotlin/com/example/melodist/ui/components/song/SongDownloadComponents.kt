@@ -1,14 +1,12 @@
 package com.example.melodist.ui.components.song
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -16,22 +14,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
-import androidx.compose.material.icons.automirrored.filled.QueueMusic
-import androidx.compose.material.icons.filled.AddCircleOutline
-import androidx.compose.material.icons.filled.Cancel
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.DeleteOutline
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.DownloadDone
-import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material.icons.filled.HourglassTop
-import androidx.compose.material.icons.filled.RemoveCircleOutline
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -44,14 +28,10 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.input.pointer.PointerEventType
-import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.IntOffset
@@ -59,62 +39,69 @@ import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
-import androidx.compose.ui.window.PopupProperties
 import com.example.melodist.player.DownloadState
-import com.example.melodist.player.YTPlayerutils
-import com.example.melodist.ui.helpers.rememberSongDownloadState
-import com.example.melodist.utils.LocalDownloadViewModel
-import com.example.melodist.utils.LocalPlayerViewModel
 import com.example.melodist.viewmodels.LibraryPlaylistsViewModel
 import com.metrolist.innertube.models.SongItem
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import org.koin.compose.koinInject
 import kotlin.math.roundToInt
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.filled.ArrowCircleDown
-import com.example.melodist.utils.withMissingMetadataResolved
+import androidx.compose.material.icons.rounded.DownloadDone
+import androidx.compose.material.icons.rounded.PriorityHigh
+import androidx.compose.material3.CircularWavyProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.ui.graphics.drawscope.Stroke
 import org.jetbrains.jewel.foundation.modifier.onHover
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun DownloadIndicator(
     state: DownloadState?,
     modifier: Modifier = Modifier
 ) {
-    when (state) {
-        is DownloadState.Queued -> Icon(
-            Icons.Default.HourglassTop,
-            contentDescription = "En cola",
-            modifier = modifier.size(20.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        is DownloadState.Downloading -> Box(modifier = modifier.size(20.dp), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(
-                progress = { if (state.progress >= 0f) state.progress else 0f },
-                modifier = Modifier.size(20.dp),
-                strokeWidth = 2.dp,
-                color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                strokeCap = StrokeCap.Round
-            )
+    val indicatorColor = MaterialTheme.colorScheme.primary
+    val trackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+
+    Box(
+        modifier = modifier.size(18.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        when (state) {
+            is DownloadState.Queued -> {
+                // Pulso sutil para indicar espera
+                CircularWavyProgressIndicator(
+                    modifier = Modifier.fillMaxSize(),
+                    color = indicatorColor.copy(alpha = 0.6f),
+                    stroke = Stroke(1.5F, cap = StrokeCap.Round)
+                )
+            }
+            is DownloadState.Downloading -> {
+                CircularWavyProgressIndicator(
+                    progress = { state.progress.coerceIn(0f, 1f) },
+                    modifier = Modifier.fillMaxSize(),
+                    color = indicatorColor,
+                    trackColor = trackColor,
+                    stroke = Stroke(1.5F, cap = StrokeCap.Round)
+                )
+            }
+            is DownloadState.Completed -> {
+                Icon(
+                    imageVector = Icons.Rounded.DownloadDone,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = indicatorColor
+                )
+            }
+            is DownloadState.Failed -> {
+                Icon(
+                    imageVector = Icons.Rounded.PriorityHigh, // Más minimalista que el error estándar
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
+                    tint = MaterialTheme.colorScheme.error
+                )
+            }
+            else -> Unit
         }
-        is DownloadState.Completed -> Icon(
-            Icons.Default.ArrowCircleDown,
-            contentDescription = "Descargada",
-            modifier = modifier.size(20.dp),
-            tint = MaterialTheme.colorScheme.primary
-        )
-        is DownloadState.Failed -> Icon(
-            Icons.Default.ErrorOutline,
-            contentDescription = "Error de descarga",
-            modifier = modifier.size(20.dp),
-            tint = MaterialTheme.colorScheme.error
-        )
-        else -> Unit
     }
 }
 
@@ -161,6 +148,13 @@ fun AddToPlaylistDialog(
     song: SongItem,
     playlistsViewModel: LibraryPlaylistsViewModel,
     onDismiss: () -> Unit
+) = AddToPlaylistDialog(listOf(song), playlistsViewModel, onDismiss)
+
+@Composable
+fun AddToPlaylistDialog(
+    songs: List<SongItem>,
+    playlistsViewModel: LibraryPlaylistsViewModel,
+    onDismiss: () -> Unit
 ) {
     val localPlaylists by playlistsViewModel.localPlaylists.collectAsState()
     var newPlaylistName by remember { mutableStateOf("") }
@@ -170,7 +164,7 @@ fun AddToPlaylistDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                if (isCreatingNew) "Crear nueva playlist" else "Añadir a playlist",
+                if (isCreatingNew) "Crear nueva playlist" else "Añadir ${songs.size} a playlist",
                 style = MaterialTheme.typography.titleLarge
             )
         },
@@ -205,7 +199,7 @@ fun AddToPlaylistDialog(
                                 .onHover{ isHovered = it}
                                 .clip(RoundedCornerShape(8.dp))
                                 .clickable {
-                                    playlistsViewModel.addSongToLocalPlaylist(playlist.id, song)
+                                    songs.forEach { playlistsViewModel.addSongToLocalPlaylist(playlist.id, it) }
                                     onDismiss()
                                 }
                                 .padding(vertical = 12.dp, horizontal = 8.dp),
@@ -233,7 +227,7 @@ fun AddToPlaylistDialog(
                 Button(
                     onClick = {
                         if (newPlaylistName.isNotBlank()) {
-                            playlistsViewModel.createLocalPlaylist(newPlaylistName.trim(), song)
+                            playlistsViewModel.createLocalPlaylist(newPlaylistName.trim(), songs)
                             onDismiss()
                         }
                     },

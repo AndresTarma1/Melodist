@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.melodist.navigation.Route
 import com.example.melodist.ui.components.*
+import com.example.melodist.ui.components.context.CollectionContextMenu
 import com.example.melodist.ui.components.context.SongContextMenu
 import com.example.melodist.ui.components.layout.AppVerticalScrollbar
 import com.example.melodist.ui.components.layout.HorizontalScrollableRow
@@ -402,6 +403,8 @@ private fun ArtistSectionRow(
     section: ArtistSection,
     onNavigate: (Route) -> Unit,
 ) {
+    val songSection = section.items.all { it is SongItem }
+
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = section.title,
@@ -409,20 +412,32 @@ private fun ArtistSectionRow(
             modifier = Modifier.padding(bottom = 12.dp)
         )
 
-        HorizontalScrollableRow(
-            modifier = Modifier.fillMaxWidth(),
-            state = rememberLazyListState(),
-            contentPadding = PaddingValues(end = 16.dp, top = 4.dp, bottom = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            items(items = section.items, key = { it.id }) { item ->
-                ArtistSectionCard(
-                    item = item,
-                    onNavigate = onNavigate,
-                    modifier = Modifier.animateItem(
-                        placementSpec = spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMediumLow)
+        if (songSection) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                section.items.forEach { item ->
+                    ArtistSectionListItem(
+                        item = item,
+                        onNavigate = onNavigate,
+                        modifier = Modifier.fillMaxWidth()
                     )
-                )
+                }
+            }
+        } else {
+            HorizontalScrollableRow(
+                modifier = Modifier.fillMaxWidth(),
+                state = rememberLazyListState(),
+                contentPadding = PaddingValues(end = 16.dp, top = 4.dp, bottom = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(items = section.items, key = { it.id }) { item ->
+                    ArtistSectionGridItem(
+                        item = item,
+                        onNavigate = onNavigate,
+                        modifier = Modifier.animateItem(
+                            placementSpec = spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMediumLow)
+                        )
+                    )
+                }
             }
         }
     }
@@ -430,18 +445,39 @@ private fun ArtistSectionRow(
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-private fun ArtistSectionCard(
+private fun ArtistSectionListItem(
     item: YTItem,
     onNavigate: (Route) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val isArtist = item is ArtistItem
-    val cardShape = if (isArtist) CircleShape else RoundedCornerShape(10.dp)
+    val playerViewModel = LocalPlayerViewModel.current
 
+    YoutubeListItem(
+        item = item,
+        source = ItemContentSource.YOUTUBE,
+        onItemClick = { clicked ->
+            when (clicked) {
+                is AlbumItem -> onNavigate(Route.Album(clicked.browseId))
+                is PlaylistItem -> onNavigate(Route.Playlist(clicked.id))
+                is ArtistItem -> onNavigate(Route.Artist(clicked.id))
+                is SongItem -> playerViewModel.playSingle(clicked)
+            }
+        },
+        modifier = modifier
+    )
+}
+
+@OptIn(ExperimentalComposeUiApi::class)
+@Composable
+private fun ArtistSectionGridItem(
+    item: YTItem,
+    onNavigate: (Route) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val playerViewModel = LocalPlayerViewModel.current
     val downloadViewModel = LocalDownloadViewModel.current
+    val isArtist = item is ArtistItem
 
-    var isHovered by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     var menuOffset by remember { mutableStateOf(DpOffset.Zero) }
 
@@ -450,97 +486,123 @@ private fun ArtistSectionCard(
     else
         remember { mutableStateOf(null) }
 
-    val bgColor by animateColorAsState(
-        if (isHovered) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f) else Color.Transparent,
-        tween(150), label = "cardBg"
-    )
-
-    Box(modifier = modifier) {
-        Column(
-            modifier = Modifier
-                .width(148.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(bgColor)
-                .clickable {
-                    when (item) {
-                        is AlbumItem -> onNavigate(Route.Album(item.browseId))
-                        is PlaylistItem -> onNavigate(Route.Playlist(item.id))
-                        is ArtistItem -> onNavigate(Route.Artist(item.id))
-                        is SongItem -> playerViewModel.playSingle(item)
-                    }
-                }
-                .pointerHoverIcon(PointerIcon.Hand)
-                .contextMenuArea(
-                    enabled = item is SongItem,
-                    onHoverChange = { isHovered = it },
-                    onMenuAction = { offset -> menuOffset = offset; showMenu = true }
-                )
-                .padding(8.dp),
-            horizontalAlignment = if (isArtist) Alignment.CenterHorizontally else Alignment.Start
-        ) {
-            Box {
-                MelodistImage(
-                    url = item.thumbnail,
-                    contentDescription = item.title,
-                    modifier = Modifier.size(132.dp),
-                    shape = cardShape,
-                    placeholderType = when (item) {
-                        is ArtistItem -> PlaceholderType.ARTIST
-                        is AlbumItem -> PlaceholderType.ALBUM
-                        is PlaylistItem -> PlaceholderType.PLAYLIST
-                        else -> PlaceholderType.SONG
-                    },
-                    contentScale = ContentScale.Crop,
-                    iconSize = 40.dp
-                )
-
-                if (item is SongItem && downloadState != null) {
-                    DownloadIndicator(
-                        state = downloadState,
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(4.dp)
-                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.75f), CircleShape)
-                            .padding(4.dp)
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(8.dp))
-
-            Text(
-                item.title,
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = if (isArtist) TextAlign.Center else TextAlign.Start,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            val subtitle = when (item) {
-                is SongItem -> item.artists.joinToString(", ") { it.name }
-                is AlbumItem -> item.year?.toString() ?: "Álbum"
-                is ArtistItem -> "Artista"
-                is PlaylistItem -> item.author?.name ?: "Playlist"
-            }
-            Text(
-                subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = if (isArtist) TextAlign.Center else TextAlign.Start,
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-
-        if (item is SongItem) {
-            SongContextMenu(
-                expanded = showMenu,
-                onDismiss = { showMenu = false },
-                song = item,
-                offset = menuOffset
-            )
+    val onClick: (YTItem) -> Unit = { clicked ->
+        when (clicked) {
+            is AlbumItem -> onNavigate(Route.Album(clicked.browseId))
+            is PlaylistItem -> onNavigate(Route.Playlist(clicked.id))
+            is ArtistItem -> onNavigate(Route.Artist(clicked.id))
+            is SongItem -> playerViewModel.playSingle(clicked)
         }
     }
+
+    YouTubeGridItem(
+        item = item,
+        onClick = onClick,
+        imageShape = if (isArtist) CircleShape else RoundedCornerShape(10.dp),
+        alignment = if (isArtist) Alignment.CenterHorizontally else Alignment.Start,
+        titleAlign = if (isArtist) TextAlign.Center else TextAlign.Start,
+        placeholderType = when (item) {
+            is ArtistItem -> PlaceholderType.ARTIST
+            is AlbumItem -> PlaceholderType.ALBUM
+            is PlaylistItem -> PlaceholderType.PLAYLIST
+            else -> PlaceholderType.SONG
+        },
+        centerPlayVisible = item is SongItem,
+        contextMenuEnabled = item is SongItem || item is AlbumItem || item is PlaylistItem,
+        onContextMenuAction = { offset -> menuOffset = offset; showMenu = true },
+        onMoreClick = if (isArtist) ({ onClick(item) }) else null,
+        quickPlay = when (item) {
+            is AlbumItem -> CornerQuickPlayConfig(
+                size = 28.dp,
+                iconSize = 16.dp,
+                onClick = {
+                    playerViewModel.playAlbumFromBrowseId(
+                        browseId = item.browseId,
+                        title = item.title,
+                        onEmpty = { onClick(item) }
+                    )
+                }
+            )
+            is PlaylistItem -> CornerQuickPlayConfig(
+                size = 42.dp,
+                iconSize = 20.dp,
+                onClick = {
+                    playerViewModel.playPlaylistFromId(
+                        playlistId = item.id,
+                        title = item.title,
+                        onEmpty = { onClick(item) }
+                    )
+                }
+            )
+            else -> null
+        },
+        subtitle = when (item) {
+            is SongItem -> item.artists.firstOrNull()?.name.orEmpty()
+            is AlbumItem -> item.artists?.firstOrNull()?.name ?: "Album"
+            is ArtistItem -> "Artista"
+            is PlaylistItem -> item.author?.name ?: "Lista"
+        },
+        modifier = modifier,
+        topStartOverlay = {
+            if (item is SongItem && downloadState != null) {
+                DownloadIndicator(
+                    state = downloadState,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(6.dp)
+                        .background(Color.Black.copy(alpha = 0.55f), CircleShape)
+                        .padding(4.dp)
+                )
+            }
+        },
+        overlayContent = {
+            if (item is SongItem) {
+                SongContextMenu(
+                    expanded = showMenu,
+                    onDismiss = { showMenu = false },
+                    song = item,
+                    offset = menuOffset
+                )
+            } else if (item is AlbumItem || item is PlaylistItem) {
+                CollectionContextMenu(
+                    expanded = showMenu,
+                    onDismiss = { showMenu = false },
+                    title = item.title,
+                    isPlaylist = item is PlaylistItem,
+                    onOpen = { onClick(item) },
+                    onPlay = {
+                        when (item) {
+                            is AlbumItem -> playerViewModel.playAlbumFromBrowseId(
+                                browseId = item.browseId,
+                                title = item.title,
+                                onEmpty = { onClick(item) }
+                            )
+                            is PlaylistItem -> playerViewModel.playPlaylistFromId(
+                                playlistId = item.id,
+                                title = item.title,
+                                onEmpty = { onClick(item) }
+                            )
+                        }
+                    },
+                    onShuffle = {
+                        when (item) {
+                            is AlbumItem -> playerViewModel.playAlbumFromBrowseId(
+                                browseId = item.browseId,
+                                title = item.title,
+                                shuffle = true,
+                                onEmpty = { onClick(item) }
+                            )
+                            is PlaylistItem -> playerViewModel.playPlaylistFromId(
+                                playlistId = item.id,
+                                title = item.title,
+                                shuffle = true,
+                                onEmpty = { onClick(item) }
+                            )
+                        }
+                    },
+                    offset = menuOffset
+                )
+            }
+        }
+    )
 }

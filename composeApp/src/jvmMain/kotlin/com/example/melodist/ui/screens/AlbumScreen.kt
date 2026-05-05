@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import com.example.melodist.navigation.Route
 import com.example.melodist.ui.components.AlbumScreenSkeleton
 import com.example.melodist.ui.components.background.BlurredImageBackground
+import com.example.melodist.ui.screens.album.AlbumScreenLayout
 import com.example.melodist.utils.LocalPlayerViewModel
 import com.example.melodist.viewmodels.AlbumState
 import com.example.melodist.viewmodels.AlbumViewModel

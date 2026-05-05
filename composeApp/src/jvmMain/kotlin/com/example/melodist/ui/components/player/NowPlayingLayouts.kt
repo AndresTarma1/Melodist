@@ -11,6 +11,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.PlaylistAdd
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.DragHandle
 import androidx.compose.material.icons.rounded.GraphicEq
@@ -37,6 +41,7 @@ import com.example.melodist.ui.components.background.BlurredImageBackground
 import com.example.melodist.ui.components.skeletons.AnimatedEqualizer
 import com.example.melodist.utils.upscaleThumbnailUrl
 import com.example.melodist.ui.components.song.DownloadIndicator
+import com.example.melodist.ui.components.song.AddToPlaylistDialog
 import com.example.melodist.ui.helpers.rememberSongDownloadState
 import com.example.melodist.utils.LocalDownloadViewModel
 import com.example.melodist.utils.LocalPlayerViewModel
@@ -44,9 +49,14 @@ import com.example.melodist.utils.LocalUserPreferences
 import com.example.melodist.utils.isWideThumbnail
 import com.example.melodist.viewmodels.PlayerUiState
 import com.example.melodist.viewmodels.QueueSource
+import com.example.melodist.viewmodels.LibraryPlaylistsViewModel
+import com.metrolist.innertube.models.SongItem
+import com.metrolist.innertube.models.Artist
+import com.metrolist.innertube.models.Album
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.jetbrains.jewel.foundation.modifier.onHover
+import org.koin.compose.koinInject
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import kotlin.time.Duration.Companion.milliseconds
@@ -110,9 +120,23 @@ fun PlaybackQueuePanel(
     modifier: Modifier = Modifier
 ) {
     val playerViewModel = LocalPlayerViewModel.current
+    val downloadViewModel = LocalDownloadViewModel.current
     val coroutineScope = rememberCoroutineScope()
     val preferencesRepo = LocalUserPreferences.current
     val listState = rememberLazyListState()
+    val playlistsViewModel: LibraryPlaylistsViewModel = koinInject()
+    var showSaveQueueDialog by remember { mutableStateOf(false) }
+    var showAddQueueDialog by remember { mutableStateOf(false) }
+    var queuePlaylistName by remember(state.queueSource, state.queue) {
+        mutableStateOf(
+            when (val source = state.queueSource) {
+                is QueueSource.Album -> source.title
+                is QueueSource.Playlist -> source.title
+                else -> "Cola de reproducción"
+            }
+        )
+    }
+    val queueSongs = remember(state.queue) { state.queue.map { it.toSongItem() } }
 
     val queueLocked by preferencesRepo.queueLocked.collectAsState(initial = false)
 
@@ -123,12 +147,12 @@ fun PlaybackQueuePanel(
     LaunchedEffect(state.isShuffled) {
         if (state.queue.isNotEmpty() && state.currentIndex in state.queue.indices) {
             delay(100.milliseconds)
-            listState.animateScrollToItem(state.currentIndex)
+            listState.scrollToItem(state.currentIndex)
         }
     }
 
     Surface(
-        modifier = Modifier.width(380.dp).fillMaxHeight(), // Más ancho para mejor visualización
+        modifier = modifier.fillMaxHeight(),
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         tonalElevation = 2.dp,
         shape = RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp)
@@ -155,6 +179,39 @@ fun PlaybackQueuePanel(
                     )
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(
+                        onClick = { showAddQueueDialog = true },
+                        modifier = Modifier.size(36.dp).pointerHoverIcon(PointerIcon.Hand)
+                    ) {
+                        Icon(
+                            Icons.Default.PlaylistAdd,
+                            "Añadir cola a playlist",
+                            modifier = Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    IconButton(
+                        onClick = { downloadViewModel.downloadAll(queueSongs) },
+                        modifier = Modifier.size(36.dp).pointerHoverIcon(PointerIcon.Hand)
+                    ) {
+                        Icon(
+                            Icons.Default.Download,
+                            "Descargar cola",
+                            modifier = Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    IconButton(
+                        onClick = { showSaveQueueDialog = true },
+                        modifier = Modifier.size(36.dp).pointerHoverIcon(PointerIcon.Hand)
+                    ) {
+                        Icon(
+                            Icons.Default.Save,
+                            "Guardar cola como playlist",
+                            modifier = Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     IconButton(
                         onClick = {
                             coroutineScope.launch {
@@ -208,6 +265,7 @@ fun PlaybackQueuePanel(
                             isDragging = isDragging,
                             dragModifier = dragModifier,
                             onClick = { playerViewModel.playAtIndex(index) },
+                            onRemove = { playerViewModel.removeFromQueue(index) },
                         )
                     }
                 }
@@ -215,6 +273,40 @@ fun PlaybackQueuePanel(
         }
     }
 
+    if (showAddQueueDialog) {
+        AddToPlaylistDialog(
+            songs = queueSongs,
+            playlistsViewModel = playlistsViewModel,
+            onDismiss = { showAddQueueDialog = false }
+        )
+    }
+
+    if (showSaveQueueDialog) {
+        AlertDialog(
+            onDismissRequest = { showSaveQueueDialog = false },
+            title = { Text("Guardar cola como playlist") },
+            text = {
+                OutlinedTextField(
+                    value = queuePlaylistName,
+                    onValueChange = { queuePlaylistName = it },
+                    label = { Text("Nombre") },
+                    singleLine = true
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = queuePlaylistName.isNotBlank(),
+                    onClick = {
+                        playlistsViewModel.createLocalPlaylist(queuePlaylistName.trim(), queueSongs)
+                        showSaveQueueDialog = false
+                    }
+                ) { Text("Guardar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSaveQueueDialog = false }) { Text("Cancelar") }
+            }
+        )
+    }
 }
 
 @Composable
@@ -358,6 +450,7 @@ fun QueueItem(
     isDragging: Boolean = false,
     dragModifier: Modifier = Modifier,
     onClick: () -> Unit,
+    onRemove: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val downloadViewModel = LocalDownloadViewModel.current
@@ -455,6 +548,17 @@ fun QueueItem(
 
             DownloadIndicator(state = downloadState)
 
+            if (isHovered && !isDragging) {
+                IconButton(onClick = onRemove, modifier = Modifier.size(34.dp)) {
+                    Icon(
+                        Icons.Default.Delete,
+                        "Quitar de la cola",
+                        modifier = Modifier.size(19.dp),
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+
             // Duración
             if (song.duration > 0) {
                 Text(
@@ -466,3 +570,13 @@ fun QueueItem(
         }
     }
 }
+
+private fun MediaMetadata.toSongItem(): SongItem = SongItem(
+    id = id,
+    title = title,
+    artists = artists.map { Artist(name = it.name, id = it.id) },
+    album = album?.let { Album(name = it.title, id = it.id) },
+    duration = duration.takeIf { it > 0 },
+    thumbnail = thumbnailUrl.orEmpty(),
+    explicit = explicit
+)

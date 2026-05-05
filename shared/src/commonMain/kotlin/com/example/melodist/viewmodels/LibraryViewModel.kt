@@ -267,6 +267,25 @@ class LibraryPlaylistsViewModel(
         }
     }
 
+    @OptIn(ExperimentalUuidApi::class)
+    fun createLocalPlaylist(name: String, songs: List<SongItem>) {
+        if (songs.isEmpty()) return
+        viewModelScope.launch {
+            val id = "LOCAL_${kotlin.uuid.Uuid.random()}"
+            val playlist = PlaylistItem(
+                id = id,
+                title = name,
+                author = Artist(name = "Local", id = null),
+                songCountText = "${songs.size} canciones",
+                thumbnail = songs.firstOrNull()?.thumbnail,
+                playEndpoint = null,
+                shuffleEndpoint = null,
+                radioEndpoint = null
+            )
+            playlistRepository.savePlaylistWithSongs(playlist, songs)
+        }
+    }
+
     fun addSongToLocalPlaylist(playlistId: String, song: SongItem) {
         viewModelScope.launch {
             val resolvedSong = withContext(Dispatchers.IO){ song.withMissingMetadataResolved()}

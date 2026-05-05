@@ -30,6 +30,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Explicit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.PlaylistAdd
 import androidx.compose.material.icons.outlined.ThumbDown
 import androidx.compose.material.icons.outlined.ThumbUp
 import androidx.compose.material3.Checkbox
@@ -48,6 +52,7 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.height
 import com.example.melodist.ui.components.BoxForContainerContextMenuItem
 import com.example.melodist.ui.components.song.DownloadIndicator
+import com.example.melodist.ui.components.song.AddToPlaylistDialog
 import com.example.melodist.ui.components.MelodistImage
 import com.example.melodist.ui.components.PlaceholderType
 import com.example.melodist.ui.components.context.SongContextMenu
@@ -55,6 +60,8 @@ import com.example.melodist.utils.LocalDownloadViewModel
 import com.example.melodist.ui.helpers.rememberSongDownloadState
 import com.example.melodist.ui.screens.shared.formatDuration
 import com.metrolist.innertube.models.SongItem
+import com.example.melodist.viewmodels.LibraryPlaylistsViewModel
+import org.koin.compose.koinInject
 
 val ListItemHeight = 64.dp
 val ListThumbnailSize = 48.dp
@@ -133,6 +140,69 @@ inline fun ListItem(
 }
 
 @Composable
+internal fun MultiSongSelectionBar(
+    selectedSongs: List<SongItem>,
+    isLocalPlaylist: Boolean,
+    onClearSelection: () -> Unit,
+    onRemoveFromPlaylist: ((String) -> Unit)? = null,
+    modifier: Modifier = Modifier,
+) {
+    val downloadViewModel = LocalDownloadViewModel.current
+    val playlistsViewModel: LibraryPlaylistsViewModel = koinInject()
+    var showPlaylistDialog by remember { mutableStateOf(false) }
+
+    if (selectedSongs.isEmpty()) return
+
+    Surface(
+        tonalElevation = 6.dp,
+        shadowElevation = 8.dp,
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        modifier = modifier.padding(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                "${selectedSongs.size} seleccionadas",
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.padding(horizontal = 8.dp)
+            )
+            IconButton(onClick = { showPlaylistDialog = true }) {
+                Icon(Icons.Default.PlaylistAdd, "Añadir a playlist")
+            }
+            IconButton(onClick = { downloadViewModel.downloadAll(selectedSongs) }) {
+                Icon(Icons.Default.Download, "Descargar")
+            }
+            if (isLocalPlaylist && onRemoveFromPlaylist != null) {
+                IconButton(onClick = {
+                    selectedSongs.forEach { onRemoveFromPlaylist(it.id) }
+                    onClearSelection()
+                }) {
+                    Icon(Icons.Default.Delete, "Quitar de playlist", tint = MaterialTheme.colorScheme.error)
+                }
+            }
+            IconButton(onClick = onClearSelection) {
+                Icon(Icons.Default.Close, "Cancelar")
+            }
+        }
+    }
+
+    if (showPlaylistDialog) {
+        AddToPlaylistDialog(
+            songs = selectedSongs,
+            playlistsViewModel = playlistsViewModel,
+            onDismiss = {
+                showPlaylistDialog = false
+                onClearSelection()
+            }
+        )
+    }
+}
+
+@Composable
 fun ListItem(
     modifier: Modifier = Modifier,
     title: String,
@@ -171,6 +241,8 @@ internal fun SongListItem(
     song: SongItem,
     onPlay: () -> Unit,
     isSelected: Boolean = false,
+    selectionMode: Boolean = false,
+    onSelectionChange: ((Boolean) -> Unit)? = null,
     isLocalPlaylist: Boolean = false,
     onRemoveFromPlaylist: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier,
@@ -195,7 +267,9 @@ internal fun SongListItem(
         ) { menuButtonModifier, openMenuFromButton ->
             Surface(
                 color = Color.Transparent,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = selectionMode) { onSelectionChange?.invoke(!isSelected) }
             ) {
                 ListItem(
                     title = song.title,
@@ -275,7 +349,7 @@ internal fun SongListItem(
                             horizontalArrangement = Arrangement.spacedBy(4.dp),
                             modifier = Modifier.wrapContentWidth()
                         ) {
-                            if (isHovered) {
+                            if (isHovered || selectionMode) {
                                 // Estado hover: mostrar acciones
                                 IconButton(
                                     onClick = { /* TODO: Dislike */ },
@@ -312,7 +386,7 @@ internal fun SongListItem(
                                 }
                                 Checkbox(
                                     checked = isSelected,
-                                    onCheckedChange = {}
+                                    onCheckedChange = { checked -> onSelectionChange?.invoke(checked) }
                                 )
                             } else {
                                 // Estado normal: duración y descarga

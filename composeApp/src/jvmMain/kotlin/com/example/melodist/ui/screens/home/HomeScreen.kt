@@ -160,7 +160,7 @@ fun HomeScreenContent(
                 )
             }
 
-            // Secciones de contenido
+            // secciones de contenido
             charts?.sections
                 ?.take(2)
                 ?.forEach { section ->

@@ -1,4 +1,4 @@
-package com.example.melodist.ui.screens
+package com.example.melodist.ui.screens.album
 
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -38,9 +38,12 @@ import com.example.melodist.ui.components.layout.AppVerticalScrollbar
 import com.example.melodist.ui.components.LoadingMoreSongsItem
 import com.example.melodist.ui.components.MelodistImage
 import com.example.melodist.ui.components.PlaceholderType
+import com.example.melodist.ui.screens.AlbumScreenActions
+import com.example.melodist.ui.screens.AlbumScreenState
 import com.example.melodist.utils.LocalDownloadViewModel
 import com.example.melodist.utils.LocalPlayerViewModel
 import com.example.melodist.ui.screens.playlist.SongListItem
+import com.example.melodist.ui.screens.playlist.MultiSongSelectionBar
 import com.example.melodist.ui.screens.shared.calculateTotalDuration
 import com.metrolist.innertube.models.SongItem
 import com.metrolist.innertube.pages.AlbumPage
@@ -83,33 +86,35 @@ internal fun AlbumScreenLayout(
         val coverSize = if (isCompact) 190.dp else 240.dp
 
         Row(modifier = Modifier.fillMaxSize().padding(start = startPadding, end = endPadding, top = if (isCompact) 12.dp else 16.dp)) {
-        Column(
-            modifier = Modifier
-                .width(sidePanelWidth)
-                .fillMaxHeight()
-                .verticalScroll(rememberScrollState())
-                .padding(top = 8.dp, bottom = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            AlbumInfoPanel(
-                albumPage = albumPage,
-                songs = state.songs,
-                onSurfaceColor = onSurfaceColor,
-                onSurfaceVariant = onSurfaceVariant,
-                coverSize = coverSize,
-                actions = actions,
-                controls = AlbumInfoPanelControls(
-                    isSaved = state.isSaved,
-                    isSaving = state.isSaving,
-                    isLoadingForPlay = state.isLoadingForPlay,
-                ),
-            )
+
+            Column(
+                modifier = Modifier
+                    .width(sidePanelWidth)
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 24.dp, vertical = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                AlbumInfoPanel(
+                    albumPage = albumPage,
+                    songs = state.songs,
+                    onSurfaceColor = onSurfaceColor,
+                    onSurfaceVariant = onSurfaceVariant,
+                    coverSize = coverSize,
+                    actions = actions,
+                    controls = AlbumInfoPanelControls(
+                        isSaved = state.isSaved,
+                        isSaving = state.isSaving,
+                        isLoadingForPlay = state.isLoadingForPlay,
+                    ),
+                )
+
         }
 
         Spacer(Modifier.width(if (isCompact) 16.dp else 32.dp))
 
-        Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+            Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
             AlbumSongsList(
                 songs = state.songs,
                 hasMore = state.hasMore,
@@ -349,6 +354,8 @@ internal fun AlbumSongsList(
     onSongClick: (index: Int) -> Unit,
 ) {
     val scrollState = rememberLazyListState()
+    var selectedSongIds by remember(songs) { mutableStateOf<Set<String>>(emptySet()) }
+    val selectedSongs = remember(songs, selectedSongIds) { songs.filter { it.id in selectedSongIds } }
 
     Box(Modifier.fillMaxSize()) {
         LazyColumn(
@@ -359,7 +366,18 @@ internal fun AlbumSongsList(
                 SongListItem(
                     albumIndex = index + 1,
                     song = song,
-                    onPlay = { onSongClick(index)},
+                    onPlay = {
+                        if (selectedSongIds.isNotEmpty()) {
+                            selectedSongIds = if (song.id in selectedSongIds) selectedSongIds - song.id else selectedSongIds + song.id
+                        } else {
+                            onSongClick(index)
+                        }
+                    },
+                    isSelected = song.id in selectedSongIds,
+                    selectionMode = selectedSongIds.isNotEmpty(),
+                    onSelectionChange = { selected ->
+                        selectedSongIds = if (selected) selectedSongIds + song.id else selectedSongIds - song.id
+                    },
                     modifier = Modifier.animateItem(
                         placementSpec = spring(
                             dampingRatio = Spring.DampingRatioMediumBouncy,
@@ -381,6 +399,13 @@ internal fun AlbumSongsList(
         AppVerticalScrollbar(
             state = scrollState,
             modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(12.dp)
+        )
+
+        MultiSongSelectionBar(
+            selectedSongs = selectedSongs,
+            isLocalPlaylist = false,
+            onClearSelection = { selectedSongIds = emptySet() },
+            modifier = Modifier.align(Alignment.BottomCenter)
         )
     }
 }
