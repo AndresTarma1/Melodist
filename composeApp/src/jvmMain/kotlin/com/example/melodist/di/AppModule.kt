@@ -67,16 +67,16 @@ val appModule = module {
 
     // ViewModels — loginState de AccountManager para reaccionar a cambios de sesión
     factory { AccountViewModel() }
-    factory { HomeViewModel(loginState = AccountManager.loginState) }
-    factory { SearchViewModel(get()) }
-    factory { LibraryViewModel(get(), get(), get(), get(), get(), loginState = AccountManager.loginState) }
-    factory { LibrarySongsViewModel(get(), get(), get(), get()) }
-    factory { LibraryAlbumsViewModel(get()) }
-    factory { LibraryArtistsViewModel(get()) }
-    factory { LibraryPlaylistsViewModel(get()) }
-    factory { LibraryMixedViewModel(get()) }
+    single { HomeViewModel(loginState = AccountManager.loginState) }
+    single { SearchViewModel(get()) }
+    single { LibraryViewModel(get(), get(), get(), get(), get(), loginState = AccountManager.loginState) }
+    single { LibrarySongsViewModel(get(), get(), get(), get()) }
+    single { LibraryAlbumsViewModel(get()) }
+    single { LibraryArtistsViewModel(get()) }
+    single { LibraryPlaylistsViewModel(get()) }
+    single { LibraryMixedViewModel(get()) }
     factory { AlbumViewModel(get(), get()) }
     factory { PlaylistViewModel(get(), get(), get()) }
     factory { ArtistViewModel(get(), get()) }
-    factory { SettingsViewModel(get()) }
+    single { SettingsViewModel(get()) }
 }

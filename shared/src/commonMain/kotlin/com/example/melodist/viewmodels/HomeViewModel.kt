@@ -65,7 +65,6 @@ class HomeViewModel(
             is HomeUiEvent.ChipSelected -> {
                 val params = event.params
                 val currentSuccess = _uiState.value as? HomeState.Success
-                // Deseleccionar chip si ya está seleccionado
                 val newParams = if (currentSuccess?.selectedParams == params) null else params
                 loadHome(newParams)
             }

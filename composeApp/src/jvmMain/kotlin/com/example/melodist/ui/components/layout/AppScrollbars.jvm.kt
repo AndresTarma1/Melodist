@@ -4,6 +4,7 @@ import androidx.compose.foundation.LocalScrollbarStyle
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.rememberScrollbarAdapter
@@ -40,7 +41,7 @@ fun AppVerticalScrollbar(
 ) {
     VerticalScrollbar(
         adapter = rememberScrollbarAdapter(state),
-        modifier = modifier.padding(vertical = 20.dp),
+        modifier = modifier.padding(vertical = 20.dp).width(12.dp),
         style = appScrollbarStyle()
     )
 }

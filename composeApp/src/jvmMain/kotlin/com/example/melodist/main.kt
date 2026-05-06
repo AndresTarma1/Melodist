@@ -34,6 +34,10 @@ fun main() {
 
     setupEnvironments()
 
+    System.setProperty("compose.swing.render.on.graphics", "true")
+    System.setProperty("compose.interop.blending", "true")
+    System.setProperty("compose.layers.type", "COMPONENT")
+
     Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
         logStartupError("Uncaught exception on thread '${thread.name}'", throwable)
     }

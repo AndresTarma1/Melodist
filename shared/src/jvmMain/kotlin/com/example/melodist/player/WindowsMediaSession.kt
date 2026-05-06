@@ -32,7 +32,9 @@ class WindowsMediaSession {
         this.onPause = onPause
         this.onNext = onNext
         this.onPrevious = onPrevious
-        this.onStop = onStop
+        this.onStop = {
+            onStop()
+        }
         session?.let { attachCallbacks(it) }
     }
 
@@ -47,7 +49,7 @@ class WindowsMediaSession {
             getPositionMs = { positionProvider() }
         ).also {
 
-            if(it == null) {
+            if (it == null) {
                 log.warning("No se pudo crear MediaSession: plataforma no soportada o error desconocido")
                 return@also
             }
@@ -57,7 +59,7 @@ class WindowsMediaSession {
             it.setDesktopEntry("melodist")
             it.setSupportedUriSchemes(listOf("file", "http", "https"))
             it.setSupportedMimeTypes(listOf("audio/mpeg", "audio/x-m4a", "audio/ogg", "audio/webm"))
-            it.setEnabled(true)
+            it.setEnabled(false)
         }
     }
 
@@ -70,6 +72,12 @@ class WindowsMediaSession {
     }
 
     fun updateMetadata(title: String, artist: String, album: String, thumbnailUrl: String? = null) {
+        val s = session ?: return
+
+        if (title.isNotBlank() && title != "Melodist") {
+            s.setEnabled(true)
+        }
+
         session?.setMetadata(
             MediaSessionMetadata(
                 title = title.ifBlank { "Melodist" },
@@ -81,21 +89,28 @@ class WindowsMediaSession {
     }
 
     fun setPlaybackStatus(isPlaying: Boolean, isPaused: Boolean) {
+        val s = session ?: return
+
+        if (isPlaying || isPaused) {
+            s.setEnabled(true)
+        }
+
         val status = when {
             isPlaying -> MediaSessionPlaybackStatus.PLAYING
             isPaused -> MediaSessionPlaybackStatus.PAUSED
             else -> MediaSessionPlaybackStatus.STOPPED
         }
-        session?.setPlaybackStatus(status)
+        s.setPlaybackStatus(status)
     }
 
     fun resetToIdle() {
         updateMetadata(title = "Melodist", artist = "", album = "", thumbnailUrl = null)
         setPlaybackStatus(isPlaying = false, isPaused = false)
+        updateMetadata(title = "", artist = "", album = "")
+        session?.setEnabled(false) // Oculta el panel de Windows por completo
     }
 
     fun release() {
         session?.setEnabled(false)
-        session = null
     }
 }

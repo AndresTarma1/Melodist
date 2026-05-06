@@ -68,7 +68,8 @@ class RootComponent(
 // ─── Screen Components ─────────────────────────────────
 // Each component owns its ViewModel so it survives back-stack
 
-class HomeComponent(componentContext: ComponentContext, val viewModel: HomeViewModel) : ComponentContext by componentContext
+class HomeComponent(componentContext: ComponentContext, val viewModel: HomeViewModel) :
+    ComponentContext by componentContext
 
 class SearchComponent(
     componentContext: ComponentContext,
@@ -115,4 +116,5 @@ class ArtistComponent(
     }
 }
 
-class AccountComponent(componentContext: ComponentContext, val viewModel: AccountViewModel) : ComponentContext by componentContext
+class AccountComponent(componentContext: ComponentContext, val viewModel: AccountViewModel) :
+    ComponentContext by componentContext

@@ -54,7 +54,8 @@ kotlin {
             implementation(libs.reorderable)
 
             implementation(libs.heze)
-
+            implementation(libs.heze.blur)
+//            implementation(libs.heze.materials)
 
         }
         commonTest.dependencies {

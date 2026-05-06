@@ -2,13 +2,19 @@ package com.example.melodist.ui.screens.home
 
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -37,6 +43,15 @@ import com.metrolist.innertube.models.SongItem
 import com.metrolist.innertube.models.YTItem
 import com.metrolist.innertube.pages.ChartsPage
 import com.metrolist.innertube.pages.HomePage
+import dev.chrisbanes.haze.HazeInputScale
+import dev.chrisbanes.haze.blur.HazeBlurStyle
+import dev.chrisbanes.haze.blur.HazeColorEffect
+import dev.chrisbanes.haze.blur.HazeProgressive
+import dev.chrisbanes.haze.blur.blurEffect
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
+import org.jetbrains.jewel.ui.component.VerticalScrollbar
 
 // ──────────────────────────────────────────────
 // Route — conecta ViewModel con la pantalla tonta
@@ -71,13 +86,19 @@ fun HomeScreen(
     onNavigate: (Route) -> Unit,
     playerViewModel: PlayerViewModel? = null,
 ) {
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
+    val hazeState = rememberHazeState()
 
     Scaffold(
-        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        modifier = Modifier,
         containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
+                modifier = Modifier.hazeEffect(state = hazeState){
+                    blurEffect {
+                        style = HazeBlurStyle.Unspecified
+                    }
+                }
+                ,
                 title = {
                     Text(
                         "Melodist",
@@ -89,34 +110,49 @@ fun HomeScreen(
                     containerColor = Color.Transparent,
                     scrolledContainerColor = Color.Transparent
                 ),
-                scrollBehavior = scrollBehavior,
+                actions = {
+                    IconButton(
+                        onClick = { onEvent(HomeUiEvent.Retry) },
+                        modifier = Modifier
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "refresh"
+                        )
+                    }
+                }
             )
         },
     ) { paddingValues ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .hazeSource(hazeState)
+
         ) {
-            when (uiState) {
-                is HomeState.Loading -> HomeScreenLoading()
+                when (uiState) {
+                    is HomeState.Loading -> HomeScreenLoading(
+                        modifier = Modifier.padding(paddingValues)
+                    )
 
-                is HomeState.Success -> HomeScreenContent(
-                    page = uiState.page,
-                    charts = charts,
-                    selectedParams = uiState.selectedParams,
-                    isLoadingMore = uiState.isLoadingMore,
-                    onChipClick = { params -> onEvent(HomeUiEvent.ChipSelected(params)) },
-                    onScrollNearEnd = { onEvent(HomeUiEvent.LoadMore) },
-                    onNavigate = onNavigate,
-                    playerViewModel = playerViewModel,
-                )
+                    is HomeState.Success -> HomeScreenContent(
+                        page = uiState.page,
+                        charts = charts,
+                        selectedParams = uiState.selectedParams,
+                        isLoadingMore = uiState.isLoadingMore,
+                        onChipClick = { params -> onEvent(HomeUiEvent.ChipSelected(params)) },
+                        onScrollNearEnd = { onEvent(HomeUiEvent.LoadMore) },
+                        onNavigate = onNavigate,
+                        playerViewModel = playerViewModel,
+                        contentPadding = paddingValues,
+                    )
 
-                is HomeState.Error -> HomeScreenError(
-                    message = uiState.message,
-                    onRetry = { onEvent(HomeUiEvent.Retry) },
-                )
-            }
+                    is HomeState.Error -> HomeScreenError(
+                        message = uiState.message,
+                        onRetry = { onEvent(HomeUiEvent.Retry) },
+                    )
+                }
+
         }
     }
 }
@@ -126,6 +162,8 @@ fun HomeScreen(
 // ──────────────────────────────────────────────
 @Composable
 fun HomeScreenContent(
+    modifier: Modifier = Modifier,
+    contentPadding: PaddingValues, // Importante para Haze
     page: HomePage,
     charts: ChartsPage?,
     selectedParams: String?,
@@ -135,68 +173,75 @@ fun HomeScreenContent(
     onNavigate: (Route) -> Unit,
     playerViewModel: PlayerViewModel? = null,
 ) {
-    val scrollState = rememberScrollState()
+    // 1. Usar LazyListState para LazyColumn
+    val listState = rememberLazyListState()
 
-    // Único LaunchedEffect permitido: notificar al ViewModel cuando el scroll
-    // está cerca del final. La *decisión* de cargar más es del ViewModel.
-    LaunchedEffect(scrollState.value, scrollState.maxValue) {
-        val nearEnd = scrollState.maxValue > 0 &&
-                scrollState.value >= scrollState.maxValue - 1_000
-        if (nearEnd) onScrollNearEnd()
+    // 2. Detectar final de scroll para paginación
+    val shouldLoadMore = remember {
+        derivedStateOf {
+            val lastVisibleItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()
+                ?: return@derivedStateOf false
+
+            lastVisibleItem.index >= listState.layoutInfo.totalItemsCount - 2
+        }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(scrollState)
+    LaunchedEffect(shouldLoadMore.value) {
+        if (shouldLoadMore.value) onScrollNearEnd()
+    }
+
+    Box(
+        modifier = Modifier.fillMaxSize()
+    ) {
+
+
+        LazyColumn(
+            state = listState,
+            modifier = modifier.fillMaxSize(),
+            contentPadding = contentPadding
         ) {
-            // Chips de filtro
+            // 4. Una sola fila para todos los chips
             if (!page.chips.isNullOrEmpty()) {
-                ChipFilterRow(
-                    chips = page.chips!!,
-                    selectedParams = selectedParams,
-                    onChipClick = onChipClick,
-                )
+                item {
+                    ChipFilterRow(
+                        chips = page.chips!!,
+                        selectedParams = selectedParams,
+                        onChipClick = onChipClick,
+                    )
+                }
             }
 
-            // secciones de contenido
-            charts?.sections
-                ?.take(2)
-                ?.forEach { section ->
-                    HomeChartsSection(section, onNavigate, playerViewModel)
-                }
-
-            page.sections.forEach { section ->
+            items(
+                page.sections,
+                key = { section -> section.title }) { section ->
                 HomeSectionRow(
                     section = section,
                     onNavigate = onNavigate,
                     playerViewModel = playerViewModel,
                 )
+
             }
 
-            // Indicador de carga al hacer paginación
             if (isLoadingMore) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(32.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(40.dp),
-                        strokeWidth = 3.dp,
-                    )
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(32.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(40.dp),
+                            strokeWidth = 3.dp,
+                        )
+                    }
                 }
             }
         }
 
         AppVerticalScrollbar(
-            state = scrollState,
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .fillMaxHeight()
-                .width(12.dp),
+            state = listState,
+            modifier = Modifier.align(Alignment.CenterEnd),
         )
     }
 }
@@ -299,16 +344,19 @@ private fun HomeSectionItem(
             onClick = { playerViewModel?.playSingle(it as SongItem) },
             modifier = modifier,
         )
+
         is AlbumItem -> AlbumHomeItem(
             item = item,
             onClick = { onNavigate(Route.Album((it as AlbumItem).browseId)) },
             modifier = modifier,
         )
+
         is PlaylistItem -> PlaylistHomeItem(
             item = item,
             onClick = { onNavigate(Route.Playlist((it as PlaylistItem).id)) },
             modifier = modifier,
         )
+
         is ArtistItem -> ArtistHomeItem(
             item = item,
             onClick = { onNavigate(Route.Artist((it as ArtistItem).id)) },
@@ -322,9 +370,11 @@ private fun HomeSectionItem(
 // ──────────────────────────────────────────────
 
 @Composable
-fun HomeScreenLoading() {
+fun HomeScreenLoading(
+    modifier: Modifier = Modifier,
+) {
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
     ) {

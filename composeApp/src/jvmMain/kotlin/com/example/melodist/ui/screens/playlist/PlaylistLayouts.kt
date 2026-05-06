@@ -131,7 +131,7 @@ internal fun PlaylistLayout(
                 state = lazyListState,
                 modifier = Modifier.fillMaxSize().padding(end=16.dp)
             ) {
-                itemsIndexed(state.songs, key = { _, song -> song.id }) { index, song ->
+                itemsIndexed(state.songs, key = { index, song -> "${song.id}_$index" }) { index, song ->
                     // El PlaylistSongItem ya estaba bien optimizado gracias a `rememberSongDownloadState`
                     SongListItem(
                         song = song,
