@@ -40,12 +40,12 @@ fun PlayerSeekBar(
                 onValueChange = onValueChange,
                 onValueChangeFinished = onValueChangeFinished,
                 enabled = enabled,
-                waveLength = 102.dp,
-                waveHeight = if (isPlaying) 10.dp else 0.dp,
-                waveVelocity = if (isPlaying) 28.dp to WaveDirection.TAIL else 0.dp to WaveDirection.TAIL,
-                waveThickness = 8.dp,
-                trackThickness = 9.dp,
-                incremental = false,
+                waveLength = 97.dp,
+                waveHeight = if (isPlaying) 17.dp else 0.dp,
+                waveVelocity = if (isPlaying) 23.dp to WaveDirection.TAIL else 0.dp to WaveDirection.TAIL,
+                waveThickness = 9.dp,
+                trackThickness = 6.dp,
+                incremental = true,
             )
 
             SeekBarStyle.LINEAR -> SlimSlider(

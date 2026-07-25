@@ -101,10 +101,9 @@ fun MiniPlayer(
                 else Modifier
             )
             .height(88.dp),
-        color = if (bgTransparent) Color.Transparent else if (islands) MaterialTheme.colorScheme.background else MaterialTheme.colorScheme.surface,
+        color = Color.Transparent,
         shape = RoundedCornerShape(if (islands) dimens.surfaceCorner else 0.dp),
-        tonalElevation = 0.dp,
-        shadowElevation = if (islands) dimens.surfaceElevation else 0.dp,
+        tonalElevation = 1.dp,
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             Row(
@@ -416,8 +415,6 @@ fun MiniPlayer(
                         modifier = Modifier.size(40.dp).pointerHoverIcon(PointerIcon.Hand),
                         colors = IconButtonDefaults.iconButtonColors(
                             contentColor = if (isQueueVisible) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                            containerColor = if (isQueueVisible) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                            else Color.Transparent
                         )
                     ) {
                         Icon(
@@ -433,8 +430,7 @@ fun MiniPlayer(
                         onClick = onToggleNowPlaying,
                         modifier = Modifier.size(40.dp).pointerHoverIcon(PointerIcon.Hand),
                         colors = IconButtonDefaults.iconButtonColors(
-                            containerColor = if (isNowPlayingExpanded) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                            else Color.Transparent
+                            contentColor = if (isNowPlayingExpanded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     ) {
                         val rotation by animateFloatAsState(

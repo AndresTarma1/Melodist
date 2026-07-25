@@ -1,6 +1,7 @@
 package com.example.musicApp.ui.components.player
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -23,9 +24,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.unit.sp
 import com.example.musicApp.lyrics.LyricLine
 
 /**
@@ -58,10 +61,7 @@ fun SyncedLyricsView(
     Box(modifier = modifier) {
         androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth()) {
             val viewportPx = with(androidx.compose.ui.platform.LocalDensity.current) { maxHeight.toPx() }
-            // Anclar la línea activa cerca de la PARTE SUPERIOR (para que las letras próximas
-            // sean visibles debajo), no centrada. El offset negativo mueve el elemento hacia
-            // abajo desde la parte más alta.
-            val topAnchorPx = (viewportPx * 0.16f).toInt()
+            val topAnchorPx = (viewportPx * 0.34f).toInt()
 
             LaunchedEffect(activeIndex) {
                 listState.animateScrollToItem(activeIndex.coerceAtLeast(0), -topAnchorPx)
@@ -70,11 +70,8 @@ fun SyncedLyricsView(
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxWidth(),
-                // Pequeño padding superior (para que la primera línea no esté pegada al borde pero
-                // no desperdicie espacio); gran padding inferior para que las últimas líneas aún
-                // puedan desplazarse hacia arriba hasta el ancla.
-                contentPadding = PaddingValues(top = 16.dp, bottom = maxHeight * 0.8f),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(top = 24.dp, bottom = maxHeight * 0.74f),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 itemsIndexed(lines, key = { i, _ -> i }) { i, line ->
                     LyricLineRow(
@@ -103,14 +100,18 @@ private fun LyricLineRow(
 ) {
     val activeColor = MaterialTheme.colorScheme.onSurface
     val sungColor = MaterialTheme.colorScheme.primary
-    val idleColor = MaterialTheme.colorScheme.onSurface.copy(alpha = if (isPast) 0.32f else 0.45f)
+    val idleColor = MaterialTheme.colorScheme.onSurface.copy(alpha = if (isPast) 0.24f else 0.42f)
+    val rowAlpha by animateFloatAsState(if (isActive) 1f else if (isPast) 0.72f else 0.9f, label = "lyricAlpha")
 
-    // Escalamiento sutil en la línea activa para énfasis.
-    val scale by animateFloatAsState(if (isActive) 1f else 0.96f, label = "lyricScale")
+    val scale by animateFloatAsState(if (isActive) 1.06f else 0.98f, label = "lyricScale")
 
     val rowModifier = Modifier
         .fillMaxWidth()
-        .clip(RoundedCornerShape(10.dp))
+        .clip(RoundedCornerShape(14.dp))
+        .background(
+            color = if (isActive) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else Color.Transparent,
+            shape = RoundedCornerShape(14.dp),
+        )
         .clickable(
             interactionSource = remember { MutableInteractionSource() },
             indication = null,
@@ -119,11 +120,14 @@ private fun LyricLineRow(
         .graphicsLayer {
             scaleX = scale
             scaleY = scale
+            alpha = rowAlpha
             transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 0.5f)
         }
-        .padding(horizontal = 8.dp, vertical = 6.dp)
+        .padding(horizontal = 14.dp, vertical = 8.dp)
 
-    val style = MaterialTheme.typography.headlineSmall.copy(
+    val style = MaterialTheme.typography.headlineMedium.copy(
+        fontSize = if (isActive) 40.sp else 34.sp,
+        lineHeight = if (isActive) 54.sp else 46.sp,
         fontWeight = if (isActive) FontWeight.Bold else FontWeight.SemiBold,
     )
     val arrangement = if (startAligned) Arrangement.Start else Arrangement.Center

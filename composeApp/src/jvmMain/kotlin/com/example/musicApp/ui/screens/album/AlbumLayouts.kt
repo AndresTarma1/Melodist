@@ -428,8 +428,6 @@ private fun AlbumSongList(
             state = lazyListState,
             modifier = Modifier
                 .align(Alignment.CenterEnd)
-                .fillMaxHeight()
-                .width(12.dp)
         )
 
         MultiSongSelectionBar(

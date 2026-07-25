@@ -22,7 +22,7 @@ object CoilSetup {
     // ahogaba a Coil y hacía que nuevas miniaturas dejaran de cargar mientras las en caché seguían
     // mostrándose. Aislar Coil en su propio pool soluciona esto sin elevar el límite global.
     @OptIn(DelicateCoroutinesApi::class)
-    private val imageDispatcher = newFixedThreadPoolContext(8, "coil-io")
+    private val imageDispatcher = newFixedThreadPoolContext(4, "coil-io")
 
     fun createImageLoader(context: PlatformContext): ImageLoader {
         val cacheDir = AppDirs.imageCacheDir
@@ -41,8 +41,7 @@ object CoilSetup {
             .diskCache {
                 DiskCache.Builder()
                     .directory(cacheDir.absolutePath.toPath())
-                    // El disco puede guardar más sin impacto en RAM
-                    .maxSizeBytes(128L * 1024 * 1024)
+                    .maxSizeBytes(256L * 1024 * 1024)
                     .build()
             }
             .crossfade(200)

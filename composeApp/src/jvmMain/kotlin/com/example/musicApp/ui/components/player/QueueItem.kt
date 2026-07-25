@@ -102,6 +102,7 @@ fun QueueItem(
                         contentDescription = song.title,
                         modifier = Modifier.fillMaxSize(),
                         shape = RoundedCornerShape(8.dp),
+                        isLowRes = true,
                         placeholderType = PlaceholderType.SONG,
                         iconSize = 22.dp,
                         contentScale = ContentScale.Crop,

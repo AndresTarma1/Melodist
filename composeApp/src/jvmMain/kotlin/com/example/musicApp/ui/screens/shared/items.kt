@@ -271,7 +271,6 @@ fun ArtistGridItem(
         placeholderType = PlaceholderType.ARTIST,
         centerPlayVisible = false,
         contextMenuEnabled = false,
-        onMoreClick = { onClick(item) },
         subtitle = stringResource(Res.string.item_artist),
         modifier = modifier
     )

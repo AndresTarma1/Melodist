@@ -1,8 +1,8 @@
 package com.example.musicApp.ui.screens
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ShowChart
 import androidx.compose.material.icons.rounded.*
@@ -27,7 +27,7 @@ import org.koin.compose.koinInject
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun SettingsScreen(viewModel: SettingsViewModel) {
-    val scrollState = rememberScrollState()
+    val listState = rememberLazyListState()
     val downloadViewModel = LocalDownloadViewModel.current
 
     var showClearDownloadsDialog by remember { mutableStateOf(false) }
@@ -36,27 +36,28 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
     var showYtmSyncWarning by remember { mutableStateOf(false) }
     var showOverlayCapture by remember { mutableStateOf(false) }
     var showSeekBarStyleDialog by remember { mutableStateOf(false) }
-    val jvmSettingsViewModel: JvmSettingsViewModel = koinInject()
-    val hotkeyManager: GlobalHotkeyManager = koinInject()
     val appViewModel: AppViewModel = koinInject()
 
     val colors = ListItemDefaults.segmentedColors(
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f),
+        selectedLeadingContentColor = MaterialTheme.colorScheme.primary,
+        selectedTrailingContentColor = MaterialTheme.colorScheme.primary,
     )
 
     val equalizerBands by viewModel.equalizerBands.collectAsState()
     val seekBarStyle by viewModel.seekBarStyle.collectAsState()
 
-    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.TopCenter)
-                    .verticalScroll(scrollState)
-                    .padding(horizontal = 24.dp, vertical = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .fillMaxSize()
+                .align(Alignment.TopCenter),
+            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            item {
                 Column(modifier = Modifier.padding(bottom = 16.dp)) {
                     Text(
                         text = stringResource(Res.string.settings_title),
@@ -69,64 +70,74 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+            }
 
+            item {
                 AudioSettingsGroup(
                     viewModel = viewModel,
                     colors = colors,
                     onOpenEqualizer = { showEqualizerDialog = true }
                 )
-                Spacer(Modifier.height(8.dp))
+            }
 
+            item {
                 AppearanceSettingsGroup(viewModel = viewModel, colors = colors)
-                Spacer(Modifier.height(8.dp))
+            }
 
+            item {
                 PlayerSettingsGroup(
                     viewModel = viewModel,
                     colors = colors,
                     onOpenSeekBarStyleDialog = { showSeekBarStyleDialog = true }
                 )
-                Spacer(Modifier.height(8.dp))
+            }
 
+            item {
                 SyncSettingsGroup(
                     viewModel = viewModel,
                     colors = colors,
                     onShowYtmSyncWarning = { showYtmSyncWarning = true }
                 )
-                Spacer(Modifier.height(8.dp))
+            }
 
+            item {
                 OverlaySettingsGroup(
                     viewModel = viewModel,
                     colors = colors,
                     onOpenCapture = { showOverlayCapture = true }
                 )
-                Spacer(Modifier.height(8.dp))
+            }
 
+            item {
                 SystemSettingsGroup(
                     viewModel = viewModel,
                     colors = colors,
                     onShowClearDownloadsDialog = { showClearDownloadsDialog = true },
                     onOpenJvmSettings = { showJvmSettingsDialog = true }
                 )
-                Spacer(Modifier.height(8.dp))
+            }
 
+            item {
                 SupportSettingsGroup(appViewModel = appViewModel, colors = colors)
+            }
 
-                Spacer(Modifier.height(8.dp))
+            item {
                 AboutCard()
                 Spacer(Modifier.height(16.dp))
             }
-
-            AppVerticalScrollbar(
-                state = scrollState,
-                modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .fillMaxHeight()
-                    .padding(end = 2.dp, top = 4.dp, bottom = 4.dp)
-            )
         }
+
+        AppVerticalScrollbar(
+            state = listState,
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .fillMaxHeight()
+                .padding(end = 2.dp, top = 4.dp, bottom = 4.dp)
+        )
     }
 
     if (showOverlayCapture) {
+        val hotkeyManager: GlobalHotkeyManager = koinInject()
         DisposableEffect(Unit) {
             hotkeyManager.beginCapture { combo ->
                 viewModel.setOverlayHotkey(combo.keyCode, combo.modsMask, combo.label())
@@ -208,6 +219,7 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
     }
 
     if (showJvmSettingsDialog) {
+        val jvmSettingsViewModel: JvmSettingsViewModel = koinInject()
         AdvancedJvmSettingsScreen(
             viewModel = jvmSettingsViewModel,
             onDismiss = { showJvmSettingsDialog = false },

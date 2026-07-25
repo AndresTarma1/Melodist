@@ -15,6 +15,8 @@ import com.example.musicApp.data.repository.CrashReportRepository
 import com.example.musicApp.viewmodels.AppViewModel
 import com.example.musicApp.viewmodels.UpdateCheckState
 import com.example.musicApp.viewmodels.UpdateStatus
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import lyrik.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
 
@@ -26,7 +28,12 @@ fun SupportSettingsGroup(
 ) {
     val updateCheckState by appViewModel.checkState.collectAsState()
     val updateStatus by appViewModel.updateStatus.collectAsState()
-    val pendingCrashReports = remember { CrashReportRepository.getUnsentReports().size }
+    var pendingCrashReports by remember { mutableStateOf(0) }
+    LaunchedEffect(Unit) {
+        pendingCrashReports = withContext(Dispatchers.IO) {
+            CrashReportRepository.getUnsentReports().size
+        }
+    }
 
     SettingsGroup(
         title = { Text(stringResource(Res.string.section_support)) },
@@ -119,6 +126,7 @@ fun SupportSettingsGroup(
                             CrashReportRepository.openCrashAsGitHubIssue(report)
                         }
                         CrashReportRepository.markAllAsSent()
+                        pendingCrashReports = 0
                     }) {
                         Text(stringResource(Res.string.crash_send))
                     }
@@ -131,6 +139,7 @@ fun SupportSettingsGroup(
                         CrashReportRepository.openCrashAsGitHubIssue(report)
                     }
                     CrashReportRepository.markAllAsSent()
+                    pendingCrashReports = 0
                 }
             }
         )

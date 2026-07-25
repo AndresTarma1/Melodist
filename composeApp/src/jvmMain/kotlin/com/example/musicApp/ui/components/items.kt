@@ -110,7 +110,6 @@ private fun YTItem.mediaGridShape(): Shape = when (this) {
     else -> RoundedCornerShape(12.dp)
 }
 
-@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun YouTubeGridItem(
     item: YTItem,
@@ -121,7 +120,7 @@ fun YouTubeGridItem(
     placeholderType: PlaceholderType,
     centerPlayVisible: Boolean,
     contextMenuEnabled: Boolean,
-    onContextMenuAction: () -> Unit = {},
+    onContextMenuAction: (() -> Unit)? = null,
     onMoreClick: (() -> Unit)? = null,
     quickPlay: CornerQuickPlayConfig? = null,
     onClickSubtitle: (() -> Unit)? = null,
@@ -140,7 +139,6 @@ fun YouTubeGridItem(
 
     val overlayAlpha =if (isHovered) 0.38f else 0f
     val playIconAlpha =if (isHovered && centerPlayVisible) 1f else 0f
-    val playIconScale =if (isHovered && centerPlayVisible) 1f else 0.7f
     val menuBtnAlpha =if (isHovered) 1f else 0f
     val quickPlayAlpha =if (isHovered && quickPlay != null) 1f else 0f
 
@@ -149,12 +147,12 @@ fun YouTubeGridItem(
             BoxForContainerContextMenuItem(
                 modifier = Modifier
                     .aspectRatio(aspectRatio)
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(imageShape)
                     .onHover{ isHovered = it }
                     .clickable { onClick(item) }
                     .pointerHoverIcon(PointerIcon.Hand),
                 enabled = contextMenuEnabled,
-                onMenuAction = onContextMenuAction
+                onMenuAction = onContextMenuAction.let { { it?.invoke() }  }
             ) { menuButtonModifier, openMenuFromButton ->
                 MelodistImage(
                     url = item.thumbnail,
@@ -190,18 +188,21 @@ fun YouTubeGridItem(
                     }
                 }
 
-                HoverCornerActionButton(
-                    icon = Icons.Rounded.MoreVert,
-                    contentDescription = stringResource(Res.string.options),
-                    onClick = { onMoreClick?.invoke() ?: openMenuFromButton() },
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(6.dp)
-                        .alpha(menuBtnAlpha),
-                    buttonModifier = menuButtonModifier.pointerHoverIcon(PointerIcon.Hand),
-                    visible = isHovered,
-                    onButtonHoverChange = { if (it) isHovered = true }
-                )
+                if(onContextMenuAction != null) {
+                    HoverCornerActionButton(
+                        icon = Icons.Rounded.MoreVert,
+                        contentDescription = stringResource(Res.string.options),
+                        onClick = { onMoreClick?.invoke() ?: openMenuFromButton() },
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(6.dp)
+                            .alpha(menuBtnAlpha),
+                        buttonModifier = menuButtonModifier.pointerHoverIcon(PointerIcon.Hand),
+                        visible = isHovered,
+                        onButtonHoverChange = { if (it) isHovered = true }
+                    )
+                }
+
 
                 if (quickPlay != null) {
                     HoverCornerActionButton(

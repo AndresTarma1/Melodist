@@ -56,9 +56,6 @@ fun LibraryMixedTab(
     val fullyDownloadedAlbums by downloadViewModel.fullyDownloadedAlbums.collectAsState()
     val fullyDownloadedPlaylists by downloadViewModel.fullyDownloadedPlaylists.collectAsState()
 
-    // Resolved here (composable context) since remember{}'s calculation lambda below can't call
-    // @Composable stringResource() itself. n_songs keeps its raw "%1$d ..." template so the count
-    // can still be substituted per-item inside the list build.
     val albumLabel = stringResource(Res.string.item_album)
     val artistLabel = stringResource(Res.string.item_artist)
     val playlistLabel = stringResource(Res.string.item_playlist)
@@ -270,7 +267,7 @@ fun LibraryMixedTab(
     Box(modifier = Modifier.fillMaxSize()) {
         LazyVerticalGrid(
             state = gridState,
-            columns = GridCells.Adaptive(minSize = 160.dp),
+            columns = GridCells.Adaptive(minSize = 200.dp),
             contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 80.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)

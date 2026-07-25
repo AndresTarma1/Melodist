@@ -23,11 +23,9 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerIcon
-import androidx.compose.ui.input.pointer.PointerEventType
-import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.delay
+import androidx.compose.animation.SharedTransitionScope
 import com.arkivanov.decompose.extensions.compose.stack.Children
 import com.arkivanov.decompose.extensions.compose.stack.animation.fade
 import com.arkivanov.decompose.extensions.compose.stack.animation.stackAnimation
@@ -43,6 +41,7 @@ import com.example.musicApp.ui.components.player.NowPlayingTab
 import com.example.musicApp.ui.components.player.PlaybackQueuePanel
 import com.example.musicApp.ui.screens.library.CsvImportProgressOverlay
 import com.example.musicApp.viewmodels.LibraryPlaylistsViewModel
+import com.example.musicApp.viewmodels.PlayerProgressState
 import com.example.musicApp.viewmodels.PlayerViewModel
 import org.koin.compose.koinInject
 import com.example.musicApp.ui.screens.YouTubeBrowseScreenRoute
@@ -56,7 +55,6 @@ import com.example.musicApp.utils.LocalPlayerViewModel
 import com.example.musicApp.utils.LocalSnackbarHostState
 import lyrik.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
-import kotlin.time.Duration.Companion.milliseconds
 
 
 data class TabInfo(
@@ -91,7 +89,6 @@ fun NavigationDesktop(rootComponent: RootComponent, userPreferences: UserPrefere
     val navigationRailStyle by userPreferences.navigationRailStyle.collectAsState(NavigationRailStyle.DEFAULT)
 
     val playerState by playerViewModel.uiState.collectAsState()
-    val progressState by playerViewModel.progressState.collectAsState()
     val currentLyrics by playerViewModel.currentLyrics.collectAsState()
     val currentSongMediaInfo by playerViewModel.currentMediaInfo.collectAsState()
     var isNowPlayingExpanded by remember { mutableStateOf(false) }
@@ -100,17 +97,6 @@ fun NavigationDesktop(rootComponent: RootComponent, userPreferences: UserPrefere
 
     val fullScreenPlayer by userPreferences.fullScreenPlayer.collectAsState(false)
     val isFullScreenNowPlaying = isNowPlayingExpanded && fullScreenPlayer
-
-    var lastMouseMoveAt by remember { mutableStateOf(0L) }
-    var mouseActive by remember { mutableStateOf(false) }
-
-    LaunchedEffect(lastMouseMoveAt) {
-        if (lastMouseMoveAt > 0L) {
-            mouseActive = true
-            delay(3000L.milliseconds)
-            mouseActive = false
-        }
-    }
 
     val currentSong = playerState.currentSong
     val queueWidth = 420.dp
@@ -122,14 +108,17 @@ fun NavigationDesktop(rootComponent: RootComponent, userPreferences: UserPrefere
         }
     }
 
+
     SharedTransitionLayout(modifier = Modifier.fillMaxSize()) {
     val sharedTransitionScope = this
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background,
-    ) {
+        color = Color.Transparent,
+        contentColor = MaterialTheme.colorScheme.onBackground,
+
+        ) {
         // El Box nos permite superponer elementos (como el Snackbar) sin alterar el layout principal
-        Box(Modifier.fillMaxSize().onPointerEvent(PointerEventType.Move) { lastMouseMoveAt = System.currentTimeMillis()}) {
+        Box(Modifier.fillMaxSize()) {
 
             // CONTENIDO PRINCIPAL
             Column(modifier = Modifier.fillMaxSize()) {
@@ -184,13 +173,11 @@ fun NavigationDesktop(rootComponent: RootComponent, userPreferences: UserPrefere
                                 modifier = Modifier
                                     .weight(1F)
                                     .fillMaxHeight()
-                                    .then(if (islands) Modifier.shadow(dimens.surfaceElevation, contentShape) else Modifier)
                                     .clip(contentShape)
                                     .then(
                                         if (islands) Modifier.border(0.5.dp, MaterialTheme.colorScheme.outlineVariant, contentShape)
                                         else Modifier
                                     )
-                                    .background(MaterialTheme.colorScheme.background)
                             ) {
                                 Children(
                                     stack = rootComponent.childStack,
@@ -239,12 +226,12 @@ fun NavigationDesktop(rootComponent: RootComponent, userPreferences: UserPrefere
                                         modifier = Modifier
                                             .fillMaxHeight()
                                             .width(queueWidth)
-                                            .then(if (islands) Modifier.shadow(dimens.surfaceElevation, contentShape) else Modifier)
                                             .clip(contentShape)
                                             .then(
                                                 if (islands) Modifier.border(0.5.dp, MaterialTheme.colorScheme.outlineVariant, contentShape)
                                                 else Modifier
-                                            )
+                                            ),
+                                        containerColor = Color.Transparent
                                     )
                                 }
                             }
@@ -255,8 +242,8 @@ fun NavigationDesktop(rootComponent: RootComponent, userPreferences: UserPrefere
                 AnimatedVisibility(
                     visible = currentSong != null,
                 ) {
-                    MiniPlayer(
-                        progressState = progressState,
+                    MiniPlayerHost(
+                        playerViewModel = playerViewModel,
                         onToggleNowPlaying = {
                             isNowPlayingExpanded = !isNowPlayingExpanded
                             if (isNowPlayingExpanded) isQueueVisible = false
@@ -296,6 +283,28 @@ fun NavigationDesktop(rootComponent: RootComponent, userPreferences: UserPrefere
         }
     }
     }
+}
+
+@Composable
+private fun MiniPlayerHost(
+    playerViewModel: PlayerViewModel,
+    onToggleNowPlaying: () -> Unit,
+    isNowPlayingExpanded: Boolean,
+    onToggleQueue: () -> Unit,
+    isQueueVisible: Boolean,
+    modifier: Modifier = Modifier,
+    sharedTransitionScope: SharedTransitionScope? = null,
+) {
+    val progressState: PlayerProgressState by playerViewModel.progressState.collectAsState()
+    MiniPlayer(
+        progressState = progressState,
+        onToggleNowPlaying = onToggleNowPlaying,
+        isNowPlayingExpanded = isNowPlayingExpanded,
+        onToggleQueue = onToggleQueue,
+        isQueueVisible = isQueueVisible,
+        modifier = modifier,
+        sharedTransitionScope = sharedTransitionScope,
+    )
 }
 
 
@@ -395,4 +404,3 @@ fun ScreenRouter(
 fun createNavigator(rootComponent: RootComponent): (Route) -> Unit = { route ->
     rootComponent.navigateTo(route.toConfig())
 }
-

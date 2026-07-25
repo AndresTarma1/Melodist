@@ -369,6 +369,7 @@ internal fun SongListItem(
                                         contentDescription = song.title,
                                         modifier = Modifier.matchParentSize(),
                                         contentScale = ContentScale.Crop,
+                                        isLowRes = true,
                                         shape = RoundedCornerShape(ThumbnailCornerRadius),
                                         placeholderType = PlaceholderType.SONG,
                                         iconSize = 24.dp,

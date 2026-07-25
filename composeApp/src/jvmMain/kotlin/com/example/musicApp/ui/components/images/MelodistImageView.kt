@@ -77,8 +77,18 @@ fun MelodistImage(
         }
     } else {
 
+
+
+        val isListItem = isLowRes && !highResEnabled
         val effectiveLowRes = isLowRes || !highResEnabled
-        val coilSize = if (effectiveLowRes) 320 else 512
+
+        val coilSize = if (isListItem) {
+            64
+        } else if (effectiveLowRes) {
+            128
+        } else {
+            512
+        }
 
         AsyncImage(
             model = ImageRequest.Builder(LocalPlatformContext.current)
@@ -94,7 +104,7 @@ fun MelodistImage(
             contentScale = contentScale,
             alignment = alignment,
             placeholder = ColorPainter(Color.DarkGray),
-            error = ColorPainter(Color.DarkGray)
+            error = ColorPainter(Color.LightGray)
         )
     }
 }

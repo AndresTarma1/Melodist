@@ -18,6 +18,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.musicApp.ui.components.layout.AppVerticalScrollbar
@@ -38,11 +39,13 @@ fun LyricsContent(
     val progress by playerViewModel.progressState.collectAsState()
     val syncedLines = synced
 
-    val bigLyricsStyle = style.copy(
-        fontSize = style.fontSize * 1.7f,
-        lineHeight = style.lineHeight * 1.8f,
-        fontWeight = FontWeight.Bold,
-        letterSpacing = 0.1.sp
+    val baseSize = if (style.fontSize == TextUnit.Unspecified) 20.sp else style.fontSize
+    val baseLineHeight = if (style.lineHeight == TextUnit.Unspecified) 30.sp else style.lineHeight
+    val immersiveLyricsStyle = style.copy(
+        fontSize = baseSize * 1.7f,
+        lineHeight = baseLineHeight * 1.9f,
+        fontWeight = FontWeight.SemiBold,
+        letterSpacing = 0.12.sp
     )
 
     when {
@@ -57,7 +60,9 @@ fun LyricsContent(
         }
         lyrics == null -> {
             Column(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
@@ -65,27 +70,30 @@ fun LyricsContent(
                 Spacer(Modifier.height(16.dp))
                 Text(
                     stringResource(Res.string.lyrics_loading),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.82f),
+                    textAlign = TextAlign.Center
                 )
             }
         }
         lyrics.isBlank() -> {
             Column(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
                 Icon(
                     Icons.Rounded.Lyrics,
                     contentDescription = null,
-                    modifier = Modifier.size(56.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.25f)
+                    modifier = Modifier.size(62.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
                 )
                 Spacer(Modifier.height(20.dp))
                 Text(
                     stringResource(Res.string.lyrics_not_found),
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
@@ -94,25 +102,28 @@ fun LyricsContent(
         }
         else -> {
             val scrollState = rememberScrollState()
-            val fadeHeight = 48.dp
+            val fadeHeight = 72.dp
 
             Box(modifier = Modifier.fillMaxSize()) {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .verticalScroll(scrollState)
-                        .padding(horizontal = 24.dp)
+                        .padding(horizontal = 18.dp)
                         .fadingEdges(fadeHeight)
                 ) {
-                    Spacer(Modifier.height(fadeHeight))
+                    Spacer(Modifier.height(18.dp))
                     Text(
                         text = lyrics,
-                        modifier = Modifier.fillMaxWidth(),
-                        style = bigLyricsStyle,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .widthIn(max = 920.dp)
+                            .align(Alignment.CenterHorizontally),
+                        style = immersiveLyricsStyle,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.95f),
                         textAlign = textAlign,
                     )
-                    Spacer(Modifier.height(96.dp))
+                    Spacer(Modifier.height(140.dp))
                 }
                 AppVerticalScrollbar(
                     state = scrollState,

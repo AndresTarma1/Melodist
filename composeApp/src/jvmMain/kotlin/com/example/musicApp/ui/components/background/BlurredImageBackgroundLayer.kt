@@ -36,17 +36,17 @@ fun NowBackground(
     val artworkColors = rememberArtworkColors(imageUrl)
 
     when(backgroundMode){
-        NowPlayingBackground.GRADIENT -> NowPlayingBackgroundWithGradient(
+        NowPlayingBackground.GRADIENT -> BackgroundWithGradient(
             artworkColors = artworkColors,
             modifier = modifier,
             content = content
         )
-        NowPlayingBackground.BLURRED_COVER -> NowPlayingBackgroundWithBlur(
+        NowPlayingBackground.BLURRED_COVER -> BackgroundWithBlur(
             imageUrl = imageUrl,
             modifier = modifier,
             content = content
         )
-        NowPlayingBackground.SOLID_COLOR -> NowPlayingBackgroundWithSolidColor(
+        NowPlayingBackground.SOLID_COLOR -> BackgroundWithSolidColor(
             modifier = modifier,
             content = content
         )
@@ -54,7 +54,7 @@ fun NowBackground(
 }
 
 @Composable
-fun NowPlayingBackgroundWithSolidColor(
+fun BackgroundWithSolidColor(
     modifier: Modifier,
     content: @Composable (BoxScope.() -> Unit)
 ) {
@@ -71,7 +71,7 @@ fun NowPlayingBackgroundWithSolidColor(
 
 @JvmName("NowPlayingBackgroundWithGradient")
 @Composable
-fun NowPlayingBackgroundWithGradient(
+fun BackgroundWithGradient(
     artworkColors: ArtworkColors,
     modifier: Modifier = Modifier,
     content: @Composable BoxScope.() -> Unit
@@ -107,24 +107,24 @@ fun NowPlayingBackgroundWithGradient(
 
 @JvmName("NowPlayingBackgroundFromImageUrlWithBlur")
 @Composable
-fun NowPlayingBackgroundWithBlur(
+fun BackgroundWithBlur(
     imageUrl: String?,
     modifier: Modifier = Modifier,
     content: @Composable BoxScope.() -> Unit
 ) {
-    val surfaceColor = MaterialTheme.colorScheme.surface
+    val background = MaterialTheme.colorScheme.background
 
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(surfaceColor)
+            .background(background)
     ) {
         // Capa de la imagen de fondo borrosa y semitransparente
         if (!imageUrl.isNullOrBlank()) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .blur(radius = 15.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
+                    .blur(radius = 99.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
                     .alpha(0.25f)
             ) {
                 MelodistImage(

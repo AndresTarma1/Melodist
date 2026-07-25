@@ -79,6 +79,7 @@ fun SongHeader(
             ) {
                 Text(
                     text = label,
+                    textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,

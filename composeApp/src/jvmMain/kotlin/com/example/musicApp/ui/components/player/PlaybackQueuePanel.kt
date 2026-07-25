@@ -1,5 +1,9 @@
 package com.example.musicApp.ui.components.player
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -48,7 +52,7 @@ fun PlaybackQueuePanel(
     state: PlayerUiState,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
-    containerColor: Color = MaterialTheme.colorScheme.background,
+    containerColor: Color = Color.Transparent,
     showCloseButton: Boolean = true,
 ) {
     val playerViewModel = LocalPlayerViewModel.current
@@ -89,6 +93,7 @@ fun PlaybackQueuePanel(
     Surface(
         modifier = modifier,
         color = containerColor,
+        contentColor = containerColor,
         tonalElevation = 0.dp,
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -109,8 +114,6 @@ fun PlaybackQueuePanel(
                 },
                 queueLocked = queueLocked,
             )
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
 
             Box(Modifier.fillMaxSize()) {
                 if (state.queue.isEmpty()) {
@@ -147,7 +150,7 @@ fun PlaybackQueuePanel(
 
                 AppVerticalScrollbar(
                     state = listState,
-                    modifier = Modifier.align(Alignment.BottomEnd).width(8.dp).padding(end = 4.dp, bottom = 4.dp)
+                    modifier = Modifier.align(Alignment.TopEnd)
                 )
             }
         }
@@ -326,3 +329,4 @@ private fun EmptyQueuePlaceholder() {
         )
     }
 }
+

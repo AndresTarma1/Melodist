@@ -34,6 +34,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,6 +42,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
@@ -122,8 +124,7 @@ fun LibraryScreenRoute(
     val csvImportState by playlistsViewModel.csvImportState.collectAsState()
 
     var importNameField by remember { mutableStateOf("") }
-    // Reiniciar el nombre sugerido una vez que el flujo de importación termine, para que la siguiente importación comience limpia.
-    androidx.compose.runtime.LaunchedEffect(csvImportState) {
+    LaunchedEffect(csvImportState) {
         if (csvImportState !is CsvImportState.Ready) importNameField = ""
     }
     var showDeletePlaylistDialog by remember { mutableStateOf(false) }
@@ -228,9 +229,6 @@ fun LibraryScreenRoute(
         )
     }
 
-    // Solo el paso de ingreso de nombre es modal; el progreso/completado/error se muestra como una tarjeta
-    // flotante no bloqueante en la raíz de la app (ver CsvImportProgressOverlay en Navigation), para que el
-    // usuario pueda seguir navegando mientras la lista se resuelve canción por canción.
     (csvImportState as? CsvImportState.Ready)?.let { csvState ->
         if (importNameField.isBlank()) {
             importNameField = csvState.suggestedName
@@ -356,9 +354,13 @@ fun LibraryScreen(
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background.copy(alpha = 0f)),
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent
+                ),
+
             )
         },
+        containerColor = Color.Transparent
     ) { innerPadding ->
         Column(
             modifier = Modifier

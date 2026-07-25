@@ -1,5 +1,6 @@
 package com.example.musicApp.ui.screens.home
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -16,6 +17,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
@@ -203,7 +205,7 @@ fun HomeScreenContent(
 
         AppVerticalScrollbar(
             state = listState,
-            modifier = Modifier.align(Alignment.CenterEnd),
+            modifier = Modifier.align(Alignment.CenterEnd)
         )
     }
 }
@@ -237,11 +239,6 @@ private fun ChipFilterRow(
                     },
                     shape = RoundedCornerShape(20.dp),
                     modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.primary,
-                        selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                    ),
                     border = null,
                     leadingIcon = {
                         if (isSelected) {

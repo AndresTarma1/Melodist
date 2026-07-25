@@ -172,6 +172,7 @@ fun SearchScreen(
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
+        containerColor = Color.Transparent
     ) { paddingValues ->
         Column(
             Modifier

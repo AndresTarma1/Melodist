@@ -1,6 +1,10 @@
 package com.example.musicApp
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material3.AlertDialog
@@ -21,6 +25,8 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.ApplicationScope
 import androidx.compose.ui.window.WindowPlacement
@@ -60,6 +66,7 @@ import com.example.musicApp.overlay.GlobalHotkeyManager
 import com.example.musicApp.overlay.HotkeyCombo
 import com.example.musicApp.overlay.MusicOverlayWindow
 import com.example.musicApp.overlay.OverlayController
+import com.example.musicApp.ui.components.background.BackgroundWithBlur
 import com.example.musicApp.windows.WindowsThumbBar
 import com.metrolist.innertube.models.AccountInfo
 import io.github.aakira.napier.Napier
@@ -225,17 +232,17 @@ fun ApplicationScope.App(
         val titleBarStyle = if (isDark) {
             TitleBarStyle.dark(
                 colors = TitleBarColors.dark(
-                    backgroundColor = background,
+                    backgroundColor = Color.Transparent,
                     inactiveBackground = background,
-                    borderColor = background,
+                    borderColor = Color.Transparent
                 )
             )
         } else {
             TitleBarStyle.light(
                 colors = TitleBarColors.light(
-                    backgroundColor = background,
+                    backgroundColor = Color.Transparent,
                     inactiveBackground = background,
-                    borderColor = background,
+                    borderColor = Color.Transparent
                 )
             )
         }
@@ -243,6 +250,7 @@ fun ApplicationScope.App(
         IntUiTheme(
             theme = if (isDark) JewelTheme.darkThemeDefinition() else JewelTheme.lightThemeDefinition(),
             styling = ComponentStyling.decoratedWindow(titleBarStyle = titleBarStyle),
+            swingCompatMode = true
         ) {
             val playlistsViewModel: LibraryPlaylistsViewModel = koinInject()
             CompositionLocalProvider(
@@ -381,35 +389,40 @@ fun ApplicationScope.App(
                         }
                     }
 
-                    TitleBar{
-                        DesktopTitleBar(
-                            currentSong = currentSong?.title,
-                            isPlaying = isPlaying,
-                            accountInfo = accountInfo,
-                            ytmSyncEnabled = ytmSyncEnabled,
-                            isSyncing = syncState.overallStatus is com.example.musicApp.utils.SyncStatus.Syncing,
-                            isOfflineMode = offlineMode,
-                            onToggleSync = { enable ->
-                                if (enable) showYtmSyncWarningFromMenu = true
-                                else scope.launch { userPreferences.setYtmSyncEnabled(false) }
-                            },
-                            onToggleOfflineMode = { enable ->
-                                scope.launch { userPreferences.setOfflineModeEnabled(enable) }
-                            },
-                            onSyncNow = {
-                                scope.launch { userPreferences.setLastFullSyncAt(System.currentTimeMillis()) }
-                                syncUtils.performFullSync()
-                                if (ytmSyncEnabled) syncUtils.syncAutoSyncPlaylists()
-                            },
-                        )
-                    }
-
-                    key(appLocale) {
-                        NavigationDesktop(
-                            rootComponent = rootComponent,
-                            userPreferences = userPreferences
-                        )
-
+                    BackgroundWithBlur(
+                        imageUrl = currentSong?.thumbnailUrl,
+                        modifier = Modifier.fillMaxSize(),
+                    ) {
+                        Column(Modifier.fillMaxSize()) {
+                            TitleBar {
+                                DesktopTitleBar(
+                                    currentSong = currentSong?.title,
+                                    isPlaying = isPlaying,
+                                    accountInfo = accountInfo,
+                                    ytmSyncEnabled = ytmSyncEnabled,
+                                    isSyncing = syncState.overallStatus is com.example.musicApp.utils.SyncStatus.Syncing,
+                                    isOfflineMode = offlineMode,
+                                    onToggleSync = { enable ->
+                                        if (enable) showYtmSyncWarningFromMenu = true
+                                        else scope.launch { userPreferences.setYtmSyncEnabled(false) }
+                                    },
+                                    onToggleOfflineMode = { enable ->
+                                        scope.launch { userPreferences.setOfflineModeEnabled(enable) }
+                                    },
+                                    onSyncNow = {
+                                        scope.launch { userPreferences.setLastFullSyncAt(System.currentTimeMillis()) }
+                                        syncUtils.performFullSync()
+                                        if (ytmSyncEnabled) syncUtils.syncAutoSyncPlaylists()
+                                    },
+                                )
+                            }
+                            key(appLocale) {
+                                NavigationDesktop(
+                                    rootComponent = rootComponent,
+                                    userPreferences = userPreferences
+                                )
+                            }
+                        }
                     }
                 }
             }

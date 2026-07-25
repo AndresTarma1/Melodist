@@ -58,20 +58,25 @@ fun NowPlayingLayout(
     val preferencesRepo = LocalUserPreferences.current
     val equalizerBands by preferencesRepo.equalizerBands.collectAsState(initial = List(5) { 0f })
 
-    NowBackground(
-        imageUrl = song.thumbnailUrl,
-        modifier = Modifier
-            .fillMaxSize()
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = {}
-            ),
-    ) {
+//    NowBackground(
+//        imageUrl = song.thumbnailUrl,
+//        modifier = Modifier
+//            .fillMaxSize()
+//            .clickable(
+//                interactionSource = remember { MutableInteractionSource() },
+//                indication = null,
+//                onClick = {}
+//            ),
+//    ) {
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 20.dp, vertical = 14.dp)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = {}
+                ),
         ) {
             val isCompact = maxWidth < 900.dp || maxHeight < 560.dp
 
@@ -110,7 +115,7 @@ fun NowPlayingLayout(
                 onMenuToggle = { showMenu = it },
                 onOpenEqualizer = { showEqualizer = true }
             )
-        }
+//        }
     }
 
     if (showEqualizer) {
@@ -169,7 +174,7 @@ private fun ExpandedNowPlayingLayout(
                 selectedTab = selectedTab,
                 onTabSelected = onTabSelected,
                 queueCount = state.queue.size,
-                modifier = Modifier.padding(top = 52.dp, bottom = 12.dp)
+                modifier = Modifier
             )
             Box(modifier = Modifier.weight(1f)) {
                 NowPlayingTabContent(
@@ -255,39 +260,33 @@ private fun NowPlayingTabRow(
     val queueLabel = stringResource(Res.string.tab_queue) + if (queueCount > 0) " ($queueCount)" else ""
     val infoLabel = stringResource(Res.string.tab_info)
     val tabs = NowPlayingTab.entries
-    val selectedIndex = tabs.indexOf(selectedTab)
 
-    PrimaryTabRow(
-        selectedTabIndex = selectedIndex,
-        modifier = modifier,
-        containerColor = Color.Transparent,
-        contentColor = MaterialTheme.colorScheme.primary,
-        tabs = {
-            tabs.forEach { tab ->
-                val selected = tab == selectedTab
-                val label = when (tab) {
-                    NowPlayingTab.LYRICS -> lyricsLabel
-                    NowPlayingTab.QUEUE -> queueLabel
-                    NowPlayingTab.INFO -> infoLabel
-                }
-                LeadingIconTab(
-                    selected = selected,
-                    onClick = { onTabSelected(tab) },
-                    selectedContentColor = MaterialTheme.colorScheme.primary,
-                    unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                    icon = { Icon(tabIcon(tab), contentDescription = null, modifier = Modifier.size(18.dp)) },
-                    text = {
-                        Text(
-                            label,
-                            style = MaterialTheme.typography.labelLarge,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    },
-                )
+
+    SingleChoiceSegmentedButtonRow(modifier = modifier.widthIn(min = 400.dp)) {
+        tabs.forEachIndexed { index, tab ->
+            val selected = tab == selectedTab
+            val label = when (tab) {
+                NowPlayingTab.LYRICS -> lyricsLabel
+                NowPlayingTab.QUEUE -> queueLabel
+                NowPlayingTab.INFO -> infoLabel
             }
-        })
+            SegmentedButton(
+                selected = selected,
+                onClick = { onTabSelected(tab) },
+                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                shape = SegmentedButtonDefaults.itemShape(index = index, count = tabs.size),
+                icon = { Icon(tabIcon(tab), contentDescription = null, modifier = Modifier.size(18.dp)) },
+                label = {
+                    Text(
+                        label,
+                        style = MaterialTheme.typography.labelLarge,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                },
+            )
+        }
+    }
 }
 
 @Composable
@@ -309,7 +308,7 @@ private fun NowPlayingTabContent(
         label = "now_playing_tab_content"
     ) { targetTab ->
         when (targetTab) {
-            NowPlayingTab.LYRICS -> LyricsContent(lyrics = lyrics, textAlign = TextAlign.Start, style = lyricsTextStyle)
+            NowPlayingTab.LYRICS -> LyricsContent(lyrics = lyrics, textAlign = TextAlign.Center, style = lyricsTextStyle)
             NowPlayingTab.QUEUE -> PlaybackQueuePanel(
                 state = state,
                 onDismiss = {},

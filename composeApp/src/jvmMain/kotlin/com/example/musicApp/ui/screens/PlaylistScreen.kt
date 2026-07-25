@@ -151,7 +151,6 @@ fun PlaylistScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
             .focusRequester(focusRequester)
             .focusable()
             .onPreviewKeyEvent {

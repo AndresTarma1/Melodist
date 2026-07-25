@@ -75,6 +75,13 @@ class AppViewModel : ViewModel() {
     val checkState: StateFlow<UpdateCheckState> = _checkState.asStateFlow()
 
     private var downloadJob: Job? = null
+    private val installerVersionRegex = Regex("""\d+\.\d+\.\d+""")
+
+    init {
+        viewModelScope.launch(Dispatchers.IO) {
+            cleanupOldInstallers()
+        }
+    }
 
     /**
      * Busca un release más nuevo. Al iniciar se pasa [manual] = false: una actualización encontrada se descarga
@@ -182,6 +189,29 @@ class AppViewModel : ViewModel() {
 
     private fun updateDir(): File =
         File(System.getProperty("java.io.tmpdir"), "lyrik-update").apply { mkdirs() }
+
+    /**
+     * Limpia instaladores de versiones antiguas/iguales a la actual para evitar acumulación en temp.
+     * Solo elimina archivos cuyo nombre contiene una versión semántica (x.y.z) y es <= [CURRENT_VERSION].
+     */
+    private fun cleanupOldInstallers() {
+        val dir = updateDir()
+        val installerFiles = dir.listFiles { file ->
+            file.isFile && (file.name.endsWith(".msi", ignoreCase = true) || file.name.endsWith(".exe", ignoreCase = true))
+        } ?: return
+
+        installerFiles.forEach { file ->
+            val version = installerVersionRegex.find(file.name)?.value ?: return@forEach
+            if (compareVersions(version, CURRENT_VERSION) <= 0) {
+                val deleted = runCatching { file.delete() }
+                    .onFailure { Napier.w("Failed to delete old installer ${file.name}: ${it.message}") }
+                    .getOrDefault(false)
+                if (deleted) {
+                    Napier.i("Deleted old installer from temp: ${file.name}")
+                }
+            }
+        }
+    }
 
     private fun targetFile(info: AppUpdateInfo): File =
         File(updateDir(), info.installerName ?: "LyriK-setup.msi")
