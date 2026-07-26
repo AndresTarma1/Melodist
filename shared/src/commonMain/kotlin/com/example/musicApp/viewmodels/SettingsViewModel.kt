@@ -8,7 +8,7 @@ import com.example.musicApp.data.repository.DarkLevel
 import com.example.musicApp.data.repository.IslandStyle
 import com.example.musicApp.data.repository.LayoutMode
 import com.example.musicApp.data.repository.NavigationRailStyle
-import com.example.musicApp.data.repository.NowPlayingBackground
+import com.example.musicApp.data.repository.BackgroundStyle
 import com.example.musicApp.data.repository.SeekBarStyle
 import com.example.musicApp.data.repository.ThemeMode
 import com.example.musicApp.data.repository.ThemePalette
@@ -98,14 +98,20 @@ class SettingsViewModel(
     val overlayHotkeyLabel: StateFlow<String> = preferencesRepository.overlayHotkeyLabel
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
 
-    val nowPlayingBackground: StateFlow<NowPlayingBackground> = preferencesRepository.nowPlayingBackground
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), NowPlayingBackground.GRADIENT)
+    val nowPlayingBackground: StateFlow<BackgroundStyle> = preferencesRepository.nowPlayingBackground
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), BackgroundStyle.GRADIENT)
 
     val navigationRailStyle: StateFlow<NavigationRailStyle> = preferencesRepository.navigationRailStyle
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), NavigationRailStyle.DEFAULT)
 
     val fullScreenPlayer: StateFlow<Boolean> = preferencesRepository.fullScreenPlayer
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val appBackgroundStyle: StateFlow<BackgroundStyle> = preferencesRepository.appBackgroundStyle
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), BackgroundStyle.BLURRED_COVER)
+
+    val uiScale: StateFlow<Float> = preferencesRepository.uiScale
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 1.0f)
 
 
     fun setAudioQuality(quality: AudioQuality) {
@@ -197,7 +203,7 @@ class SettingsViewModel(
         }
     }
 
-    fun setNowPlayingBackground(style: NowPlayingBackground) {
+    fun setNowPlayingBackground(style: BackgroundStyle) {
         viewModelScope.launch { preferencesRepository.setNowPlayingBackground(style) }
     }
 
@@ -229,5 +235,13 @@ class SettingsViewModel(
 
     fun setOverlayHotkey(code: Int, mods: Int, label: String) {
         viewModelScope.launch { preferencesRepository.setOverlayHotkey(code, mods, label) }
+    }
+
+    fun setAppBackgroundStyle(style: BackgroundStyle) {
+        viewModelScope.launch { preferencesRepository.setAppBackgroundStyle(style) }
+    }
+
+    fun setUiScale(scale: Float) {
+        viewModelScope.launch { preferencesRepository.setUiScale(scale) }
     }
 }

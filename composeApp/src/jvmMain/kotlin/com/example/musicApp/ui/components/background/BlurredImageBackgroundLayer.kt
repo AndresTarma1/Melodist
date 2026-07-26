@@ -16,7 +16,7 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
-import com.example.musicApp.data.repository.NowPlayingBackground
+import com.example.musicApp.data.repository.BackgroundStyle
 import com.example.musicApp.ui.components.images.MelodistImage
 import com.example.musicApp.ui.components.artwork.ArtworkColors
 import com.example.musicApp.ui.components.artwork.rememberArtworkColors
@@ -24,32 +24,32 @@ import com.example.musicApp.utils.LocalUserPreferences
 
 
 @Composable
-fun NowBackground(
+fun BackgroundStyle(
     imageUrl: String?,
     modifier: Modifier = Modifier,
+    backgroundStyle: BackgroundStyle?,
     content: @Composable BoxScope.() -> Unit
 ) {
 
-    val userPreferences = LocalUserPreferences.current
-    val backgroundMode by userPreferences.nowPlayingBackground.collectAsState(initial = NowPlayingBackground.GRADIENT)
 
     val artworkColors = rememberArtworkColors(imageUrl)
 
-    when(backgroundMode){
-        NowPlayingBackground.GRADIENT -> BackgroundWithGradient(
+    when(backgroundStyle){
+        BackgroundStyle.GRADIENT -> BackgroundWithGradient(
             artworkColors = artworkColors,
             modifier = modifier,
             content = content
         )
-        NowPlayingBackground.BLURRED_COVER -> BackgroundWithBlur(
+        BackgroundStyle.BLURRED_COVER -> BackgroundWithBlur(
             imageUrl = imageUrl,
             modifier = modifier,
             content = content
         )
-        NowPlayingBackground.SOLID_COLOR -> BackgroundWithSolidColor(
+        BackgroundStyle.SOLID_COLOR -> BackgroundWithSolidColor(
             modifier = modifier,
             content = content
         )
+        else -> content
     }
 }
 

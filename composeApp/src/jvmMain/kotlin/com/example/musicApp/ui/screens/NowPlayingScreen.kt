@@ -9,6 +9,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.example.musicApp.navigation.Route
+import com.example.musicApp.ui.components.background.BackgroundStyle
 import com.example.musicApp.ui.components.player.NowPlayingLayout
 import com.example.musicApp.ui.components.player.NowPlayingTab
 import com.example.musicApp.viewmodels.PlayerViewModel
@@ -29,19 +30,21 @@ fun NowPlayingScreen(
     var selectedTab by remember { mutableStateOf(NowPlayingTab.QUEUE) }
 
     if (currentSong != null) {
-        NowPlayingLayout(
-            state = playerState,
-            song = currentSong,
-            onCollapse = onBack,
-            onNavigate = { route ->
-                onNavigate(route)
-            },
-            selectedTab = selectedTab,
-            onTabSelected = { selectedTab = it },
-            lyrics = currentLyrics,
-            mediaInfo = currentSongMediaInfo,
-            sharedTransitionScope = sharedTransitionScope,
-            animatedVisibilityScope = animatedVisibilityScope,
-        )
-    }
+
+            NowPlayingLayout(
+                state = playerState,
+                song = currentSong,
+                onCollapse = onBack,
+                onNavigate = { route ->
+                    onNavigate(route)
+                },
+                selectedTab = selectedTab,
+                onTabSelected = { selectedTab = it },
+                lyrics = currentLyrics,
+                mediaInfo = currentSongMediaInfo,
+                sharedTransitionScope = sharedTransitionScope,
+                animatedVisibilityScope = animatedVisibilityScope,
+            )
+        }
+
 }

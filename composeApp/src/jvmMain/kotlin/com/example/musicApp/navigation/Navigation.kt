@@ -91,6 +91,8 @@ fun NavigationDesktop(rootComponent: RootComponent, userPreferences: UserPrefere
     val playerState by playerViewModel.uiState.collectAsState()
     var isQueueVisible by remember { mutableStateOf(false) }
 
+    val fullScreenPlayer by userPreferences.fullScreenPlayer.collectAsState(false)
+
     val isOnNowPlaying = activeConfig is ScreenConfig.NowPlaying
 
     val currentSong = playerState.currentSong
@@ -116,23 +118,26 @@ fun NavigationDesktop(rootComponent: RootComponent, userPreferences: UserPrefere
                 Column(modifier = Modifier.fillMaxSize()) {
                     Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
 
-                        when (navigationRailStyle) {
-                            NavigationRailStyle.DEFAULT -> {
-                                NavigationRailDefault(
-                                    activeConfig = activeConfig,
-                                    changeQueueVisible = { isQueueVisible = it },
-                                    rootComponent = rootComponent,
-                                )
-                            }
+                        AnimatedVisibility(visible = !isOnNowPlaying || !fullScreenPlayer) {
+                            when (navigationRailStyle) {
+                                NavigationRailStyle.DEFAULT -> {
+                                    NavigationRailDefault(
+                                        activeConfig = activeConfig,
+                                        changeQueueVisible = { isQueueVisible = it },
+                                        rootComponent = rootComponent,
+                                    )
+                                }
 
-                            NavigationRailStyle.WIDE -> {
-                                WideNavigationRail(
-                                    activeConfig = activeConfig,
-                                    changeQueueVisible = { isQueueVisible = it },
-                                    rootComponent = rootComponent,
-                                )
+                                NavigationRailStyle.WIDE -> {
+                                    WideNavigationRail(
+                                        activeConfig = activeConfig,
+                                        changeQueueVisible = { isQueueVisible = it },
+                                        rootComponent = rootComponent,
+                                    )
+                                }
                             }
                         }
+
 
                         val islands = LocalLayoutMode.current == LayoutMode.ISLANDS
                         val dimens = LocalDimens.current

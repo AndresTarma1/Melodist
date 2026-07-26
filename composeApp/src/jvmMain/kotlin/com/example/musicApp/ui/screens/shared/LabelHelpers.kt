@@ -9,7 +9,7 @@ import com.example.musicApp.data.repository.DarkLevel
 import com.example.musicApp.data.repository.IslandStyle
 import com.example.musicApp.data.repository.LayoutMode
 import com.example.musicApp.data.repository.NavigationRailStyle
-import com.example.musicApp.data.repository.NowPlayingBackground
+import com.example.musicApp.data.repository.BackgroundStyle
 import com.example.musicApp.data.repository.ThemeMode
 import com.example.musicApp.data.repository.ThemePalette
 import com.example.musicApp.data.repository.RenderApi
@@ -79,10 +79,10 @@ fun ThemePalette.displayName(): String = when (this) {
 }
 
 @Composable
-fun NowPlayingBackground.displayName(): String = when (this) {
-    NowPlayingBackground.GRADIENT -> stringResource(Res.string.background_style_gradient)
-    NowPlayingBackground.BLURRED_COVER -> stringResource(Res.string.background_style_blur)
-    NowPlayingBackground.SOLID_COLOR -> stringResource(Res.string.background_style_solid)
+fun BackgroundStyle.displayName(): String = when (this) {
+    BackgroundStyle.GRADIENT -> stringResource(Res.string.background_style_gradient)
+    BackgroundStyle.BLURRED_COVER -> stringResource(Res.string.background_style_blur)
+    BackgroundStyle.SOLID_COLOR -> stringResource(Res.string.background_style_solid)
 }
 
 @Composable

@@ -98,7 +98,7 @@ enum class ThemePalette(val primary: Long, val secondary: Long) {
     YTMUSIC(0xFFFF0033, 0xFFB00020)
 }
 
-enum class NowPlayingBackground {
+enum class BackgroundStyle {
     GRADIENT, BLURRED_COVER, SOLID_COLOR
 }
 
@@ -140,13 +140,34 @@ class UserPreferencesRepository(private val dataStore: DataStore<Preferences>) {
         val PENDING_ACTIONS = stringPreferencesKey("pending_sync_actions")
         val SEEK_BAR_STYLE = stringPreferencesKey("seek_bar_style")
         val PLAYBACK_SPEED = floatPreferencesKey("playback_speed")
-        val NOW_PLAYING_BACKGROUND = stringPreferencesKey("now_playing_background")
+        val APP_BACKGROUND = stringPreferencesKey("app_background_style")
+
+        val SCALE_UI = floatPreferencesKey("scale_ui")
+
         val VOLUMEN = intPreferencesKey("volumen")
         val NAVIGATION_RAIL_STYLE = stringPreferencesKey("navigation_rail_style")
+        val NOW_PLAYING_BACKGROUND = stringPreferencesKey("now_playing_background")
         val FULL_SCREEN_PLAYER = booleanPreferencesKey("full_screen_player")
     }
 
 
+    /** Factor de escala de la UI (zoom de interfaz), independiente del DPI real del sistema.
+     *  1.0f = 100% (normal). Se aplica como multiplicador sobre LocalDensity.current.density. */
+    val uiScale: Flow<Float> = dataStore.data.map { it[PreferencesKeys.SCALE_UI] ?: 1.0f }
+
+    suspend fun setUiScale(scale: Float) {
+        dataStore.edit { it[PreferencesKeys.SCALE_UI] = scale.coerceIn(0.7f, 2.0f) }
+    }
+
+
+    val appBackgroundStyle: Flow<BackgroundStyle> = dataStore.data.map { pref ->
+        try { BackgroundStyle.valueOf(pref[PreferencesKeys.APP_BACKGROUND] ?: BackgroundStyle.BLURRED_COVER.name) }
+        catch (_: Exception) { BackgroundStyle.BLURRED_COVER }
+    }
+
+    suspend fun setAppBackgroundStyle(style: BackgroundStyle) {
+        dataStore.edit { it[PreferencesKeys.APP_BACKGROUND] = style.name }
+    }
 
     val navigationRailStyle: Flow<NavigationRailStyle> = dataStore.data.map{ pref ->
         try { NavigationRailStyle.valueOf(pref[PreferencesKeys.NAVIGATION_RAIL_STYLE] ?: NavigationRailStyle.DEFAULT.name) }
@@ -180,19 +201,13 @@ class UserPreferencesRepository(private val dataStore: DataStore<Preferences>) {
         dataStore.edit { it[PreferencesKeys.LT_USERNAME] = name }
     }
 
+    val volume: Flow<Int> = dataStore.data.map { it[PreferencesKeys.VOLUMEN] ?: 100 }
+
+    suspend fun readSavedVolume(): Int = volume.first()
+
     suspend fun setVolumen(volumen: Int) {
         dataStore.edit { it[PreferencesKeys.VOLUMEN] = volumen.coerceIn(0, 100) }
     }
-
-    suspend fun readSavedVolume(): Int = dataStore.data
-        .map { it[PreferencesKeys.VOLUMEN] ?: 100 }
-        .first()
-
-    val volume: StateFlow<Int> = dataStore.data
-        .map { it[PreferencesKeys.VOLUMEN] ?: 100 }
-        .stateIn(
-            scope = CoroutineScope(Dispatchers.IO + SupervisorJob()),
-            SharingStarted.WhileSubscribed(5000), 100)
 
 
     /** Identidad (email) de la última cuenta de YouTube iniciada — se usa para detectar cambios de cuenta. */
@@ -290,13 +305,13 @@ class UserPreferencesRepository(private val dataStore: DataStore<Preferences>) {
         dataStore.edit { it[PreferencesKeys.ISLAND_STYLE] = style.name }
     }
 
-    suspend fun setNowPlayingBackground(background: NowPlayingBackground) {
-        dataStore.edit { it[PreferencesKeys.NOW_PLAYING_BACKGROUND] = background.name }
+    suspend fun setNowPlayingBackground(backgroundStyle: BackgroundStyle) {
+        dataStore.edit { it[PreferencesKeys.NOW_PLAYING_BACKGROUND] = backgroundStyle.name }
     }
 
-    val nowPlayingBackground: Flow<NowPlayingBackground> = dataStore.data.map { pref ->
-        try { NowPlayingBackground.valueOf(pref[PreferencesKeys.NOW_PLAYING_BACKGROUND] ?: NowPlayingBackground.GRADIENT.name) }
-        catch (_: Exception) { NowPlayingBackground.GRADIENT }
+    val nowPlayingBackground: Flow<BackgroundStyle> = dataStore.data.map { pref ->
+        try { BackgroundStyle.valueOf(pref[PreferencesKeys.NOW_PLAYING_BACKGROUND] ?: BackgroundStyle.GRADIENT.name) }
+        catch (_: Exception) { BackgroundStyle.GRADIENT }
     }
 
     val audioQuality: Flow<AudioQuality> = dataStore.data.map { preferences ->

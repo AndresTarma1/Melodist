@@ -44,6 +44,7 @@ import com.example.musicApp.data.repository.ThemeMode
 import com.example.musicApp.data.repository.UserPreferencesRepository
 import com.example.musicApp.data.repository.YouTubeRegion
 import com.example.musicApp.bootstrap.CrashReportDialog
+import com.example.musicApp.data.repository.BackgroundStyle
 import com.metrolist.innertube.YouTube
 import com.metrolist.innertube.models.YouTubeLocale
 import java.util.Locale
@@ -69,6 +70,7 @@ import com.example.musicApp.overlay.GlobalHotkeyManager
 import com.example.musicApp.overlay.HotkeyCombo
 import com.example.musicApp.overlay.MusicOverlayWindow
 import com.example.musicApp.overlay.OverlayController
+import com.example.musicApp.ui.components.background.BackgroundStyle
 import com.example.musicApp.ui.components.background.BackgroundWithBlur
 import com.example.musicApp.windows.WindowsThumbBar
 import com.metrolist.innertube.models.AccountInfo
@@ -229,7 +231,8 @@ fun ApplicationScope.App(
         ThemeMode.SYSTEM -> isSystemInDarkTheme()
     }
 
-    val uiScaleFactor = 1.0f
+    val uiScaleFactor by userPreferences.uiScale.collectAsState(1f)
+    val backgroundAppStyle by userPreferences.appBackgroundStyle.collectAsState(BackgroundStyle.SOLID_COLOR)
 
     AppTheme(artworkColors = artworkColors, userPreferences = userPreferences) {
         val background = MaterialTheme.colorScheme.background
@@ -395,7 +398,8 @@ fun ApplicationScope.App(
                     }
 
 
-                    BackgroundWithBlur(
+                    BackgroundStyle(
+                        backgroundStyle = backgroundAppStyle,
                         imageUrl = currentSong?.thumbnailUrl,
                         modifier = Modifier.fillMaxSize(),
                     ) {

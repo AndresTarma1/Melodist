@@ -136,7 +136,7 @@
     <string name="audio_quality_title">Audio quality</string>
     <string name="theme_title">Theme</string>
     <string name="palette_title">Color palette</string>
-    <string name="equalizer_title">10-band equalizer</string>
+    <string name="equalizer_title">5-band equalizer</string>
     <string name="reset">Reset</string>
     <string name="close_label">Close</string>
 
@@ -407,6 +407,8 @@
     <string name="background_style_gradient">Gradient</string>
     <string name="background_style_blur">Blurred</string>
     <string name="background_style_solid">Solid</string>
+    <string name="app_background_style">App background</string>
+    <string name="ui_scale">UI scale</string>
 
     <!-- Render APIs -->
     <string name="render_directx">DirectX</string>
