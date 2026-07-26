@@ -88,7 +88,6 @@ fun SyncedLyricsView(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun LyricLineRow(
     line: LyricLine,
@@ -109,7 +108,7 @@ private fun LyricLineRow(
         .fillMaxWidth()
         .clip(RoundedCornerShape(14.dp))
         .background(
-            color = if (isActive) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else Color.Transparent,
+            color = Color.Transparent,
             shape = RoundedCornerShape(14.dp),
         )
         .clickable(

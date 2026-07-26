@@ -62,7 +62,7 @@ fun SongHeader(
             TextAlign.Start -> Alignment.Start
             else -> Alignment.CenterHorizontally
         },
-        modifier = Modifier.then(modifier).fillMaxWidth(if (compact) 0.92f else 0.84f)
+        modifier = Modifier.then(modifier)
     ) {
         state.queueSource?.let { source ->
             val label = when (source) {
@@ -76,7 +76,7 @@ fun SongHeader(
                 color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.55f),
                 modifier = Modifier
                     .padding(bottom = 12.dp)
-                    .fillMaxWidth(if (compact) 0.7f else 0.5f) // acota el ancho real
+                    .fillMaxWidth(if (compact) 0.2f else 0.5f) // acota el ancho real
             ) {
                 Text(
                     text = label,
@@ -134,21 +134,6 @@ fun SongHeader(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-            }
-
-            Spacer(Modifier.width(4.dp))
-
-            val playerViewModel = LocalPlayerViewModel.current
-            IconButton(
-                onClick = { playerViewModel.toggleLike() },
-                modifier = Modifier.size(if (compact) 20.dp else 24.dp).pointerHoverIcon(PointerIcon.Hand)
-            ) {
-                Icon(
-                    imageVector = if (song.liked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                    contentDescription = stringResource(Res.string.mp_like),
-                    tint = if (song.liked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(if (compact) 14.dp else 16.dp)
-                )
             }
         }
     }

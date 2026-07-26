@@ -165,7 +165,7 @@ object TTMLParser {
                     when (role) {
                         "x-bg" -> {
                             if (isPBackground) parseWordSpan(child, offset, spanInfos, child)
-                            else parseBackgroundSpan(child, startTime, offset)?.let { backgroundLines.add(it) }
+                            else parseBackgroundSpan(child, startTime, offset).let { backgroundLines.add(it) }
                         }
                         "x-translation", "x-roman" -> {}
                         else -> parseWordSpan(child, offset, spanInfos, child)

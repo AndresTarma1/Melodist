@@ -172,11 +172,9 @@ object FunctionNameExtractor {
 
         if (hasQArrayObfuscation(playerJs)) {
             val hashToUse = knownHash ?: extractPlayerHash(playerJs)
-            if (hashToUse != null) {
-                val config = getHardcodedConfig(hashToUse)
-                if (config != null && config.nFuncName.isNotEmpty()) {
-                    return NFunctionInfo(config.nFuncName, config.nArrayIndex, config.nConstantArgs, isHardcoded = true)
-                }
+            val config = getHardcodedConfig(hashToUse)
+            if (config != null && config.nFuncName.isNotEmpty()) {
+                return NFunctionInfo(config.nFuncName, config.nArrayIndex, config.nConstantArgs, isHardcoded = true)
             }
         }
         return null
@@ -196,10 +194,8 @@ object FunctionNameExtractor {
             }
         }
         val hash = extractPlayerHash(playerJs)
-        if (hash != null) {
-            val config = getHardcodedConfig(hash)
-            if (config != null) return config.signatureTimestamp
-        }
+        val config = getHardcodedConfig(hash)
+        if (config != null) return config.signatureTimestamp
         return null
     }
 

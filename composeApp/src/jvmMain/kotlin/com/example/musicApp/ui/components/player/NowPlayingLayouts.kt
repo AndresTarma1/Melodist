@@ -38,7 +38,6 @@ import com.metrolist.innertube.models.MediaInfo
 import lyrik.composeapp.generated.resources.Res
 import lyrik.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
-import com.example.musicApp.ui.components.background.NowBackground
 import kotlinx.coroutines.launch
 
 enum class NowPlayingTab { LYRICS, QUEUE, INFO }
@@ -68,7 +67,6 @@ fun NowPlayingLayout(
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 20.dp, vertical = 14.dp)
     ) {
         val isCompact = maxWidth < 900.dp || maxHeight < 560.dp
 
@@ -168,7 +166,7 @@ private fun ExpandedNowPlayingLayout(
                 selectedTab = selectedTab,
                 onTabSelected = onTabSelected,
                 queueCount = state.queue.size,
-                modifier = Modifier
+                modifier = Modifier.widthIn(400.dp)
             )
             Box(modifier = Modifier.weight(1f)) {
                 NowPlayingTabContent(
@@ -200,21 +198,21 @@ private fun CompactNowPlayingLayout(
     reservedEndPadding: Dp = 0.dp,
 ) {
     Column(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(20.dp), // más aire entre secciones
+        modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(end = reservedEndPadding), // medido de verdad, no adivinado
+                .padding(end = reservedEndPadding),
             horizontalArrangement = Arrangement.spacedBy(20.dp),
-            verticalAlignment = Alignment.Top, // alinea arriba, no al centro — más prolijo con texto multilínea
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             CoverArt(
                 url = song.thumbnailUrl,
                 title = song.title,
                 modifier = Modifier
-                    .size(96.dp) // un poco más chico, deja más aire al texto
+                    .size(96.dp)
                     .heroCoverElement(song.id, sharedTransitionScope, animatedVisibilityScope),
             )
 
@@ -225,15 +223,16 @@ private fun CompactNowPlayingLayout(
                 onNavigate = onNavigate,
                 onCollapse = onCollapse,
                 compact = true,
-                modifier = Modifier.weight(1f), // ocupa exactamente el espacio restante
+                modifier = Modifier.weight(1f)
+            )
+
+            NowPlayingTabRow(
+                selectedTab = selectedTab,
+                onTabSelected = onTabSelected,
+                isCompact = true,
+                queueCount = state.queue.size,
             )
         }
-
-        NowPlayingTabRow(
-            selectedTab = selectedTab,
-            onTabSelected = onTabSelected,
-            queueCount = state.queue.size,
-        )
 
         Box(modifier = Modifier.weight(1f)) {
             NowPlayingTabContent(
@@ -260,6 +259,7 @@ private fun NowPlayingTabRow(
     selectedTab: NowPlayingTab,
     onTabSelected: (NowPlayingTab) -> Unit,
     queueCount: Int,
+    isCompact: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val lyricsLabel = stringResource(Res.string.tab_lyrics)
@@ -268,7 +268,7 @@ private fun NowPlayingTabRow(
     val tabs = NowPlayingTab.entries
 
 
-    SingleChoiceSegmentedButtonRow(modifier = modifier.widthIn(min = 400.dp)) {
+    SingleChoiceSegmentedButtonRow(modifier = modifier) {
         tabs.forEachIndexed { index, tab ->
             val selected = tab == selectedTab
             val label = when (tab) {
@@ -281,14 +281,18 @@ private fun NowPlayingTabRow(
                 onClick = { onTabSelected(tab) },
                 modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                 shape = SegmentedButtonDefaults.itemShape(index = index, count = tabs.size),
-                icon = { Icon(tabIcon(tab), contentDescription = null, modifier = Modifier.size(18.dp)) },
+                icon = { if(!isCompact) Icon(tabIcon(tab), contentDescription = null, modifier = Modifier.size(18.dp)) },
                 label = {
-                    Text(
-                        label,
-                        style = MaterialTheme.typography.labelLarge,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                    if(isCompact){
+                        Icon(tabIcon(tab), contentDescription = null, modifier = Modifier.size(18.dp))
+                    }else {
+                        Text(
+                            label,
+                            style = MaterialTheme.typography.labelLarge,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 },
             )
         }

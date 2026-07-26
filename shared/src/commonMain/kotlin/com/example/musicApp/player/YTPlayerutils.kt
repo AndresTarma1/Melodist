@@ -21,7 +21,7 @@ object YTPlayerutils {
     ): Result<PlaybackData> = runCatching {
 
         val signatureTimestamp = getSignatureTimestampOrNull(videoId)
-        Napier.i { "Signature timestamp for $videoId: ${signatureTimestamp ?: "null"}" }
+        Napier.i { "Signature timestamp for $videoId: $signatureTimestamp" }
 
         val isLoggedIn = YouTube.cookie != null
 

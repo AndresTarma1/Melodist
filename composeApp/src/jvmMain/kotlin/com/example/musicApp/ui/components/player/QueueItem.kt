@@ -163,6 +163,7 @@ fun QueueItem(
                     Icon(
                         Icons.Default.PlaylistRemove,
                         stringResource(Res.string.remove_from_queue),
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(19.dp)
                     )
                 }

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.musicApp.data.account.AccountManager
 import com.example.musicApp.data.remote.ApiService
+import com.example.musicApp.data.repository.BackgroundStyle
 import com.example.musicApp.data.repository.UserPreferencesRepository
 import com.example.musicApp.db.DatabaseDao
 import com.example.musicApp.db.entities.ArtistEntity
@@ -31,6 +32,7 @@ import kotlinx.coroutines.flow.*
 import java.net.HttpURLConnection
 import java.net.URI
 import java.util.logging.Logger
+import kotlin.time.Duration.Companion.milliseconds
 
 class PlayerViewModel(
     private val playerService: PlayerService,
@@ -47,6 +49,12 @@ class PlayerViewModel(
     val highResCoverArt = userPreferences.highResCoverArt
     val seekBarStyle = userPreferences.seekBarStyle
     val playbackSpeed = userPreferences.playbackSpeed
+
+    // Mientras pienso en un buen diseño xd
+//    val background: Flow<BackgroundStyle?> = userPreferences.fullScreenPlayer
+//        .combine(userPreferences.nowPlayingBackground) { isFullScreen, style ->
+//            if (isFullScreen) style else null
+//        }
 
     fun setPlaybackSpeed(speed: Float) {
         viewModelScope.launch { userPreferences.setPlaybackSpeed(speed) }
@@ -118,6 +126,10 @@ class PlayerViewModel(
      */
     fun initialize() {
         playerService.init()
+        viewModelScope.launch {
+            val savedVolume = userPreferences.readSavedVolume()
+            playerService.setVolume(savedVolume)
+        }
     }
 
     init {
@@ -202,8 +214,6 @@ class PlayerViewModel(
                 .collectLatest { fetchLyrics(); fetchMetadataInfo() }
         }
     }
-
-    val volumen: StateFlow<Int> = userPreferences.volume
 
     suspend fun downloadThumbToTemp(url: String?): String? = withContext(Dispatchers.IO)  {
         if (url.isNullOrBlank()) return@withContext null
@@ -532,7 +542,7 @@ class PlayerViewModel(
         playerService.setVolume(value)
         volumePersistJob?.cancel()
         volumePersistJob = viewModelScope.launch {
-            delay(500)
+            delay(500.milliseconds)
             userPreferences.setVolumen(value)
         }
     }

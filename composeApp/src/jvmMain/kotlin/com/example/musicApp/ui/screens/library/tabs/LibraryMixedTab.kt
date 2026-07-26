@@ -261,8 +261,7 @@ fun LibraryMixedTab(
     }
 
     val gridState = rememberLazyGridState()
-    val reorderableLazyGridState = rememberReorderableLazyGridState(gridState) { _, _ -> {
-    }}
+    val reorderableLazyGridState = rememberReorderableLazyGridState(gridState) { _, _ -> }
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyVerticalGrid(
