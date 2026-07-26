@@ -66,7 +66,7 @@ class JvmSettingsViewModel(
         _uiState.update {
             it.copy(
                 useG1GC = enabled,
-                useZGC = if (enabled) false else it.useZGC,
+                useZGC = !enabled && it.useZGC,
                 validationError = null,
             )
         }
@@ -76,7 +76,7 @@ class JvmSettingsViewModel(
         _uiState.update {
             it.copy(
                 useZGC = enabled,
-                useG1GC = if (enabled) false else it.useG1GC,
+                useG1GC = !enabled && it.useG1GC,
                 validationError = null,
             )
         }

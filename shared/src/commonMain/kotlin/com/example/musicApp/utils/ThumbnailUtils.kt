@@ -9,13 +9,12 @@ import com.metrolist.innertube.models.YTItem
  * as opposed to a square album/artist cover.
  */
 fun YTItem.isWideThumbnail(): Boolean {
-    if (this is ArtistItem || this is AlbumItem) return false
-    return thumbnail?.let { url ->
+    return !(this is ArtistItem || this is AlbumItem) && thumbnail?.let { url ->
         url.contains("ytimg.com/vi/") ||
-        url.contains("hqdefault") ||
-        url.contains("mqdefault") ||
-        url.contains("maxresdefault") ||
-        url.contains("sddefault")
+                url.contains("hqdefault") ||
+                url.contains("mqdefault") ||
+                url.contains("maxresdefault") ||
+                url.contains("sddefault")
     } == true
 }
 

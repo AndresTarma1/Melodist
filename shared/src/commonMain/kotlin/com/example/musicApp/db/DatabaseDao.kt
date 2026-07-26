@@ -93,8 +93,8 @@ class DatabaseDao(private val database: MelodistDatabase) {
     suspend fun insertAlbumArtistMap(albumId: String, artistId: String, order: Int) = mappings.insertAlbumArtistMap(albumId, artistId, order)
     suspend fun insertPlaylistSongMap(playlistId: String, songId: String, position: Int, setVideoId: String? = null) = mappings.insertPlaylistSongMap(playlistId, songId, position, setVideoId)
 
-    fun artistsForSong(songId: String): List<com.example.musicApp.db.entities.ArtistEntity> = mappings.artistsForSong(songId)
-    fun albumForSong(songId: String): com.example.musicApp.db.entities.AlbumEntity? = mappings.albumForSong(songId)
+    fun artistsForSong(songId: String): List<ArtistEntity> = mappings.artistsForSong(songId)
+    fun albumForSong(songId: String): AlbumEntity? = mappings.albumForSong(songId)
 
     suspend fun insertEvent(songId: String, timestamp: LocalDateTime, playTime: Long) = history.insertEvent(songId, timestamp, playTime)
     fun searchHistory(): Flow<List<SearchHistoryEntry>> = history.searchHistory()

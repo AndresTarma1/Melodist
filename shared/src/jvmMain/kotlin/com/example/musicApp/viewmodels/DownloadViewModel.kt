@@ -290,8 +290,7 @@ class DownloadViewModel(
 
         downloadStates.map { states ->
 
-            if (songIds.isEmpty()) false
-            else songIds.all { id -> states[id] is DownloadState.Completed }
+            songIds.isNotEmpty() && songIds.all { id -> states[id] is DownloadState.Completed }
 
         }.distinctUntilChanged()
 

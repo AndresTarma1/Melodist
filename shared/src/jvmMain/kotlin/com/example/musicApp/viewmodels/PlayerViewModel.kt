@@ -1092,13 +1092,12 @@ class PlayerViewModel(
         val ytUrl = withContext(Dispatchers.IO) {
             YtDlpResolver.resolveAudioUrl(song.id, streamResolver.currentAudioQuality())
         }
-        if (requestId != playRequestId) return true // superseded — not a failure
-        return if (ytUrl != null) {
+        return requestId != playRequestId || if (ytUrl != null) {
             playerService.play(ytUrl)
             true
         } else {
             false
-        }
+        } // superseded — not a failure
     }
 
     private suspend fun cacheSongMetadata(song: MediaMetadata) {

@@ -196,7 +196,7 @@ object YTPlayerutils {
      *
      * @return El timestamp de firma en días desde la época de Unix.
      */
-    private fun getSignatureTimestampOrNull(videoId: String): Int? {
+    private fun getSignatureTimestampOrNull(videoId: String): Int {
         // signatureTimestamp = días desde la época de Unix (enfoque de SimpMusic)
         // El reproductor de YouTube usa esto para verificar que el cliente está actualizado
         cachedSignatureTimestamp?.let { return it }

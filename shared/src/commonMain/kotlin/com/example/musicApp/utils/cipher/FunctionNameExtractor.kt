@@ -100,7 +100,7 @@ object FunctionNameExtractor {
         return Q_ARRAY_PATTERN.containsMatchIn(playerJs)
     }
 
-    fun extractPlayerHash(playerJs: String): String? {
+    fun extractPlayerHash(playerJs: String): String {
         for ((index, pattern) in PLAYER_HASH_PATTERNS.withIndex()) {
             val match = pattern.find(playerJs)
             if (match != null) {
@@ -132,18 +132,16 @@ object FunctionNameExtractor {
 
         if (hasQArrayObfuscation(playerJs)) {
             val hashToUse = knownHash ?: extractPlayerHash(playerJs)
-            if (hashToUse != null) {
-                val config = getHardcodedConfig(hashToUse)
-                if (config != null) {
-                    return SigFunctionInfo(
-                        name = config.sigFuncName,
-                        constantArg = config.sigConstantArg,
-                        constantArgs = config.sigConstantArgs,
-                        preprocessFunc = config.sigPreprocessFunc,
-                        preprocessArgs = config.sigPreprocessArgs,
-                        isHardcoded = true,
-                    )
-                }
+            val config = getHardcodedConfig(hashToUse)
+            if (config != null) {
+                return SigFunctionInfo(
+                    name = config.sigFuncName,
+                    constantArg = config.sigConstantArg,
+                    constantArgs = config.sigConstantArgs,
+                    preprocessFunc = config.sigPreprocessFunc,
+                    preprocessArgs = config.sigPreprocessArgs,
+                    isHardcoded = true,
+                )
             }
         }
         return null

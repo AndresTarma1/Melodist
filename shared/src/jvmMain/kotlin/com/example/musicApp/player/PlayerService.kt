@@ -116,8 +116,7 @@ class PlayerService
      * @return `true` si la reproducción inició dentro del tiempo de espera, `false` en caso contrario.
      */
     suspend fun awaitPlaybackStarted(timeoutMs: Long = 6000): Boolean {
-        if (isMpvDisabled) return false
-        return mpvPlayer.awaitPlaybackStarted(timeoutMs)
+        return !isMpvDisabled && mpvPlayer.awaitPlaybackStarted(timeoutMs)
     }
 
     /**

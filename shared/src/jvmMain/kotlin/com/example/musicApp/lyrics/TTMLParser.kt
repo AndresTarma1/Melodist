@@ -86,7 +86,7 @@ object TTMLParser {
             runCatching { factory.setFeature("http://xml.org/sax/features/external-general-entities", false) }
             runCatching { factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false) }
             runCatching { factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false) }
-            runCatching { factory.setXIncludeAware(false) }
+            runCatching { factory.isXIncludeAware = false }
             runCatching { factory.isExpandEntityReferences = false }
 
             val builder = factory.newDocumentBuilder()
@@ -216,7 +216,7 @@ object TTMLParser {
         }
     }
 
-    private fun parseBackgroundSpan(span: Element, parentStart: Double, offset: Double): ParsedLine? {
+    private fun parseBackgroundSpan(span: Element, parentStart: Double, offset: Double): ParsedLine {
         val begin = timingAttr(span, "begin")
         val start = if (begin.isNotEmpty()) parseTime(begin) + offset else parentStart
         val spanInfos = mutableListOf<SpanInfo>()
