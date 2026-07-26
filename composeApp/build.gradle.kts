@@ -81,6 +81,8 @@ kotlin {
 
             implementation(libs.decompose)
             implementation(libs.decompose.compose)
+            implementation(libs.decompose.compose.experimental)
+
             implementation(libs.kotlinx.serialization.core)
 
             implementation(libs.coil.compose.get().toString()) {

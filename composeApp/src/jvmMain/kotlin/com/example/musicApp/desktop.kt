@@ -235,7 +235,10 @@ fun ApplicationScope.TrayCustom(
         Divider()
         Item(
             label = exitLabel,
-            onClick = { handleExit() }
+            onClick = {
+                dispose()
+                handleExit()
+            }
         )
     }
 }

@@ -7,6 +7,7 @@ import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.ui.graphics.vector.ImageVector
 
 
@@ -43,6 +44,11 @@ sealed class Route {
     object ListenTogether : Route() {
         override val label = "Listen Together"
         override val icon = Icons.Filled.Groups
+    }
+
+    object NowPlaying : Route() {
+        override val label = null
+        override val icon = Icons.Rounded.Lyrics
     }
 
     data class Playlist(val playlistId: String) : Route() {

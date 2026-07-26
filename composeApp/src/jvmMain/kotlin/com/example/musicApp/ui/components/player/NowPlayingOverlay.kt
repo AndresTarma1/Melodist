@@ -28,7 +28,8 @@ internal fun formatSpeed(speed: Float): String = String.format(Locale.US, "%.1fx
 fun BoxScope.TopActionOverlay(
     showMenu: Boolean,
     onMenuToggle: (Boolean) -> Unit,
-    onOpenEqualizer: () -> Unit
+    onOpenEqualizer: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val playerViewModel = LocalPlayerViewModel.current
     val speed by playerViewModel.playbackSpeed.collectAsState(1f)
@@ -36,7 +37,7 @@ fun BoxScope.TopActionOverlay(
     val speeds = listOf(0.5f, 1.0f, 1.5f, 2.0f)
 
     Row(
-        modifier = Modifier.align(Alignment.TopEnd),
+        modifier = modifier.align(Alignment.TopEnd),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {

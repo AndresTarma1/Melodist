@@ -342,8 +342,6 @@ private fun QuickPicksSection(
             columnSpacing = 12.dp,
             itemKey = { it.id }
         ) { song ->
-            val downloadViewModel = LocalDownloadViewModel.current
-            val downloadState by rememberSongDownloadState(song.id, downloadViewModel)
 
             SectionListItem(
                 item = song,

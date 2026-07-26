@@ -17,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.ProvidedValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -27,6 +28,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.ApplicationScope
 import androidx.compose.ui.window.WindowPlacement
@@ -226,6 +229,8 @@ fun ApplicationScope.App(
         ThemeMode.SYSTEM -> isSystemInDarkTheme()
     }
 
+    val uiScaleFactor = 1.0f
+
     AppTheme(artworkColors = artworkColors, userPreferences = userPreferences) {
         val background = MaterialTheme.colorScheme.background
 
@@ -389,6 +394,7 @@ fun ApplicationScope.App(
                         }
                     }
 
+
                     BackgroundWithBlur(
                         imageUrl = currentSong?.thumbnailUrl,
                         modifier = Modifier.fillMaxSize(),
@@ -416,11 +422,20 @@ fun ApplicationScope.App(
                                     },
                                 )
                             }
-                            key(appLocale) {
-                                NavigationDesktop(
-                                    rootComponent = rootComponent,
-                                    userPreferences = userPreferences
+
+                            CompositionLocalProvider(
+                                LocalDensity provides Density(
+                                    density = LocalDensity.current.density * uiScaleFactor,
+                                    fontScale = LocalDensity.current.fontScale, // el fontScale del sistema, sin tocar
                                 )
+                            )
+                            {
+                                key(appLocale, uiScaleFactor) {
+                                    NavigationDesktop(
+                                        rootComponent = rootComponent,
+                                        userPreferences = userPreferences
+                                    )
+                                }
                             }
                         }
                     }
@@ -439,3 +454,4 @@ fun ApplicationScope.App(
         savedPosY = overlayPosY,
     )
 }
+

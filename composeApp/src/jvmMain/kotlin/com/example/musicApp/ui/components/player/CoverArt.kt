@@ -55,13 +55,14 @@ fun SongHeader(
     onNavigate: ((Route) -> Unit)? = null,
     onCollapse: (() -> Unit)? = null,
     compact: Boolean = false,
+    modifier: Modifier = Modifier
 ) {
     Column(
         horizontalAlignment = when (textAlign) {
             TextAlign.Start -> Alignment.Start
             else -> Alignment.CenterHorizontally
         },
-        modifier = Modifier.fillMaxWidth(if (compact) 0.92f else 0.84f)
+        modifier = Modifier.then(modifier).fillMaxWidth(if (compact) 0.92f else 0.84f)
     ) {
         state.queueSource?.let { source ->
             val label = when (source) {

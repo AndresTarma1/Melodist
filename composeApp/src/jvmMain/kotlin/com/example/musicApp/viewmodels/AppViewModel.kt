@@ -274,7 +274,7 @@ class AppViewModel : ViewModel() {
 
     private val jsonParser = Json { ignoreUnknownKeys = true }
 
-    private suspend fun fetchLatestVersion(): GithubRelease? {
+    private suspend fun fetchLatestVersion(): GithubRelease {
         val json = HttpClient().use { client ->
             client.get("https://api.github.com/repos/AndresTarma1/LyriK/releases/latest").bodyAsText()
         }

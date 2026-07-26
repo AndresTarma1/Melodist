@@ -32,6 +32,7 @@ class RootComponent(
             is ScreenConfig.Account -> Child.Account(AccountComponent(componentContext, get()))
             is ScreenConfig.Settings -> Child.Settings(SettingsComponent(componentContext, get()))
             is ScreenConfig.ListenTogether -> Child.ListenTogether
+            is ScreenConfig.NowPlaying -> Child.NowPlaying(NowPlayingScreenRoot(componentContext, get()))
             is ScreenConfig.Album -> Child.Album(AlbumComponent(componentContext, config.browseId, get()))
             is ScreenConfig.Playlist -> Child.Playlist(PlaylistComponent(componentContext, config.playlistId, get()))
             is ScreenConfig.Artist -> Child.Artist(ArtistComponent(componentContext, config.artistId, get()))
@@ -41,7 +42,6 @@ class RootComponent(
 
     fun navigateTo(config: ScreenConfig) {
         navigation.navigate { stack ->
-            // Eliminar cualquier instancia existente de esta configuración y agregarla al final
             stack.filterNot { it == config } + config
         }
     }
@@ -62,6 +62,7 @@ class RootComponent(
         data class Account(val component: AccountComponent) : Child()
         data class Settings(val component: SettingsComponent) : Child()
         data object ListenTogether : Child()
+        data class NowPlaying(val component: NowPlayingScreenRoot) : Child()
         data class Album(val component: AlbumComponent) : Child()
         data class Playlist(val component: PlaylistComponent) : Child()
         data class Artist(val component: ArtistComponent) : Child()
@@ -150,3 +151,8 @@ class YouTubeBrowseComponent(
         })
     }
 }
+
+class NowPlayingScreenRoot(
+    componentContext: ComponentContext,
+    val viewModel: PlayerViewModel,
+) : ComponentContext by componentContext

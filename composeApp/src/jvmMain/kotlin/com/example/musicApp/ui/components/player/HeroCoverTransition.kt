@@ -10,7 +10,6 @@ import androidx.compose.ui.Modifier
  * Hero cover element que me permite hacer la
  * transición compartida de la carátula del álbum o canción en la pantalla de reproducción.
  */
-@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun Modifier.heroCoverElement(
     songId: String,

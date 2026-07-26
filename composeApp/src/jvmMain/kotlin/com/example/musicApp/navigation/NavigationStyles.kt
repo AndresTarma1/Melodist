@@ -1,11 +1,6 @@
 package com.example.musicApp.navigation
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -15,7 +10,6 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalWideNavigationRail
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Text
@@ -26,7 +20,6 @@ import androidx.compose.material3.WideNavigationRailValue
 import androidx.compose.material3.rememberWideNavigationRailState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerIcon
@@ -49,8 +42,6 @@ fun NavigationRailDefault(
     activeConfig: ScreenConfig,
     changeQueueVisible: (Boolean) -> Unit,
     rootComponent: RootComponent,
-    changeNowPlayingExpanded : (Boolean) -> Unit,
-
 ){
     NavigationRail(
         modifier = Modifier.width(90.dp),
@@ -63,7 +54,6 @@ fun NavigationRailDefault(
                 NavigationRailItem(
                     selected = activeConfig == tab.config,
                     onClick = {
-                        changeNowPlayingExpanded(false)
                         rootComponent.switchTab(tab.config)
                     },
                     icon = { Icon(tab.icon, null) },
@@ -88,7 +78,6 @@ fun NavigationRailDefault(
                 NavigationRailItem(
                     selected = activeConfig == tab.config,
                     onClick = {
-                        changeNowPlayingExpanded(false)
                         changeQueueVisible(false)
                         rootComponent.switchTab(tab.config)
                     },
@@ -118,7 +107,6 @@ fun WideNavigationRail(
     activeConfig: ScreenConfig,
     changeQueueVisible: (Boolean) -> Unit,
     rootComponent: RootComponent,
-    changeNowPlayingExpanded: (Boolean) -> Unit,
 ) {
     val state = rememberWideNavigationRailState()
     val scope = rememberCoroutineScope()
@@ -166,7 +154,6 @@ fun WideNavigationRail(
                     },
                     selected = activeConfig == tab.config,
                     onClick = {
-                        changeNowPlayingExpanded(false)
                         rootComponent.switchTab(tab.config)
                     },
                 )
@@ -188,7 +175,6 @@ fun WideNavigationRail(
                     },
                     selected = activeConfig == tab.config,
                     onClick = {
-                        changeNowPlayingExpanded(false)
                         changeQueueVisible(false)
                         rootComponent.switchTab(tab.config)
                     },

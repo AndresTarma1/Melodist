@@ -1,6 +1,7 @@
 package com.example.musicApp.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -9,7 +10,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.border
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -28,11 +28,9 @@ import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.ContentScale
@@ -65,8 +63,8 @@ import org.jetbrains.jewel.foundation.modifier.onHover
 @Composable
 fun MiniPlayer(
     progressState: PlayerProgressState,
-    onToggleNowPlaying: () -> Unit,
-    isNowPlayingExpanded: Boolean,
+    isOnNowPlaying: Boolean,
+    onNowPlaying: () -> Unit,
     onToggleQueue: () -> Unit,
     isQueueVisible: Boolean,
     bgTransparent: Boolean = false,
@@ -123,7 +121,7 @@ fun MiniPlayer(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         AnimatedVisibility(
-                            visible = !isNowPlayingExpanded,
+                            visible = !isOnNowPlaying,
                             enter = fadeIn(tween(220)) + expandHorizontally(tween(220)),
                             exit = fadeOut(tween(180)) + shrinkHorizontally(tween(220)),
                         ) {
@@ -136,7 +134,7 @@ fun MiniPlayer(
                                 .aspectRatio(ratio)
                                 .heroCoverElement(song.id, sharedTransitionScope, this)
                                 .onHover { isHovered = it }
-                                .clickable(onClick = onToggleNowPlaying)
+                                .clickable(onClick = onNowPlaying)
                                 .pointerHoverIcon(PointerIcon.Hand)
                             ) {
                                 MelodistImage(
@@ -163,11 +161,9 @@ fun MiniPlayer(
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Icon(
-                                            imageVector = if (isNowPlayingExpanded) Icons.Default.ArrowDropDown else Icons.Default.ArrowDropUp,
+                                            imageVector = if (isOnNowPlaying) Icons.Default.ArrowDropDown else Icons.Default.ArrowDropUp,
                                             modifier = Modifier.size(32.dp),
-                                            contentDescription = if (isNowPlayingExpanded) stringResource(Res.string.mp_collapse) else stringResource(
-                                                Res.string.mp_expand
-                                            ),
+                                            contentDescription = if (isOnNowPlaying) stringResource(Res.string.mp_collapse) else stringResource(Res.string.mp_expand),
                                             tint = Color.White
                                         )
                                     }
@@ -180,7 +176,7 @@ fun MiniPlayer(
                         Column(
                             modifier = Modifier
                                 .weight(1f)
-                                .clickable(onClick = onToggleNowPlaying)
+                                .clickable(onClick = onNowPlaying)
                                 .pointerHoverIcon(PointerIcon.Hand),
                             verticalArrangement = Arrangement.Center
                         ) {
@@ -427,24 +423,17 @@ fun MiniPlayer(
 
 
                     IconButton(
-                        onClick = onToggleNowPlaying,
+                        onClick = onNowPlaying,
                         modifier = Modifier.size(40.dp).pointerHoverIcon(PointerIcon.Hand),
                         colors = IconButtonDefaults.iconButtonColors(
-                            contentColor = if (isNowPlayingExpanded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            contentColor = if (isOnNowPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     ) {
-                        val rotation by animateFloatAsState(
-                            targetValue = if (isNowPlayingExpanded) 0f else 180f,
-                            animationSpec = tween(
-                                durationMillis = 300,
-                                easing = FastOutSlowInEasing
-                            )
-                        )
                         Icon(
-                            Icons.Default.ArrowDropDown,
+                            if (isOnNowPlaying) Icons.Default.ArrowDropDown else Icons.Default.ArrowDropUp,
                             stringResource(Res.string.play_item),
-                            modifier = Modifier.size(32.dp).graphicsLayer { rotationZ = rotation },
-                            tint = if (isNowPlayingExpanded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                            modifier = Modifier.size(32.dp),
+                            tint = if (isOnNowPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
 

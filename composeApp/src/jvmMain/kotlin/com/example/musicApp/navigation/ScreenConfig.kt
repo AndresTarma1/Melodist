@@ -1,4 +1,4 @@
-package com.example.musicApp.navigation
+﻿package com.example.musicApp.navigation
 
 import kotlinx.serialization.Serializable
 
@@ -23,6 +23,9 @@ sealed class ScreenConfig {
     data object ListenTogether : ScreenConfig()
 
     @Serializable
+    data object NowPlaying : ScreenConfig()
+
+    @Serializable
     data class Album(val browseId: String) : ScreenConfig()
 
     @Serializable
@@ -34,4 +37,3 @@ sealed class ScreenConfig {
     @Serializable
     data class YouTubeBrowse(val browseId: String, val params: String? = null) : ScreenConfig()
 }
-

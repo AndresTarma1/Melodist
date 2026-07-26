@@ -22,8 +22,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.example.musicApp.navigation.Route
 import com.example.musicApp.models.MediaMetadata
@@ -58,43 +62,32 @@ fun NowPlayingLayout(
     val preferencesRepo = LocalUserPreferences.current
     val equalizerBands by preferencesRepo.equalizerBands.collectAsState(initial = List(5) { 0f })
 
-//    NowBackground(
-//        imageUrl = song.thumbnailUrl,
-//        modifier = Modifier
-//            .fillMaxSize()
-//            .clickable(
-//                interactionSource = remember { MutableInteractionSource() },
-//                indication = null,
-//                onClick = {}
-//            ),
-//    ) {
-        BoxWithConstraints(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 20.dp, vertical = 14.dp)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = {}
-                ),
-        ) {
-            val isCompact = maxWidth < 900.dp || maxHeight < 560.dp
+    var overlaySize by remember { mutableStateOf(IntSize.Zero) }
+    val overlayWidthDp = with(LocalDensity.current) { overlaySize.width.toDp() }
 
-            Box(modifier = Modifier.fillMaxSize()) {
-                if (isCompact) {
-                    CompactNowPlayingLayout(
-                        song = song,
-                        state = state,
-                        lyrics = lyrics,
-                        mediaInfo = mediaInfo,
-                        selectedTab = selectedTab,
-                        onTabSelected = onTabSelected,
-                        onNavigate = onNavigate,
-                        onCollapse = onCollapse,
-                        sharedTransitionScope = sharedTransitionScope,
-                        animatedVisibilityScope = animatedVisibilityScope,
-                    )
-                } else {
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 20.dp, vertical = 14.dp)
+    ) {
+        val isCompact = maxWidth < 900.dp || maxHeight < 560.dp
+
+        Box(modifier = Modifier.fillMaxSize()) {
+            if (isCompact) {
+                CompactNowPlayingLayout(
+                    song = song,
+                    state = state,
+                    lyrics = lyrics,
+                    mediaInfo = mediaInfo,
+                    selectedTab = selectedTab,
+                    onTabSelected = onTabSelected,
+                    onNavigate = onNavigate,
+                    onCollapse = onCollapse,
+                    sharedTransitionScope = sharedTransitionScope,
+                    animatedVisibilityScope = animatedVisibilityScope,
+                    reservedEndPadding = overlayWidthDp + 12.dp, // margen extra de respiro
+                )
+            } else {
                     ExpandedNowPlayingLayout(
                         song = song,
                         state = state,
@@ -110,11 +103,12 @@ fun NowPlayingLayout(
                 }
             }
 
-            TopActionOverlay(
-                showMenu = showMenu,
-                onMenuToggle = { showMenu = it },
-                onOpenEqualizer = { showEqualizer = true }
-            )
+        TopActionOverlay(
+            showMenu = showMenu,
+            onMenuToggle = { showMenu = it },
+            onOpenEqualizer = { showEqualizer = true },
+            modifier = Modifier.onSizeChanged { overlaySize = it }, // <- medimos el tamaño real
+        )
 //        }
     }
 
@@ -203,32 +197,44 @@ private fun CompactNowPlayingLayout(
     onCollapse: () -> Unit,
     sharedTransitionScope: SharedTransitionScope? = null,
     animatedVisibilityScope: AnimatedVisibilityScope? = null,
+    reservedEndPadding: Dp = 0.dp,
 ) {
     Column(
         modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(20.dp), // más aire entre secciones
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(end = 124.dp),
-            horizontalArrangement = Arrangement.spacedBy(28.dp),
-            verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(end = reservedEndPadding), // medido de verdad, no adivinado
+            horizontalArrangement = Arrangement.spacedBy(20.dp),
+            verticalAlignment = Alignment.Top, // alinea arriba, no al centro — más prolijo con texto multilínea
         ) {
             CoverArt(
                 url = song.thumbnailUrl,
                 title = song.title,
-                modifier = Modifier.size(108.dp)
+                modifier = Modifier
+                    .size(96.dp) // un poco más chico, deja más aire al texto
                     .heroCoverElement(song.id, sharedTransitionScope, animatedVisibilityScope),
             )
+
             SongHeader(
                 state = state,
                 song = song,
                 textAlign = TextAlign.Start,
                 onNavigate = onNavigate,
                 onCollapse = onCollapse,
-                compact = true
+                compact = true,
+                modifier = Modifier.weight(1f), // ocupa exactamente el espacio restante
             )
         }
-        NowPlayingTabRow(selectedTab = selectedTab, onTabSelected = onTabSelected, queueCount = state.queue.size)
+
+        NowPlayingTabRow(
+            selectedTab = selectedTab,
+            onTabSelected = onTabSelected,
+            queueCount = state.queue.size,
+        )
+
         Box(modifier = Modifier.weight(1f)) {
             NowPlayingTabContent(
                 tab = selectedTab,

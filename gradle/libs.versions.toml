@@ -60,6 +60,7 @@ brotli = { module = "org.brotli:dec", version.ref = "brotli" }
 #Decompose
 decompose = { module = "com.arkivanov.decompose:decompose", version.ref = "decompose" }
 decompose-compose = { module = "com.arkivanov.decompose:extensions-compose", version.ref = "decompose" }
+decompose-compose-experimental = {module = "com.arkivanov.decompose:extensions-compose-experimental", version.ref="decompose"}
 
 #Serialization
 kotlinx-serialization-core = { module = "org.jetbrains.kotlinx:kotlinx-serialization-core", version.ref = "kotlinx-serialization" }
