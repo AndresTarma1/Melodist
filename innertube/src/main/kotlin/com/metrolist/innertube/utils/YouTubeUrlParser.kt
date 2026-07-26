@@ -150,8 +150,7 @@ object YouTubeUrlParser {
      * @return Playlist ID if found, null otherwise
      */
     fun extractPlaylistId(url: String): String? {
-        val parsed = parse(url)
-        return when (parsed) {
+        return when (val parsed = parse(url)) {
             is ParsedUrl.Playlist -> parsed.id
             is ParsedUrl.Album -> parsed.id
             else -> null

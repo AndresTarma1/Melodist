@@ -103,7 +103,7 @@ data class YouTubeDataPage(
                                 @Serializable
                                 data class VideoViewCountRenderer(
                                     @SerialName("viewCount")
-                                    val viewCount: VideoViewCountRenderer.ViewCount? = null,
+                                    val viewCount: ViewCount? = null,
                                 ) {
                                     @Serializable
                                     data class ViewCount(

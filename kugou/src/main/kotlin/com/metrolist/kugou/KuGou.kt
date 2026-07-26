@@ -55,7 +55,7 @@ object KuGou {
         runCatching {
             val keyword = generateKeyword(title, artist, album)
             getLyricsCandidate(keyword, duration)?.let { candidate ->
-                Base64.Default.decode(downloadLyrics(candidate.id, candidate.accesskey).content).decodeToString()
+                Base64.decode(downloadLyrics(candidate.id, candidate.accesskey).content).decodeToString()
                     .normalize()
             } ?: throw IllegalStateException("No lyrics candidate")
         }
@@ -67,13 +67,13 @@ object KuGou {
         searchSongs(keyword).data.info.forEach {
             if (duration == -1 || abs(it.duration - duration) <= DURATION_TOLERANCE) {
                 searchLyricsByHash(it.hash).candidates.firstOrNull()?.let { candidate ->
-                    Base64.Default.decode(downloadLyrics(candidate.id, candidate.accesskey).content).decodeToString()
+                    Base64.decode(downloadLyrics(candidate.id, candidate.accesskey).content).decodeToString()
                         .normalize().let(callback)
                 }
             }
         }
         searchLyricsByKeyword(keyword, duration).candidates.forEach { candidate ->
-            Base64.Default.decode(downloadLyrics(candidate.id, candidate.accesskey).content).decodeToString()
+            Base64.decode(downloadLyrics(candidate.id, candidate.accesskey).content).decodeToString()
                 .normalize().let(callback)
         }
     }

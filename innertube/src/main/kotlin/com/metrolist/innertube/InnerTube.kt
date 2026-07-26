@@ -384,7 +384,7 @@ class InnerTube {
             setBody(
                 GetTranscriptBody(
                     context = client.toContext(locale, null, null),
-                    params = Base64.Default.encode(
+                    params = Base64.encode(
                         "\n${11.toChar()}$videoId".encodeToByteArray()
                     )
                 )
