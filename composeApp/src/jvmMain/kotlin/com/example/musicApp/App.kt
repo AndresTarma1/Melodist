@@ -72,6 +72,7 @@ import com.example.musicApp.overlay.MusicOverlayWindow
 import com.example.musicApp.overlay.OverlayController
 import com.example.musicApp.ui.components.background.BackgroundStyle
 import com.example.musicApp.ui.components.background.BackgroundWithBlur
+import com.example.musicApp.utils.ProvideAppLocale
 import com.example.musicApp.windows.WindowsThumbBar
 import com.metrolist.innertube.models.AccountInfo
 import io.github.aakira.napier.Napier
@@ -434,7 +435,7 @@ fun ApplicationScope.App(
                                 )
                             )
                             {
-                                key(appLocale, uiScaleFactor) {
+                                key(appLocale) {
                                     NavigationDesktop(
                                         rootComponent = rootComponent,
                                         userPreferences = userPreferences

@@ -9,6 +9,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Mantiene [OfflineGate] — el único punto de control que verifica cada llamada de red de YouTube —
@@ -36,7 +37,7 @@ class OfflineModeController(preferencesRepository: UserPreferencesRepository) {
         scope.launch {
             while (true) {
                 refresh()
-                delay(10_000)
+                delay(10_000.milliseconds)
             }
         }
     }

@@ -10,6 +10,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Una acción remota de YouTube Music que falló al enviarse mientras estaba offline (o con el modo
@@ -42,7 +43,7 @@ class PendingSyncQueue(private val preferencesRepository: UserPreferencesReposit
                 if (preferencesRepository.pendingActions.first().isNotEmpty() && NetworkMonitor.isOnline()) {
                     flush()
                 }
-                delay(30_000)
+                delay(30_000.milliseconds)
             }
         }
     }

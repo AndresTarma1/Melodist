@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudDone
+import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PhoneAndroid
@@ -137,10 +138,10 @@ fun YouTubeGridItem(
 
     var isHovered by remember { mutableStateOf(false) }
 
-    val overlayAlpha =if (isHovered) 0.38f else 0f
-    val playIconAlpha =if (isHovered && centerPlayVisible) 1f else 0f
-    val menuBtnAlpha =if (isHovered) 1f else 0f
-    val quickPlayAlpha =if (isHovered && quickPlay != null) 1f else 0f
+    val overlayAlpha = if (isHovered) 0.38f else 0f
+    val playIconAlpha = if (isHovered && centerPlayVisible) 1f else 0f
+    val menuBtnAlpha = if (isHovered) 1f else 0f
+    val quickPlayAlpha = if (isHovered && quickPlay != null) 1f else 0f
 
     Box(modifier = modifier.width(cardWidth + contentPadding * 2).padding(contentPadding)) {
         Column(horizontalAlignment = alignment) {
@@ -148,11 +149,11 @@ fun YouTubeGridItem(
                 modifier = Modifier
                     .aspectRatio(aspectRatio)
                     .clip(imageShape)
-                    .onHover{ isHovered = it }
+                    .onHover { isHovered = it }
                     .clickable { onClick(item) }
                     .pointerHoverIcon(PointerIcon.Hand),
                 enabled = contextMenuEnabled,
-                onMenuAction = onContextMenuAction.let { { it?.invoke() }  }
+                onMenuAction = onContextMenuAction.let { { it?.invoke() } }
             ) { menuButtonModifier, openMenuFromButton ->
                 MelodistImage(
                     url = item.thumbnail,
@@ -188,7 +189,7 @@ fun YouTubeGridItem(
                     }
                 }
 
-                if(onContextMenuAction != null) {
+                if (onContextMenuAction != null) {
                     HoverCornerActionButton(
                         icon = Icons.Rounded.MoreVert,
                         contentDescription = stringResource(Res.string.options),
@@ -212,8 +213,7 @@ fun YouTubeGridItem(
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
                             .padding(6.dp)
-                            .alpha(quickPlayAlpha)
-                        ,
+                            .alpha(quickPlayAlpha),
                         buttonModifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                         visible = isHovered,
                         size = quickPlay.size,
@@ -253,7 +253,7 @@ fun YouTubeGridItem(
                         .fillMaxWidth()
                         .pointerHoverIcon(PointerIcon.Hand)
                         .onHover { subtitleHover = it }
-                        .clickable{ onClickSubtitle?.invoke() },
+                        .clickable { onClickSubtitle?.invoke() },
                     textAlign = titleAlign
                 )
             }
@@ -291,7 +291,7 @@ fun MediaGridItem(
 
     val playAlpha = if (isImageHovered && onPlay != null && showImageActions) 1f else 0f
 
-    val sourceIcon = if (source == ItemContentSource.LOCAL) Icons.Default.PhoneAndroid else Icons.Default.CloudDone
+    val sourceIcon = if (source == ItemContentSource.LOCAL) Icons.Default.LibraryMusic else null
 
     Box(modifier = modifier) {
         Column(
@@ -313,7 +313,7 @@ fun MediaGridItem(
                 Box(
                     modifier = Modifier
                         .clickable(onClick = onClick)
-                        .onHover{ isImageHovered = it }
+                        .onHover { isImageHovered = it }
                 ) {
                     MelodistImage(
                         url = thumbnailUrl,
@@ -345,12 +345,16 @@ fun MediaGridItem(
                             .size(24.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = sourceIcon,
-                                contentDescription = if (source == ItemContentSource.LOCAL) stringResource(Res.string.cd_local) else stringResource(Res.string.cd_youtube),
-                                tint = Color.White,
-                                modifier = Modifier.size(14.dp)
-                            )
+                            sourceIcon?.let {
+                                Icon(
+                                    imageVector = sourceIcon,
+                                    contentDescription = if (source == ItemContentSource.LOCAL) stringResource(Res.string.cd_local) else stringResource(
+                                        Res.string.cd_youtube
+                                    ),
+                                    tint = Color.White,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
                         }
                     }
 
@@ -363,7 +367,12 @@ fun MediaGridItem(
                                 .padding(4.dp)
                                 .alpha(menuAlpha)
                         ) {
-                            Icon(Icons.Default.MoreVert, stringResource(Res.string.options), modifier = Modifier.size(18.dp), tint = Color.White.copy(alpha = 0.9f))
+                            Icon(
+                                Icons.Default.MoreVert,
+                                stringResource(Res.string.options),
+                                modifier = Modifier.size(18.dp),
+                                tint = Color.White.copy(alpha = 0.9f)
+                            )
                         }
                     }
 
@@ -380,7 +389,11 @@ fun MediaGridItem(
                                 contentColor = Color.White
                             )
                         ) {
-                            Icon(Icons.Filled.PlayArrow, contentDescription = stringResource(Res.string.play_item), modifier = Modifier.size(20.dp))
+                            Icon(
+                                Icons.Filled.PlayArrow,
+                                contentDescription = stringResource(Res.string.play_item),
+                                modifier = Modifier.size(20.dp)
+                            )
                         }
                     }
                 }
@@ -478,7 +491,7 @@ fun YoutubeListItem(
     var showMenu by remember { mutableStateOf(false) }
     var isHovered by remember { mutableStateOf(false) }
 
-    val sourceIcon = if (source == ItemContentSource.LOCAL) Icons.Default.PhoneAndroid else Icons.Default.CloudDone
+    val sourceIcon = if (source == ItemContentSource.LOCAL) Icons.Default.PhoneAndroid else null
     val isCollectionItem = item is AlbumItem || item is PlaylistItem
 
     Box(
@@ -497,7 +510,7 @@ fun YoutubeListItem(
                 }
             )
     ) {
-       ListItem(
+        ListItem(
             modifier = Modifier.fillMaxWidth(),
             colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = Color.Transparent),
             headlineContent = {
@@ -515,10 +528,12 @@ fun YoutubeListItem(
                         val album = item.album?.name?.let { " • $it" } ?: ""
                         "$artists$album"
                     }
+
                     is AlbumItem -> {
                         val artists = item.artists?.joinToString { it.name } ?: stringResource(Res.string.item_album)
                         "${stringResource(Res.string.item_album)} • $artists"
                     }
+
                     is ArtistItem -> stringResource(Res.string.item_artist)
                     is PlaylistItem -> {
                         val author = item.author?.name?.let { " • $it" } ?: ""
@@ -527,17 +542,24 @@ fun YoutubeListItem(
 
                     else -> ""
                 }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Surface(
-                        shape = circleAwareShape(8.dp),
-                        color = MaterialTheme.colorScheme.surfaceContainerHighest,
-                        modifier = Modifier.size(16.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(sourceIcon, null, modifier = Modifier.size(10.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+
+                    sourceIcon?.let {
+                        Surface(
+                            shape = circleAwareShape(8.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                            modifier = Modifier.size(16.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    sourceIcon,
+                                    null,
+                                    modifier = Modifier.size(10.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
-                    Spacer(Modifier.width(6.dp))
                     Text(
                         text = subtitle,
                         maxLines = 1,

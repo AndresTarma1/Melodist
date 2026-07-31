@@ -616,7 +616,7 @@ fun ResultsList(
 
                     AppVerticalScrollbar(
                         state = scrollable,
-                        modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(end = 4.dp),
+                        modifier = Modifier.align(Alignment.TopEnd).fillMaxHeight(),
                     )
                 }
             }

@@ -15,7 +15,10 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LibraryMusic
+import androidx.compose.material3.CircularWavyProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -38,6 +41,7 @@ import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyGridState
 import com.example.musicApp.ui.utils.circleAwareShape
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun LibraryMixedTab(
     state: LibraryScreenState,
@@ -55,6 +59,13 @@ fun LibraryMixedTab(
     val downloadedCount by downloadViewModel.downloadedCount.collectAsState()
     val fullyDownloadedAlbums by downloadViewModel.fullyDownloadedAlbums.collectAsState()
     val fullyDownloadedPlaylists by downloadViewModel.fullyDownloadedPlaylists.collectAsState()
+
+
+    val ytmSettled = true
+    if (!ytmSettled) {
+        CircularWavyProgressIndicator() // spinner o skeleton simple
+        return
+    }
 
     val albumLabel = stringResource(Res.string.item_album)
     val artistLabel = stringResource(Res.string.item_artist)
@@ -89,38 +100,42 @@ fun LibraryMixedTab(
         fullyDownloadedPlaylists,
     ) {
         buildList {
-            val mergedAlbums = (ytm?.albums.orEmpty() + state.albums).distinctBy { it.id }
-            val mergedArtists = (ytm?.artists.orEmpty() + state.artists).distinctBy { it.id }
-            val mergedPlaylists = (ytm?.playlists.orEmpty() + state.playlists).distinctBy { it.id }
+
+            val mergedAlbums = (state.albums + ytm?.albums.orEmpty()).distinctBy { it.id }
+            val mergedArtists = (state.artists + ytm?.artists.orEmpty()).distinctBy { it.id }
+            val mergedPlaylists = (state.playlists + ytm?.playlists.orEmpty()).distinctBy { it.id }
 
             val seenAlbumIds = mutableSetOf<String>()
             val seenPlaylistIds = mutableSetOf<String>()
 
-            mergedAlbums.forEach { album ->
-                seenAlbumIds.add(album.id)
-                add(
-                    MixedGridEntry(
-                        key = "alb_${album.id}",
-                        item = album,
-                        title = album.title,
-                        subtitle = album.artists?.firstOrNull()?.name ?: albumLabel,
-                        thumbnailUrl = album.thumbnail,
-                        placeholderType = PlaceholderType.ALBUM,
-                        shape = RoundedCornerShape(12.dp),
-                        source = if (ytm?.albums?.any { it.id == album.id } == true) ItemContentSource.YOUTUBE else ItemContentSource.LOCAL,
-                        onClick = { onNavigate(Route.Album(album.browseId)) },
-                        onPlay = {
-                            onQuickPlayAlbum(album.browseId, album.playlistId, album.title) {
-                                onNavigate(Route.Album(album.browseId))
-                            }
-                        },
-                        onShuffle = {
-                            onQuickShuffleAlbum(album.browseId, album.playlistId, album.title) {
-                                onNavigate(Route.Album(album.browseId))
-                            }
-                        },
+            mergedAlbums.forEach { albumInfo ->
+
+                if (albumInfo.id !in seenAlbumIds) {
+                    add(
+                        MixedGridEntry(
+                            key = "alb_${albumInfo.id}",
+                            item = albumInfo,
+                            title = albumInfo.title,
+                            subtitle = albumInfo.artists?.firstOrNull()?.name ?: albumLabel,
+                            thumbnailUrl = albumInfo.thumbnail,
+                            placeholderType = PlaceholderType.ALBUM,
+                            shape = RoundedCornerShape(12.dp),
+                            source = if (ytm?.albums?.any { it.id == albumInfo.id } == true) ItemContentSource.YOUTUBE else ItemContentSource.LOCAL,
+                            onClick = { onNavigate(Route.Album(albumInfo.browseId)) },
+                            onPlay = {
+                                onQuickPlayAlbum(albumInfo.browseId, albumInfo.playlistId, albumInfo.title) {
+                                    onNavigate(Route.Album(albumInfo.browseId))
+                                }
+                            },
+                            onShuffle = {
+                                onQuickShuffleAlbum(albumInfo.browseId, albumInfo.playlistId, albumInfo.title) {
+                                    onNavigate(Route.Album(albumInfo.browseId))
+                                }
+                            },
+                        )
+
                     )
-                )
+                }
             }
 
             mergedArtists.forEach { artist ->
@@ -261,7 +276,11 @@ fun LibraryMixedTab(
     }
 
     val gridState = rememberLazyGridState()
-    val reorderableLazyGridState = rememberReorderableLazyGridState(gridState) { _, _ -> }
+
+    LaunchedEffect(items) {
+        println("items keys: ${items.take(5).map { it.key }} | total=${items.size}")
+    }
+//    val reorderableLazyGridState = rememberReorderableLazyGridState(gridState) { _, _ -> }
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyVerticalGrid(
@@ -272,7 +291,7 @@ fun LibraryMixedTab(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(items = items, key = { it.key }) { entry ->
-                ReorderableItem(reorderableLazyGridState, key = entry.key){
+//                ReorderableItem(reorderableLazyGridState, key = entry.key){
                     if (entry.item != null) {
                         MediaGridItem(
                             item = entry.item,
@@ -299,7 +318,7 @@ fun LibraryMixedTab(
                         )
                     }
 
-                }
+//                }
             }
         }
 

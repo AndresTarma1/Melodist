@@ -101,8 +101,6 @@ fun AlbumsTab(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
                 .fillMaxHeight()
-                .width(12.dp)
-                .padding(vertical = 4.dp, horizontal = 2.dp)
         )
     }
 }
