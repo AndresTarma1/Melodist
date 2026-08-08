@@ -1,4 +1,3 @@
-import dev.nucleusframework.desktop.application.dsl.NativeImageMarch
 import dev.nucleusframework.desktop.application.dsl.TargetFormat
 
 plugins {
@@ -6,7 +5,7 @@ plugins {
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.kotlin.serialization)
-    id("dev.nucleusframework") version "2.1.9"
+    id("dev.nucleusframework") version "2.3.2"
 
 }
 
@@ -19,18 +18,18 @@ kotlin {
 
 dependencies {
     implementation(project(":shared"))
-    val nucleusVersion = "2.1.9"
+    val nucleusVersion = "2.3.2"
 
 
 
     implementation("dev.nucleusframework:nucleus.nucleus-application:${nucleusVersion}")
     implementation("dev.nucleusframework:nucleus.updater-runtime:${nucleusVersion}")
     implementation("dev.nucleusframework:nucleus.decorated-window-tao:${nucleusVersion}")
-    implementation("dev.nucleusframework:nucleus.decorated-window-material3:2.1.9")
+    implementation("dev.nucleusframework:nucleus.decorated-window-material3:${nucleusVersion}")
     // Add only the modules you need:
     implementation("dev.nucleusframework:nucleus.notification-common:${nucleusVersion}")
     implementation("dev.nucleusframework:nucleus.global-hotkey:${nucleusVersion}")
-    implementation("dev.nucleusframework:nucleus.autolaunch:2.1.9")
+    implementation("dev.nucleusframework:nucleus.autolaunch:${nucleusVersion}")
 
     implementation("dev.nucleusframework:composenativetray:2.0.3")
 
