@@ -196,16 +196,34 @@ def main():
 
     # 2) Map installers to the manifest name that must describe them.
     installers = discover_installers(root)
-    group_manifests = {}  # yml name -> (manifests, installer_files)
+    group_manifests = {}  # yml name -> list of manifests (parsed or generated)
     for fmt, (group, yml_name) in FORMAT_GROUPS.items():
         files = installers.get(fmt, [])
         if not files:
             continue
-        if yml_name in by_name:
-            manifests = [parse(p) for p in by_name[yml_name]]
-        else:
+        manifests = [parse(p) for p in by_name.get(yml_name, [])]
+        if not manifests:
             print(f"No '{yml_name}' manifest found; generating it from {fmt} installers")
             manifests = [build_generated_manifest(files, None)]
+        # Asegura que TODOS los instaladores descubiertos queden listados, aunque los manifests
+        # encontrados no los mencionen (p.ej. electron-builder no emite latest.yml para NSIS en
+        # Windows, así que el .exe quedaría fuera si solo usáramos los manifests existentes).
+        referenced = {e["url"] for _, _, entries in manifests for e in entries}
+        for path in files:
+            name = os.path.basename(path)
+            if name in referenced:
+                continue
+            entry = {
+                "url": name,
+                "sha512": sha512_base64(path),
+                "size": str(os.path.getsize(path)),
+                "blockmap": None,
+            }
+            blockmap = os.path.join(os.path.dirname(path), name + ".blockmap")
+            if os.path.exists(blockmap):
+                entry["blockmap"] = str(os.path.getsize(blockmap))
+            manifests.append((None, None, [entry]))
+            print(f"added missing installer entry: {name}")
         group_manifests.setdefault(yml_name, []).extend(manifests)
 
     if not group_manifests:
