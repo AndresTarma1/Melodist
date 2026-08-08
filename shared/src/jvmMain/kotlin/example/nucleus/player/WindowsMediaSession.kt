@@ -3,6 +3,7 @@ package example.nucleus.player
 import dev.toastbits.mediasession.MediaSession
 import dev.toastbits.mediasession.MediaSessionMetadata
 import dev.toastbits.mediasession.MediaSessionPlaybackStatus
+import io.github.aakira.napier.Napier
 import java.awt.EventQueue
 import java.util.logging.Logger
 
@@ -31,6 +32,11 @@ class WindowsMediaSession {
     private var pendingMetadata: PendingMetadata? = null
     private var pendingIsPlaying = false
     private var pendingIsPaused = false
+
+    /** Último error de [initialize]; se reporta en startup.log si la sesión no llega a crearse. */
+    private var lastInitError: String? = null
+
+    fun initError(): String? = lastInitError
 
     fun setCallbacks(
         onPlay: () -> Unit,
@@ -63,7 +69,10 @@ class WindowsMediaSession {
                 getPositionMs = { positionProvider() }
             )
             if (created == null) {
-                log.warning("No se pudo crear MediaSession: plataforma no soportada o error desconocido")
+                val reason = "MediaSession.create devolvió null (plataforma no soportada)"
+                lastInitError = reason
+                log.warning(reason)
+                Napier.w("[mediasession] $reason")
                 return
             }
             session = created
@@ -78,9 +87,13 @@ class WindowsMediaSession {
             // La reproducción puede comenzar antes de que termine la inicialización diferida.
             pendingMetadata?.let { applyMetadata(created, it) }
             applyPlaybackStatus(created, pendingIsPlaying, pendingIsPaused)
+            lastInitError = null
             log.info("MediaSession inicializada correctamente")
+            Napier.i("[mediasession] inicializada correctamente")
         } catch (error: Throwable) {
+            lastInitError = error.message
             log.warning("Error inicializando MediaSession: ${error.message}")
+            Napier.e("[mediasession] error inicializando: ${error.message}", error)
         }
     }
 

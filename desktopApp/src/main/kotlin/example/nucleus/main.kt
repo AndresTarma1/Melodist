@@ -93,21 +93,34 @@ fun main() = nucleusApplication(backend = NucleusBackend.Tao) {
             java.awt.EventQueue.invokeLater {
                 PlatformCrashHandler.runSafely("Error iniciando WindowsMediaSession") {
                     val mediaSession = koin.get<WindowsMediaSession>()
-                    mediaSession.setCallbacks(
-                        onPlay = { playerViewModel.togglePlayPause() },
-                        onPause = { playerViewModel.togglePlayPause() },
-                    onNext = { playerViewModel.next() },
-                    onPrevious = { playerViewModel.previous() },
-                        onStop = { playerViewModel.stop() },
-                    )
-                    mediaSession.setPositionProvider { playerViewModel.progressState.value.positionMs }
 
+                    // Orden de LyriK 0.7.0 (donde funcionaba): inicializar la sesión primero y, solo
+                    // cuando existe, conectar devoluciones de llamada y proveedor de posición. El SMTC
+                    // de Windows necesita que la creación ocurra en el hilo del bucle de mensajes
+                    // (EDT) y que el proceso tenga AppUserModelID (registrado arriba en main()).
                     fun initializeWithRetry(attempt: Int) {
                         mediaSession.initialize()
-                        if (!mediaSession.isInitialized() && attempt < 4) {
-                            javax.swing.Timer(500) { initializeWithRetry(attempt + 1) }
+                        if (mediaSession.isInitialized()) {
+                            mediaSession.setCallbacks(
+                                onPlay = { playerViewModel.togglePlayPause() },
+                                onPause = { playerViewModel.togglePlayPause() },
+                                onNext = { playerViewModel.next() },
+                                onPrevious = { playerViewModel.previous() },
+                                onStop = { playerViewModel.stop() },
+                            )
+                            mediaSession.setPositionProvider { playerViewModel.progressState.value.positionMs }
+                            return
+                        }
+                        if (attempt < 9) {
+                            javax.swing.Timer(1000) { initializeWithRetry(attempt + 1) }
                                 .apply { isRepeats = false }
                                 .start()
+                        } else {
+                            val reason = mediaSession.initError() ?: "desconocido"
+                            PlatformCrashHandler.logStartupError(
+                                "MediaSession",
+                                RuntimeException("No se pudo inicializar el MediaSession: $reason"),
+                            )
                         }
                     }
                     initializeWithRetry(0)
