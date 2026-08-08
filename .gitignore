@@ -2,7 +2,9 @@
 .kotlin
 .gradle
 **/build/
-mpv-resources/
+# mpv-resources/ se versiona (libmpv-2.dll vía Git LFS, ver .gitattributes). Solo se ignora
+# yt-dlp.exe, que se descarga al construir para obtener siempre la última versión.
+mpv-resources/windows/yt-dlp.exe
 xcuserdata
 !src/**/build/
 local.properties

@@ -1,0 +1,123 @@
+name: Build & Release
+
+# Disparadores:
+#   - push de un tag v*  (ej: v0.7.1)  -> compila instaladores y crea el GitHub Release
+#   - workflow_dispatch               -> compila instaladores como artefactos (sin release)
+#
+# IMPORTANTE: el tag DEBE ser `v{packageVersion}` de desktopApp/build.gradle.kts (ej: tag v0.7.1
+# para packageVersion 0.7.1). El updater de la app descarga el instalador desde
+#   https://github.com/AndresTarma1/PaltaSound/releases/download/v<version>/<archivo>
+# así que tag y versión tienen que coincidir exactamente (el job `release` lo valida).
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build (${{ matrix.dist_name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            dist_name: windows
+            # yt-dlp solo se empaqueta en Windows (en Linux se usa el del sistema).
+            needs_yt_dlp: true
+            python_cmd: python
+          - os: ubuntu-latest
+            dist_name: linux
+            needs_yt_dlp: false
+            python_cmd: python3
+    steps:
+      - name: Checkout (con Git LFS para libmpv-2.dll)
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Setup JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Setup Gradle (cache)
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Download latest yt-dlp
+        if: matrix.needs_yt_dlp
+        shell: bash
+        run: |
+          set -eux
+          mkdir -p mpv-resources/windows
+          curl -fL -o mpv-resources/windows/yt-dlp.exe \
+            "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe"
+          ls -lh mpv-resources/windows/
+
+      - name: Build installers (packageDistributionForCurrentOS)
+        shell: bash
+        run: |
+          ./gradlew :desktopApp:packageDistributionForCurrentOS --stacktrace
+
+      - name: Stage installers and merge update YAMLs
+        shell: bash
+        run: |
+          set -eux
+          mkdir -p dist
+          # Une los manifests latest*.yml (Exe + Msi comparten latest.yml en Windows;
+          # en Linux solo existe latest-linux.yml) y los deja listos como asset del release.
+          ${{ matrix.python_cmd }} .github/scripts/merge-update-yml.py desktopApp/build/compose/binaries dist
+          # Copia los instaladores y blockmaps generados.
+          find desktopApp/build/compose/binaries -type f \
+            \( -name '*.msi' -o -name '*.exe' -o -name '*.deb' -o -name '*.rpm' -o -name '*.blockmap' \) \
+            -exec cp {} dist/ \;
+          ls -la dist/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: installers-${{ matrix.dist_name }}
+          path: dist/
+          if-no-files-found: error
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Download artifacts (windows + linux)
+        uses: actions/download-artifact@v4
+        with:
+          path: release/
+          merge-multiple: true
+
+      - name: Validate tag matches package version
+        shell: bash
+        run: |
+          set -eu
+          yml_version=$(grep -m1 '^version:' release/latest.yml | sed 's/version:[[:space:]]*//' | tr -d '\r')
+          echo "latest.yml version: $yml_version"
+          echo "git tag:            ${{ github.ref_name }}"
+          if [ "v$yml_version" != "${{ github.ref_name }}" ]; then
+            echo "::error::El tag ${{ github.ref_name }} no coincide con la version de latest.yml (v$yml_version)."
+            echo "::error::El updater descarga desde .../releases/download/v<version>/..., asi que el tag DEBE ser v{packageVersion} de desktopApp/build.gradle.kts."
+            exit 1
+          fi
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/*
+          generate_release_notes: true
+          fail_on_unmatched_files: true

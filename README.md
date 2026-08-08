@@ -83,7 +83,7 @@ Requisitos: **JDK 21+** (se recomienda el [JetBrains Runtime](https://github.com
 ./gradlew :desktopApp:run
 
 # Generar el instalador nativo del sistema actual
-#   Windows → .msi / .exe    ·    Linux → .deb
+#   Windows → .msi / .exe    ·    Linux → .deb / .rpm
 ./gradlew :desktopApp:packageDistributionForCurrentOS
 ```
 
