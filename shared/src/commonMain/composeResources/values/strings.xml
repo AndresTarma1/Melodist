@@ -129,7 +129,7 @@
     <string name="report_bug">Reportar un error</string>
     <string name="report_bug_subtitle">Abre una incidencia en GitHub con la versión y el sistema operativo</string>
     <string name="btn_report">Reportar</string>
-    <string name="about_title">MusicApp</string>
+    <string name="about_title">PaltaSound</string>
     <string name="about_subtitle">Reproductor de música de escritorio</string>
     <string name="version_prefix">v</string>
     <string name="clear_downloads_title">Limpiar caché de descargas</string>

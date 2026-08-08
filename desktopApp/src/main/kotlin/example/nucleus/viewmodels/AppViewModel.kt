@@ -60,8 +60,13 @@ sealed interface UpdateCheckState {
 class AppViewModel : ViewModel() {
 
     companion object {
-        /** Fuente única de verdad para la versión de la app mostrada/comparada (también se muestra en Configuración). */
-        const val CURRENT_VERSION = "0.7.0"
+        /**
+         * Fuente única de verdad para la versión de la app mostrada/comparada (también se muestra en
+         * Configuración). Debe mantenerse sincronizada con `packageVersion` en
+         * `desktopApp/build.gradle.kts`, porque el updater compara esta cadena contra la versión del
+         * metadato `latest.yml` publicado en GitHub Releases.
+         */
+        const val CURRENT_VERSION = "0.7.1"
     }
 
     private val _status = MutableStateFlow<UpdateStatus>(UpdateStatus.None)
@@ -78,7 +83,7 @@ class AppViewModel : ViewModel() {
 
     private val updater: NucleusUpdater = NucleusUpdater {
         currentVersion = CURRENT_VERSION
-        provider = GitHubProvider(owner = "AndresTarma1", repo = "LyriK")
+        provider = GitHubProvider(owner = "AndresTarma1", repo = "PaltaSound")
         channel = "latest"
     }
 
@@ -195,7 +200,7 @@ class AppViewModel : ViewModel() {
         return AppUpdateInfo(
             currentVersion = CURRENT_VERSION,
             latestVersion = info.version,
-            releaseUrl = "https://github.com/AndresTarma1/LyriK/releases/latest",
+            releaseUrl = "https://github.com/AndresTarma1/PaltaSound/releases/latest",
             installerUrl = file?.url,
             installerName = file?.fileName,
             installerSize = file?.size?.takeIf { it > 0 },

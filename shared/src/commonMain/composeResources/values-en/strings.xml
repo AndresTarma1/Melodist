@@ -127,7 +127,7 @@
     <string name="report_bug">Report a bug</string>
     <string name="report_bug_subtitle">Opens a GitHub issue with the app version and OS</string>
     <string name="btn_report">Report</string>
-    <string name="about_title">MusicApp</string>
+    <string name="about_title">PaltaSound</string>
     <string name="about_subtitle">Desktop music player</string>
     <string name="version_prefix">v</string>
     <string name="clear_downloads_title">Clear download cache</string>

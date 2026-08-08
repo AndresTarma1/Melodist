@@ -103,7 +103,7 @@ object CrashReportRepository {
                 appendLine("## Steps to Reproduce")
                 appendLine("1. ")
             }
-            val url = "https://github.com/AndresTarma1/LyriK/issues/new" +
+            val url = "https://github.com/AndresTarma1/PaltaSound/issues/new" +
                 "?title=${URLEncoder.encode(title, "UTF-8")}" +
                 "&body=${URLEncoder.encode(body, "UTF-8")}"
             Desktop.getDesktop().browse(URI(url))
