@@ -116,11 +116,12 @@ nucleus.application {
 
 
     nativeDistributions {
+        enableAotCache = true
         appName = "PaltaSound"
         packageName = "PaltaSound"
         packageVersion = "0.7.1"
         vendor = "Tarma"
-        targetFormats(TargetFormat.Dmg, TargetFormat.Exe, TargetFormat.Msi, TargetFormat.Deb)
+        targetFormats(TargetFormat.Dmg, TargetFormat.Exe, TargetFormat.Msi, TargetFormat.Deb, TargetFormat.Rpm)
 
         windows {
             upgradeUuid = "4A2F8B6C-1D3E-4F5A-B7C8-9D0E1F2A3B4C"
@@ -137,11 +138,4 @@ nucleus.application {
         appResourcesRootDir.set(project.layout.projectDirectory.dir("../mpv-resources"))
     }
 
-    graalvm {
-        isEnabled.set(true)
-        javaLanguageVersion.set(25)
-        imageName.set("myapp")
-        march.set(NativeImageMarch.NATIVE)
-        buildArgs.add("-O2")
-    }
 }
