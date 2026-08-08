@@ -47,6 +47,7 @@ fun MusicPlayerImage(
     contentScale: ContentScale = ContentScale.Fit,
     alignment: Alignment = Alignment.Center,
     isLowRes: Boolean = false,
+    coilSizeOverride: Int? = null,
 ) {
     val placeholderIcon: ImageVector = when (placeholderType) {
         PlaceholderType.SONG -> Icons.Default.MusicNote
@@ -83,7 +84,7 @@ fun MusicPlayerImage(
         val isListItem = isLowRes && !highResEnabled
         val effectiveLowRes = isLowRes || !highResEnabled
 
-        val coilSize = if (isListItem) {
+        val coilSize = coilSizeOverride ?: if (isListItem) {
             64
         } else if (effectiveLowRes) {
             128
@@ -96,7 +97,9 @@ fun MusicPlayerImage(
         AsyncImage(
             model = ImageRequest.Builder(LocalPlatformContext.current)
                 .data(effectiveUrl)
-                .crossfade(true)
+                // Crossfade solo fuera de listas: durante un scroll mantiene 2 bitmaps en RAM
+                // (pico de memoria). En items de lista se desactiva.
+                .crossfade(!isListItem)
                 .size(coilSize)
                 .build(),
             contentDescription = contentDescription,

@@ -111,7 +111,36 @@ dependencies {
 
 nucleus.application {
     mainClass = "example.nucleus.MainKt"
-    jvmArgs("-Xmx512m")
+
+    // Perfil de memoria AGGRESSIVE: heap pequeño + devolver RAM al OS + acotar regiones no-heap.
+    // Ver docs: Oracle G1 GC Tuning, Skiko configuration (skiko.gpu.resourceCacheLimit).
+    jvmArgs(
+        // Heap
+        "-Xms64m",
+        "-Xmx384m",
+        "-XX:+UseG1GC",
+        "-XX:MaxGCPauseMillis=100",
+        // G1 encoge el heap y devuelve memoria al OS (default 40/70 retiene demasiado).
+        "-XX:MinHeapFreeRatio=10",
+        "-XX:MaxHeapFreeRatio=30",
+        // GC periódico cuando la máquina está ociosa -> libera heap al OS.
+        "-XX:G1PeriodicGCInterval=10000",
+        "-XX:G1PeriodicGCSystemLoadThreshold=0.0",
+        "-XX:+UseStringDeduplication",
+        // No-heap acotado (hoy sin tope; Compose+Ktor+Coil cargan muchas clases).
+        "-XX:MaxMetaspaceSize=192m",
+        "-XX:CompressedClassSpaceSize=64m",
+        "-XX:ReservedCodeCacheSize=128m",
+        "-XX:CICompilerCount=2",
+        // Pilas de hilo más pequeñas (muchos hilos IO/render).
+        "-Xss768k",
+        // Pool IO de coroutines: default real es 64 hilos (~1MB stack c/u).
+        "-Dkotlinx.coroutines.io.parallelism=8",
+        // Skiko: render en GPU (DIRECT3D) pero con caché de recursos acotada (default ilimitada).
+        "-Dskiko.gpu.resourceCacheLimit=64M",
+        "-Dskiko.buffering=DOUBLE",
+        "-Dskiko.vsync.enabled=true",
+    )
 
 
     nativeDistributions {

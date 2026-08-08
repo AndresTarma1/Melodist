@@ -19,10 +19,21 @@ object AppRestarter {
         "-XX:MinHeapFreeRatio=10",
         "-XX:G1PeriodicGCInterval=10000",
         "-XX:G1PeriodicGCSystemLoadThreshold=0.0",
+        // Perfil agresivo (alineado con desktopApp/build.gradle.kts): acotar regiones no-heap,
+        // pilas de hilo y pool de coroutines IO (default real 64 hilos).
+        "-XX:MaxMetaspaceSize=192m",
+        "-XX:CompressedClassSpaceSize=64m",
+        "-XX:ReservedCodeCacheSize=128m",
+        "-XX:CICompilerCount=2",
+        "-Xss768k",
+        "-Dkotlinx.coroutines.io.parallelism=8",
+        "-Dskiko.gpu.resourceCacheLimit=64M",
+        "-Dskiko.buffering=DOUBLE",
+        "-Dskiko.vsync.enabled=true",
     )
 
     val gcTuningArgs = listOf(
-        "-XX:MaxGCPauseMillis=80",
+        "-XX:MaxGCPauseMillis=100",
     )
 
     fun previewJvmArgs(config: JvmConfig): List<String> =

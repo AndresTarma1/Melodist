@@ -131,7 +131,10 @@ fun BackgroundWithBlur(
                     url = imageUrl,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier.fillMaxSize(),
+                    // El blur de 99dp suaviza todo detalle: decodificar a 256px ahorra ~3 MB por
+                    // bitmap vs 512px sin pérdida visual apreciable en el fondo.
+                    coilSizeOverride = 256,
                 )
             }
         }

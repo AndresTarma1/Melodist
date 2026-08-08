@@ -116,6 +116,9 @@ fun NucleusApplicationScope.App(
     LaunchedEffect(isVisible, trimMemoryOnTray) {
         if (!isVisible && trimMemoryOnTray) {
             delay(2000.milliseconds)
+            // Liberar los bitmaps decodificados (Coil) — el disk cache de 256 MB los conserva, así
+            // que solo se pierde la copia en RAM. Luego se recorta el working set de Windows.
+            runCatching { example.nucleus.ui.components.CoilSetup.evictMemoryCache() }
             example.nucleus.utils.WorkingSetTrimmer.trim()
         }
     }

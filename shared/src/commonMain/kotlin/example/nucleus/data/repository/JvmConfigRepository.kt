@@ -18,7 +18,7 @@ enum class RenderApi(
 }
 
 data class JvmConfig(
-    val xmx: String = "512m",
+    val xmx: String = "384m",
     val xms: String = "64m",
     val useG1GC: Boolean = true,
     val useZGC: Boolean = false,
@@ -37,6 +37,11 @@ data class JvmConfig(
         return JvmValidationResult.Valid
     }
 
+    /**
+     * Perfil de memoria AGGRESSIVE — debe mantenerse en sintonía con `jvmArgs` en
+     * desktopApp/build.gradle.kts (la app empaquetada lee los de ahí; esto se usa al relanzar
+     * con Ajustes Avanzados / dev).
+     */
     fun toJvmArgs(): List<String> {
         val args = mutableListOf<String>()
         args.add("-Xms$xms")
@@ -44,6 +49,23 @@ data class JvmConfig(
         if (useG1GC) args.add("-XX:+UseG1GC")
         if (useZGC) args.add("-XX:+UseZGC")
         if (gcLogging) args.add("-Xlog:gc")
+        if (useG1GC) {
+            args.add("-XX:MaxGCPauseMillis=100")
+            args.add("-XX:MinHeapFreeRatio=10")
+            args.add("-XX:MaxHeapFreeRatio=30")
+            args.add("-XX:G1PeriodicGCInterval=10000")
+            args.add("-XX:G1PeriodicGCSystemLoadThreshold=0.0")
+        }
+        args.add("-XX:+UseStringDeduplication")
+        args.add("-XX:MaxMetaspaceSize=192m")
+        args.add("-XX:CompressedClassSpaceSize=64m")
+        args.add("-XX:ReservedCodeCacheSize=128m")
+        args.add("-XX:CICompilerCount=2")
+        args.add("-Xss768k")
+        args.add("-Dkotlinx.coroutines.io.parallelism=8")
+        args.add("-Dskiko.gpu.resourceCacheLimit=64M")
+        args.add("-Dskiko.buffering=DOUBLE")
+        args.add("-Dskiko.vsync.enabled=true")
         renderApi.jvmArg?.let(args::add)
         return args
     }

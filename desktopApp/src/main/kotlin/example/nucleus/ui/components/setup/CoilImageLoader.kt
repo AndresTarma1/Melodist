@@ -17,12 +17,22 @@ import okio.Path.Companion.toPath
 object CoilSetup {
 
     // Pool de hilos dedicado para la obtención y decodificación de imágenes. Limitamos el despachador
-    // IO global (`kotlinx.coroutines.io.parallelism=16`) por memoria; en sesiones largas ese pool se
+    // IO global (`kotlinx.coroutines.io.parallelism`) por memoria; en sesiones largas ese pool se
     // satura con E/S bloqueante (resolución de streams, validaciones de URL de 8s, descargas), lo que
     // ahogaba a Coil y hacía que nuevas miniaturas dejaran de cargar mientras las en caché seguían
     // mostrándose. Aislar Coil en su propio pool soluciona esto sin elevar el límite global.
     @OptIn(DelicateCoroutinesApi::class)
     private val imageDispatcher = newFixedThreadPoolContext(4, "coil-io")
+
+    /** Loader singleton activo — permite evictar el memory cache en runtime sin acoplarse a Coil. */
+    @Volatile
+    private var activeLoader: ImageLoader? = null
+
+    /** Libera los bitmaps decodificados en RAM. El disk cache (256 MB) los conserva, así que
+     *  solo se pierde la copia en memoria; se usa al minimizar a bandeja / presión de memoria. */
+    fun evictMemoryCache() {
+        runCatching { activeLoader?.memoryCache?.clear() }
+    }
 
     fun createImageLoader(context: PlatformContext): ImageLoader {
         val cacheDir = AppDirs.imageCacheDir
@@ -34,8 +44,9 @@ object CoilSetup {
             .memoryCachePolicy(CachePolicy.ENABLED)
             .memoryCache {
                 MemoryCache.Builder()
-                    // Keep disk caching aggressive, but cap decoded bitmaps in RAM.
-                    .maxSizeBytes(1024 * 1024 * 24)
+                    // Caché en disco agresiva (256 MB) pero bitmaps decodificados en RAM acotados.
+                    // 16 MB ≈ ~16 portadas a 512px; el disco evita re-descargar.
+                    .maxSizeBytes(1024 * 1024 * 16)
                     .build()
             }
             .diskCachePolicy(CachePolicy.ENABLED)
@@ -47,5 +58,6 @@ object CoilSetup {
             }
             .crossfade(200)
             .build()
+            .also { activeLoader = it }
     }
 }
