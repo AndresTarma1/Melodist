@@ -66,6 +66,7 @@ import dev.nucleusframework.window.TitleBarScope
 fun TitleBarScope.DesktopTitleBar(
     currentSong: String?,
     isPlaying: Boolean,
+    isLoggedIn: Boolean,
     accountInfo: AccountInfo?,
     ytmSyncEnabled: Boolean,
     isSyncing: Boolean,
@@ -86,7 +87,10 @@ fun TitleBarScope.DesktopTitleBar(
         )
     }
 
-    Box(modifier = Modifier.align(Alignment.End).padding(end = 4.dp)) {
+    // El menú de sincronización/cuenta solo tiene sentido con sesión iniciada: sin login no hay
+    // nada que sincronizar (la cuenta es una cookie de YouTube Music).
+    if (isLoggedIn) {
+        Box(modifier = Modifier.align(Alignment.End).padding(end = 4.dp)) {
         var showMenu by remember { mutableStateOf(false) }
         IconButton(
             modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
@@ -162,6 +166,7 @@ fun TitleBarScope.DesktopTitleBar(
                 trailingIcon = { Switch(checked = isOfflineMode, onCheckedChange = null) },
                 onClick = { onToggleOfflineMode(!isOfflineMode) },
             )
+        }
         }
     }
 

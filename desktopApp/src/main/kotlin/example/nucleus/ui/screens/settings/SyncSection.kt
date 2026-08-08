@@ -10,6 +10,7 @@ import androidx.compose.ui.unit.dp
 import com.alorma.compose.settings.ui.SettingsGroup
 import com.alorma.compose.settings.ui.expressive.SettingsMenuLink
 import com.alorma.compose.settings.ui.expressive.SettingsSwitch
+import example.nucleus.data.account.AccountManager
 import example.nucleus.shared.generated.resources.Res
 import example.nucleus.shared.generated.resources.*
 import example.nucleus.viewmodels.SettingsViewModel
@@ -26,6 +27,8 @@ fun SyncSettingsGroup(
     val ytmSyncEnabled by viewModel.ytmSyncEnabled.collectAsState()
     val syncState by viewModel.syncState.collectAsState()
     val isSyncing = syncState.overallStatus is example.nucleus.utils.SyncStatus.Syncing
+    // Sin sesión iniciada no hay nada que sincronizar (cuenta = cookie de YouTube Music).
+    val isLoggedIn by remember { AccountManager.loginState }.collectAsState(false)
 
     SettingsGroup(
         title = { Text(stringResource(Res.string.section_sync)) },
@@ -35,40 +38,42 @@ fun SyncSettingsGroup(
             icon = { Icon(Icons.Rounded.WifiOff, null) },
             title = { Text(stringResource(Res.string.offline_mode)) },
             subtitle = { Text(stringResource(Res.string.offline_mode_subtitle)) },
-            shapes = ListItemDefaults.segmentedShapes(index = 0, count = 3),
+            shapes = ListItemDefaults.segmentedShapes(index = 0, count = if (isLoggedIn) 3 else 1),
             colors = colors,
             state = offlineModeEnabled,
             onCheckedChange = { viewModel.setOfflineModeEnabled(it) }
         )
-        SettingsSwitch(
-            icon = { Icon(Icons.Rounded.CloudSync, null) },
-            title = { Text(stringResource(Res.string.ytm_sync)) },
-            subtitle = { Text(stringResource(Res.string.ytm_sync_subtitle)) },
-            shapes = ListItemDefaults.segmentedShapes(index = 1, count = 3),
-            colors = colors,
-            state = ytmSyncEnabled,
-            onCheckedChange = { checked ->
-                if (checked) onShowYtmSyncWarning()
-                else viewModel.setYtmSyncEnabled(false)
-            }
-        )
-        SettingsMenuLink(
-            icon = { Icon(Icons.Rounded.Sync, null) },
-            shapes = ListItemDefaults.segmentedShapes(index = 2, count = 3),
-            title = { Text(stringResource(Res.string.sync_now)) },
-            subtitle = {
-                Text(
-                    if (isSyncing) syncState.currentOperation.ifBlank { stringResource(Res.string.sync_now_syncing) }
-                    else stringResource(Res.string.sync_now_subtitle)
-                )
-            },
-            colors = colors,
-            action = {
-                if (isSyncing) {
-                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+        if (isLoggedIn) {
+            SettingsSwitch(
+                icon = { Icon(Icons.Rounded.CloudSync, null) },
+                title = { Text(stringResource(Res.string.ytm_sync)) },
+                subtitle = { Text(stringResource(Res.string.ytm_sync_subtitle)) },
+                shapes = ListItemDefaults.segmentedShapes(index = 1, count = 3),
+                colors = colors,
+                state = ytmSyncEnabled,
+                onCheckedChange = { checked ->
+                    if (checked) onShowYtmSyncWarning()
+                    else viewModel.setYtmSyncEnabled(false)
                 }
-            },
-            onClick = { if (!isSyncing) viewModel.syncNow() }
-        )
+            )
+            SettingsMenuLink(
+                icon = { Icon(Icons.Rounded.Sync, null) },
+                shapes = ListItemDefaults.segmentedShapes(index = 2, count = 3),
+                title = { Text(stringResource(Res.string.sync_now)) },
+                subtitle = {
+                    Text(
+                        if (isSyncing) syncState.currentOperation.ifBlank { stringResource(Res.string.sync_now_syncing) }
+                        else stringResource(Res.string.sync_now_subtitle)
+                    )
+                },
+                colors = colors,
+                action = {
+                    if (isSyncing) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                    }
+                },
+                onClick = { if (!isSyncing) viewModel.syncNow() }
+            )
+        }
     }
 }

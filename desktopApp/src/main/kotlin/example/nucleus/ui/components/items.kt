@@ -325,6 +325,9 @@ fun MediaGridItem(
                         iconSize = 40.dp,
                         contentScale = ContentScale.Crop,
                         alignment = if (isCircle) Alignment.TopCenter else Alignment.Center,
+                        // Cards de grid se pintan a ~200-260dp: 256px basta y divide el bitmap por 4
+                        // (1MB -> 256KB por card) en pantallas con muchos covers visibles.
+                        coilSizeOverride = 256,
                     )
 
                     Box(

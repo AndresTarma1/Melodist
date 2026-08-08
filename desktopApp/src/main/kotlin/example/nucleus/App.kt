@@ -376,6 +376,7 @@ fun NucleusApplicationScope.App(
                                         DesktopTitleBar(
                                             currentSong = currentSong?.title,
                                             isPlaying = isPlaying,
+                                            isLoggedIn = isLoggedIn,
                                             accountInfo = accountInfo,
                                             ytmSyncEnabled = ytmSyncEnabled,
                                             isSyncing = syncState.overallStatus is example.nucleus.utils.SyncStatus.Syncing,
