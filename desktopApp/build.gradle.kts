@@ -118,8 +118,14 @@ nucleus.application {
         // Heap
         "-Xms64m",
         "-Xmx320m",
-        "-XX:+UseSerialGC",
-        // Encoger el heap y devolverlo al OS cuando sobra (funciona en SerialGC en GC full).
+        "-XX:+UseG1GC",
+        "-XX:MaxGCPauseMillis=100",
+        // G1PeriodicGC libera periódicamente el heap Y los objetos nativos de Skia (imágenes):
+        // sin GC completo periódico, la memoria nativa de Skia/Compose se acumula (peak 740MB).
+        "-XX:G1PeriodicGCInterval=10000",
+        "-XX:G1PeriodicGCSystemLoadThreshold=0.0",
+        "-XX:+UseStringDeduplication",
+        // Encoger el heap y devolverlo al OS cuando sobra (default 40/70 retiene demasiado).
         "-XX:MinHeapFreeRatio=10",
         "-XX:MaxHeapFreeRatio=30",
         // No-heap acotado (hoy sin tope; Compose+Ktor+Coil cargan muchas clases).

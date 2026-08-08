@@ -20,7 +20,7 @@ enum class RenderApi(
 data class JvmConfig(
     val xmx: String = "320m",
     val xms: String = "64m",
-    val useG1GC: Boolean = false,
+    val useG1GC: Boolean = true,
     val useZGC: Boolean = false,
     val gcLogging: Boolean = false,
     val renderApi: RenderApi = RenderApi.DIRECTX,
