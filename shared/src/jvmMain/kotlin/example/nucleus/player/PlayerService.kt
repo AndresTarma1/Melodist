@@ -67,6 +67,15 @@ class PlayerService
         }
     }
 
+    /**
+     * Hidrata el volumen guardado en la UI SIN inicializar mpv. mpv (y su DLL + ~10 MiB de cache)
+     * se crea recién en el primer `play()` (que llama a [init]); al arrancar solo queremos que la
+     * barra de volumen muestre el valor persistido.
+     */
+    fun primeVolume() {
+        loadSavedVolume()
+    }
+
     private fun loadSavedVolume() {
         val savedVolume = runBlocking {
             userPreferences.readSavedVolume()

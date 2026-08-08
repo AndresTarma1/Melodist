@@ -116,20 +116,22 @@ class PlayerViewModel(
         userPreferences.offlineModeEnabled.first() || !NetworkMonitor.isOnline()
 
     /**
-     * ✅ Inicialización diferida de PlayerService (mpv).
-     * Se llama desde main.kt solo cuando el ViewModel se crea por primera vez,
-     * evitando la inicialización pesada al arrancar la app.
-     *
-     * MediaSession (SMTC) NO se inicializa aquí intencionalmente: sus controles de transporte
-     * necesitan que el hilo que la crea siga vivo ejecutando un bucle de mensajes de Windows,
-     * a diferencia de mpv. Se inicializa por separado en main.kt en el Event Dispatch Thread
-     * de AWT, que vive durante toda la vida de la aplicación.
+     * Inicialización de mpv. Se delega al primer `play()` (PlayerService.play llama a init()
+     * internamente), así que NO se llama al arrancar: mpv y su DLL + cache (~20 MB) se cargan
+     * solo cuando el usuario reproduce algo.
      */
     fun initialize() {
         playerService.init()
         viewModelScope.launch {
             val savedVolume = userPreferences.readSavedVolume()
             playerService.setVolume(savedVolume)
+        }
+    }
+
+    /** Al arranque: hidrata el volumen guardado en la UI sin crear mpv (se crea en el primer play). */
+    fun primeVolume() {
+        viewModelScope.launch {
+            playerService.primeVolume()
         }
     }
 

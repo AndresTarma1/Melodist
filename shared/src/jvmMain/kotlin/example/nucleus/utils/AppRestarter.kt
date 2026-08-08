@@ -13,14 +13,11 @@ object AppRestarter {
         "--add-modules=java.sql",
         "--enable-native-access=ALL-UNNAMED",
         "-Dorg.sqlite.tmpdir=${System.getProperty("user.home")}/.musicplayer/tmp",
-        "-XX:+UseStringDeduplication",
         "-XX:+UseCompressedOops",
-        "-XX:MaxHeapFreeRatio=30",
+        // Flags transversales (funcionan con SerialGC y G1). El GC concreto lo añade
+        // config.toJvmArgs() (SerialGC por defecto, G1/ZGC como opción avanzada).
         "-XX:MinHeapFreeRatio=10",
-        "-XX:G1PeriodicGCInterval=10000",
-        "-XX:G1PeriodicGCSystemLoadThreshold=0.0",
-        // Perfil agresivo (alineado con desktopApp/build.gradle.kts): acotar regiones no-heap,
-        // pilas de hilo y pool de coroutines IO (default real 64 hilos).
+        "-XX:MaxHeapFreeRatio=30",
         "-XX:MaxMetaspaceSize=192m",
         "-XX:CompressedClassSpaceSize=64m",
         "-XX:ReservedCodeCacheSize=128m",
@@ -33,9 +30,9 @@ object AppRestarter {
         "-Dskiko.vsync.enabled=true",
     )
 
-    val gcTuningArgs = listOf(
-        "-XX:MaxGCPauseMillis=100",
-    )
+    // Los flags específicos de GC (MaxGCPauseMillis, G1PeriodicGCInterval, UseStringDeduplication)
+    // los añade config.toJvmArgs() según el GC elegido (G1). SerialGC no los usa.
+    val gcTuningArgs = emptyList<String>()
 
     fun previewJvmArgs(config: JvmConfig): List<String> =
         requiredJvmArgs + gcTuningArgs + config.toJvmArgs() + appliedMarkerArg

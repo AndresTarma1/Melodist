@@ -139,6 +139,9 @@ fun NucleusApplicationScope.App(
     val overlayMods by remember(userPreferences) { userPreferences.overlayHotkeyMods }.collectAsState(0)
 
     LaunchedEffect(overlayEnabled, overlayCode, overlayMods) {
+        // jnativehook (hook nativo global) solo se registra cuando el overlay está activado:
+        // si está desactivado, no cargamos su DLL ni el hook del sistema.
+        if (overlayEnabled) hotkeyManager.start() else hotkeyManager.stop()
         hotkeyManager.setEnabled(overlayEnabled)
         hotkeyManager.updateCombo(HotkeyCombo.fromPrefs(overlayCode, overlayMods))
     }

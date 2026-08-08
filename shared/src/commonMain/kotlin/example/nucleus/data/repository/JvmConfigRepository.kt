@@ -18,9 +18,9 @@ enum class RenderApi(
 }
 
 data class JvmConfig(
-    val xmx: String = "384m",
+    val xmx: String = "320m",
     val xms: String = "64m",
-    val useG1GC: Boolean = true,
+    val useG1GC: Boolean = false,
     val useZGC: Boolean = false,
     val gcLogging: Boolean = false,
     val renderApi: RenderApi = RenderApi.DIRECTX,
@@ -38,25 +38,31 @@ data class JvmConfig(
     }
 
     /**
-     * Perfil de memoria AGGRESSIVE — debe mantenerse en sintonía con `jvmArgs` en
+     * Perfil de memoria (SerialGC por defecto) — debe mantenerse en sintonía con `jvmArgs` en
      * desktopApp/build.gradle.kts (la app empaquetada lee los de ahí; esto se usa al relanzar
-     * con Ajustes Avanzados / dev).
+     * con Ajustes Avanzados / dev). G1/ZGC quedan como opción para power users.
      */
     fun toJvmArgs(): List<String> {
         val args = mutableListOf<String>()
         args.add("-Xms$xms")
         args.add("-Xmx$xmx")
-        if (useG1GC) args.add("-XX:+UseG1GC")
-        if (useZGC) args.add("-XX:+UseZGC")
-        if (gcLogging) args.add("-Xlog:gc")
         if (useG1GC) {
+            args.add("-XX:+UseG1GC")
             args.add("-XX:MaxGCPauseMillis=100")
             args.add("-XX:MinHeapFreeRatio=10")
             args.add("-XX:MaxHeapFreeRatio=30")
             args.add("-XX:G1PeriodicGCInterval=10000")
             args.add("-XX:G1PeriodicGCSystemLoadThreshold=0.0")
+            args.add("-XX:+UseStringDeduplication")
+        } else if (useZGC) {
+            args.add("-XX:+UseZGC")
+        } else {
+            // Default: SerialGC — footprint mínimo (sin card tables/regiones de G1, 1 hilo de GC).
+            args.add("-XX:+UseSerialGC")
+            args.add("-XX:MinHeapFreeRatio=10")
+            args.add("-XX:MaxHeapFreeRatio=30")
         }
-        args.add("-XX:+UseStringDeduplication")
+        if (gcLogging) args.add("-Xlog:gc")
         args.add("-XX:MaxMetaspaceSize=192m")
         args.add("-XX:CompressedClassSpaceSize=64m")
         args.add("-XX:ReservedCodeCacheSize=128m")

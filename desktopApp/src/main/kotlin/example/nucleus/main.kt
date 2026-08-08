@@ -25,7 +25,6 @@ import example.nucleus.di.dataStoreModule
 import example.nucleus.lifecycle.AppLifecycleManager
 import example.nucleus.listentogether.ListenTogetherManager
 import example.nucleus.navigation.RootComponent
-import example.nucleus.overlay.GlobalHotkeyManager
 import example.nucleus.player.WindowsMediaSession
 import example.nucleus.ui.components.CoilSetup
 import example.nucleus.utils.OfflineModeController
@@ -86,8 +85,10 @@ fun main() = nucleusApplication(backend = NucleusBackend.Tao) {
 
     // Inicializar servicios nativos en background
     Thread {
-        PlatformCrashHandler.runSafely("Error inicializando reproductor (mpv)") {
-            playerViewModel.initialize()
+        // mpv NO se inicializa aquí: se crea en el primer play() (ahorra ~20 MB de arranque).
+        // Solo se hidrata el volumen guardado para que la UI lo muestre desde el inicio.
+        PlatformCrashHandler.runSafely("Error cargando volumen inicial") {
+            playerViewModel.primeVolume()
         }
 
             java.awt.EventQueue.invokeLater {
@@ -131,10 +132,6 @@ fun main() = nucleusApplication(backend = NucleusBackend.Tao) {
             val listenTogetherManager = koin.get<ListenTogetherManager>()
             listenTogetherManager.initialize()
             listenTogetherManager.setPlayer(playerViewModel)
-        }
-
-        PlatformCrashHandler.runSafely("Error iniciando GlobalHotkeyManager") {
-            koin.get<GlobalHotkeyManager>().start()
         }
     }.apply { name = "nucleus-deferred-init"; isDaemon = true }.start()
 
