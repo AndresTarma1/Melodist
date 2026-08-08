@@ -54,8 +54,8 @@ kotlin {
         jvmMain.dependencies {
             api(libs.sqldelight.driver.jvm)
             // Proveedores de letras (LRC sincronizado) — módulos solo JVM
-//            implementation(project(":lrclib"))
-//            implementation(project(":kugou"))
+            implementation(project(":lrclib"))
+            implementation(project(":kugou"))
             // Fuente: https://mvnrepository.com/artifact/net.java.dev.jna/jna
             implementation("net.java.dev.jna:jna:5.18.1")
 

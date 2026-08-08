@@ -9,10 +9,11 @@ import example.nucleus.data.repository.UserPreferencesRepository
 import example.nucleus.db.DatabaseDao
 import example.nucleus.db.entities.ArtistEntity
 import example.nucleus.download.DownloadService
+import example.nucleus.lyrics.BetterLyrics
 import example.nucleus.lyrics.LyricLine
 import example.nucleus.lyrics.SyncedLyrics
-//import com.metrolist.lrclib.LrcLib
-//import com.metrolist.kugou.KuGou
+import com.metrolist.lrclib.LrcLib
+import com.metrolist.kugou.KuGou
 import example.nucleus.models.MediaMetadata
 import example.nucleus.models.toMediaMetadata
 import example.nucleus.player.*
@@ -211,7 +212,7 @@ class PlayerViewModel(
             _uiState.map { it.currentSong?.id }
                 .distinctUntilChanged()
                 .filterNotNull()
-                .collectLatest {  fetchMetadataInfo() }
+                .collectLatest { fetchLyrics(); fetchMetadataInfo() }
         }
     }
 
@@ -1214,60 +1215,60 @@ class PlayerViewModel(
     }
 
     /** Letras sincronizadas por tiempo (BetterLyrics o LRC sincronizado de YouTube). Nulo cuando solo existe texto plano. */
-//    private val _syncedLyrics = MutableStateFlow<List<LyricLine>?>(null)
-//    val syncedLyrics: StateFlow<List<LyricLine>?> = _syncedLyrics.asStateFlow()
+    private val _syncedLyrics = MutableStateFlow<List<LyricLine>?>(null)
+    val syncedLyrics: StateFlow<List<LyricLine>?> = _syncedLyrics.asStateFlow()
 
     // Canción para la que ya se pidieron (o están en curso) las letras. Evita re-fetch al solo
     // cambiar de pestaña (Cola/Info -> Letras) sobre la misma canción.
     private var lastLyricsSongId: String? = null
 
-//    fun fetchLyrics() {
-//        val song = _uiState.value.currentSong ?: return
-//        if (song.id == lastLyricsSongId) return
-//        lastLyricsSongId = song.id
-//        viewModelScope.launch(Dispatchers.IO) {
-//            _currentLyrics.value = null
-//            _syncedLyrics.value = null
-//
-//            val artist = song.artists.joinToString(", ") { it.name }
-//            val album = song.album?.title
-//
-//            // Intentar proveedores sincronizados en orden de fiabilidad. El primer LRC utilizable gana.
-//            //   1) LrcLib  — gratuito, confiable, sincronizado por líneas
-//            //   2) KuGou   — sincronizado por líneas
-//            //   3) (Deshabilitado) BetterLyrics — sincronizado por palabras (mejor UX, pero puede requerir autenticación/no estar disponible)
-//            val lrc = runCatching { LrcLib.getLyrics(song.title, artist, song.duration, album).getOrNull() }.getOrNull()
-//                ?: runCatching { KuGou.getLyrics(song.title, artist, song.duration, album).getOrNull() }.getOrNull()
-//                // ?: runCatching { BetterLyrics.getLyrics(song.title, artist, song.duration, album) }.getOrNull()
-//
-//            if (lrc != null) {
-//                if (SyncedLyrics.isSynced(lrc)) {
-//                    val parsed = SyncedLyrics.parse(lrc)
-//                    if (parsed.isNotEmpty()) {
-//                        _syncedLyrics.value = parsed
-//                        _currentLyrics.value = parsed.joinToString("\n") { it.text }
-//                        return@launch
-//                    }
-//                }
-//                // LRC plano sin marcas de tiempo — mostrar como texto.
-//                _currentLyrics.value = lrc
-//                return@launch
-//            }
-//
-//            // Recurrir a las letras de YouTube (usualmente texto plano, ocasionalmente LRC).
-//            try {
-//                val nextResult = YouTube.next(WatchEndpoint(videoId = song.id)).getOrNull() ?: return@launch
-//                val endpoint = nextResult.lyricsEndpoint ?: return@launch
-//                val lyrics = YouTube.lyrics(endpoint).getOrNull()
-//                _currentLyrics.value = lyrics
-//                if (lyrics != null && SyncedLyrics.isSynced(lyrics)) {
-//                    _syncedLyrics.value = SyncedLyrics.parse(lyrics).takeIf { it.isNotEmpty() }
-//                }
-//            } catch (_: Exception) {
-//                _currentLyrics.value = null
-//            }
-//        }
-//    }
+    fun fetchLyrics() {
+        val song = _uiState.value.currentSong ?: return
+        if (song.id == lastLyricsSongId) return
+        lastLyricsSongId = song.id
+        viewModelScope.launch(Dispatchers.IO) {
+            _currentLyrics.value = null
+            _syncedLyrics.value = null
+
+            val artist = song.artists.joinToString(", ") { it.name }
+            val album = song.album?.title
+
+            // Intentar proveedores sincronizados en orden de fiabilidad. El primer LRC utilizable gana.
+            //   1) LrcLib  — gratuito, confiable, sincronizado por líneas
+            //   2) KuGou   — sincronizado por líneas
+            //   3) BetterLyrics — sincronizado por palabras (mejor UX, pero puede requerir autenticación/no estar disponible)
+            val lrc = runCatching { LrcLib.getLyrics(song.title, artist, song.duration, album).getOrNull() }.getOrNull()
+                ?: runCatching { KuGou.getLyrics(song.title, artist, song.duration, album).getOrNull() }.getOrNull()
+                ?: runCatching { BetterLyrics.getLyrics(song.title, artist, song.duration, album) }.getOrNull()
+
+            if (lrc != null) {
+                if (SyncedLyrics.isSynced(lrc)) {
+                    val parsed = SyncedLyrics.parse(lrc)
+                    if (parsed.isNotEmpty()) {
+                        _syncedLyrics.value = parsed
+                        _currentLyrics.value = parsed.joinToString("\n") { it.text }
+                        return@launch
+                    }
+                }
+                // LRC plano sin marcas de tiempo — mostrar como texto.
+                _currentLyrics.value = lrc
+                return@launch
+            }
+
+            // Recurrir a las letras de YouTube (usualmente texto plano, ocasionalmente LRC).
+            try {
+                val nextResult = YouTube.next(WatchEndpoint(videoId = song.id)).getOrNull() ?: return@launch
+                val endpoint = nextResult.lyricsEndpoint ?: return@launch
+                val lyrics = YouTube.lyrics(endpoint).getOrNull()
+                _currentLyrics.value = lyrics
+                if (lyrics != null && SyncedLyrics.isSynced(lyrics)) {
+                    _syncedLyrics.value = SyncedLyrics.parse(lyrics).takeIf { it.isNotEmpty() }
+                }
+            } catch (_: Exception) {
+                _currentLyrics.value = null
+            }
+        }
+    }
 
     override fun onCleared() {
         resolveJob?.cancel()

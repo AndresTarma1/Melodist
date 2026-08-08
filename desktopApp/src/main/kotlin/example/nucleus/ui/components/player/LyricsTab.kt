@@ -36,9 +36,9 @@ fun LyricsContent(
     style: TextStyle
 ) {
     val playerViewModel = LocalPlayerViewModel.current
-//    val synced by playerViewModel.syncedLyrics.collectAsState()
+    val synced by playerViewModel.syncedLyrics.collectAsState()
     val progress by playerViewModel.progressState.collectAsState()
-//    val syncedLines = synced
+    val syncedLines = synced
 
     val baseSize = if (style.fontSize == TextUnit.Unspecified) 20.sp else style.fontSize
     val baseLineHeight = if (style.lineHeight == TextUnit.Unspecified) 30.sp else style.lineHeight
@@ -50,15 +50,15 @@ fun LyricsContent(
     )
 
     when {
-//        !syncedLines.isNullOrEmpty() -> {
-//            SyncedLyricsView(
-//                lines = syncedLines,
-//                positionMs = progress.positionMs,
-//                onSeek = { playerViewModel.seekTo(it) },
-//                modifier = Modifier.fillMaxSize(),
-//                textAlign = textAlign == TextAlign.Start,
-//            )
-//        }
+        !syncedLines.isNullOrEmpty() -> {
+            SyncedLyricsView(
+                lines = syncedLines,
+                positionMs = progress.positionMs,
+                onSeek = { playerViewModel.seekTo(it) },
+                modifier = Modifier.fillMaxSize(),
+                textAlign = textAlign == TextAlign.Start,
+            )
+        }
         lyrics == null -> {
             Column(
                 modifier = Modifier
