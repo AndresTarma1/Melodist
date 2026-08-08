@@ -9,17 +9,24 @@ them into a union manifest (deduplicated by url, sorted), exactly like the plugi
 `UpdateYmlMerger`.
 
 Usage:
-    merge-update-yml.py <input_root> <output_dir>
+    merge-update-yml.py <input_root> <output_dir> [--copy]
 
 - Input root: the `desktopApp/build/compose/binaries` tree.
 - Output dir: where the merged `<channel><osSuffix>.yml` files are written (one per distinct name).
 
 When only one manifest matches a name, it is copied verbatim (keeps electron-builder's exact bytes).
+
+With `--copy`, the files referenced by each manifest's `files[].url` are also copied into
+[output_dir]. This is the authoritative list of release assets: whatever the updater reads from the
+YAML must be uploaded as a GitHub release asset with that exact name. Using the YAML as the source
+of truth avoids sweeping in non-installer files (launcher .exe, java.exe, bundled yt-dlp, ...) that
+live inside the app-image directories.
 """
 
 import glob
 import os
 import re
+import shutil
 import sys
 
 
@@ -95,10 +102,33 @@ def merge(manifests):
     return "\n".join(out) + "\n"
 
 
+def find_file(root, name):
+    for dirpath, _dirnames, filenames in os.walk(root):
+        if name in filenames:
+            return os.path.join(dirpath, name)
+    return None
+
+
+def copy_referenced_files(root, outdir, manifests):
+    urls = []
+    for _, _, entries in manifests:
+        for entry in entries:
+            if entry["url"] not in urls:
+                urls.append(entry["url"])
+    for url in urls:
+        src = find_file(root, url)
+        if src is None:
+            print(f"warning: '{url}' referenced by a manifest but not found under {root}", file=sys.stderr)
+            continue
+        shutil.copy2(src, os.path.join(outdir, url))
+        print(f"copied {os.path.basename(src)} ({os.path.getsize(src)} bytes)")
+
+
 def main():
-    if len(sys.argv) != 3:
-        raise SystemExit("usage: merge-update-yml.py <input_root> <output_dir>")
+    if len(sys.argv) < 3:
+        raise SystemExit("usage: merge-update-yml.py <input_root> <output_dir> [--copy]")
     root, outdir = sys.argv[1], sys.argv[2]
+    do_copy = "--copy" in sys.argv
     os.makedirs(outdir, exist_ok=True)
 
     by_name = {}
@@ -112,11 +142,15 @@ def main():
     for name, paths in sorted(by_name.items()):
         if len(paths) == 1:
             content = open(paths[0], encoding="utf-8", errors="replace").read()
+            manifests = [parse(paths[0])]
         else:
-            content = merge([parse(p) for p in paths])
+            manifests = [parse(p) for p in paths]
+            content = merge(manifests)
         with open(os.path.join(outdir, name), "w", encoding="utf-8") as fh:
             fh.write(content)
         print(f"wrote {name} from {len(paths)} manifest(s): {', '.join(paths)}")
+        if do_copy:
+            copy_referenced_files(root, outdir, manifests)
 
 
 if __name__ == "__main__":

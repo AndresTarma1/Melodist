@@ -75,12 +75,10 @@ jobs:
           set -eux
           mkdir -p dist
           # Une los manifests latest*.yml (Exe + Msi comparten latest.yml en Windows;
-          # en Linux solo existe latest-linux.yml) y los deja listos como asset del release.
-          ${{ matrix.python_cmd }} .github/scripts/merge-update-yml.py desktopApp/build/compose/binaries dist
-          # Copia los instaladores y blockmaps generados.
-          find desktopApp/build/compose/binaries -type f \
-            \( -name '*.msi' -o -name '*.exe' -o -name '*.deb' -o -name '*.rpm' -o -name '*.blockmap' \) \
-            -exec cp {} dist/ \;
+          # en Linux solo existe latest-linux.yml) y copia a dist/ exactamente los archivos
+          # que referencia cada manifest (instaladores + blockmaps), evitando arrastrar
+          # binarios del app-image (launcher .exe, java.exe, yt-dlp empaquetado, ...).
+          ${{ matrix.python_cmd }} .github/scripts/merge-update-yml.py desktopApp/build/compose/binaries dist --copy
           ls -la dist/
 
       - name: Upload artifact
