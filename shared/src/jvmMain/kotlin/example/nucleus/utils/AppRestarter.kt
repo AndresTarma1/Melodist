@@ -25,6 +25,7 @@ object AppRestarter {
         "-XX:CompressedClassSpaceSize=64m",
         "-XX:ReservedCodeCacheSize=128m",
         "-XX:CICompilerCount=2",
+        "-XX:ActiveProcessorCount=4",
         "-Xss768k",
         "-Dkotlinx.coroutines.io.parallelism=8",
         "-Dskiko.gpu.resourceCacheLimit=64M",

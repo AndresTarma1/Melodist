@@ -88,11 +88,13 @@ class InnerTube {
         // Enhanced network configuration for better performance
         engine {
             config {
-                // Connection pool settings for better connection reuse
+                // Connection pool settings for better connection reuse.
+                // Pool reducido (4 idle, 1 min) para minimizar hilos/conexiones en RAM: cada
+                // conexión HTTP/2 mantiene sus propios hilos de lectura/escritura.
                 connectionPool(
                     okhttp3.ConnectionPool(
-                        10, // maxIdleConnections
-                        5, // keepAliveDuration
+                        4, // maxIdleConnections
+                        1, // keepAliveDuration
                         java.util.concurrent.TimeUnit.MINUTES
                     )
                 )

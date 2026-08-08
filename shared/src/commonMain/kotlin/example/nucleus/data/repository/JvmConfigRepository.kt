@@ -61,6 +61,7 @@ data class JvmConfig(
         args.add("-XX:CompressedClassSpaceSize=64m")
         args.add("-XX:ReservedCodeCacheSize=128m")
         args.add("-XX:CICompilerCount=2")
+        args.add("-XX:ActiveProcessorCount=4")
         args.add("-Xss768k")
         args.add("-Dkotlinx.coroutines.io.parallelism=8")
         args.add("-Dskiko.gpu.resourceCacheLimit=64M")
