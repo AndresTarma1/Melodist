@@ -29,35 +29,13 @@ fun List<Run>.splitBySeparator(): List<List<Run>> {
 }
 
 fun List<Run>.splitArtistsByConjunction(): List<Run> {
-    val result = mutableListOf<Run>()
-    val words = ArtistConjunctions.conjunctions
-    val conjunctionPattern = Regex(
-        if (words.isNotEmpty()) " (${words.joinToString("|") { Regex.escape(it) }}) | & "
-        else " & ",
-        RegexOption.IGNORE_CASE
-    )
-    forEach { run ->
-        val text = run.text
-        if (text.contains(conjunctionPattern)) {
-            val parts = text.split(conjunctionPattern)
-            parts.forEachIndexed { index, part ->
-                if (part.isNotBlank()) {
-                    result.add(Run(part.trim(), if (index == 0) run.navigationEndpoint else null))
-                }
-            }
-        } else if (text.trim().equals("&", ignoreCase = true) ||
-                text.trim().equals("•") ||
-                words.any { text.trim().equals(it, ignoreCase = true) }
-        ) {
-        } else {
-            result.add(run)
-        }
+    return splitArtistRuns().filterNot { run ->
+        isArtistSeparator(run.text)
     }
-    return result
 }
 
 object ArtistConjunctions {
-    var conjunctions: List<String> = listOf("and")
+    var conjunctions: List<String> = listOf("and", "y")
 }
 
 fun List<List<Run>>.clean(): List<List<Run>> {
@@ -87,6 +65,34 @@ fun List<List<Run>>.clean(): List<List<Run>> {
  */
 fun List<Run>.oddElements(): List<Run> {
     val linked = filter { run -> run.navigationEndpoint?.browseEndpoint?.browseId != null }
-    if (linked.isNotEmpty()) return linked
+    if (linked.isNotEmpty()) return linked.splitArtistRuns()
     return filterIndexed { index, _ -> index % 2 == 0 }
 }
+
+/**
+ * Separates artist names that YouTube sometimes returns in a single run, for example
+ * `Artist A, Artist B y Artist C`. The endpoint belongs to the first name; the remaining
+ * names are still useful for display even when YouTube does not provide individual IDs.
+ */
+fun List<Run>.splitArtistRuns(): List<Run> = flatMap { run ->
+    val parts = run.text
+        .split(Regex("\\s*(?:,|\\by\\b|\\band\\b|&)\\s*", RegexOption.IGNORE_CASE))
+        .map(String::trim)
+        .filter(String::isNotBlank)
+
+    if (parts.isEmpty() || isArtistSeparator(run.text)) {
+        emptyList()
+    } else if (parts.size <= 1) {
+        listOf(run)
+    } else {
+        parts.mapIndexed { index, name ->
+            Run(name, if (index == 0) run.navigationEndpoint else null)
+        }
+    }
+}
+
+private fun isArtistSeparator(text: String): Boolean =
+    text.trim().let { value ->
+        value == "," || value == "•" || value == "&" ||
+            ArtistConjunctions.conjunctions.any { value.equals(it, ignoreCase = true) }
+    }

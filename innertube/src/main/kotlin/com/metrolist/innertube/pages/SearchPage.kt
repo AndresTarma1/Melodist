@@ -13,6 +13,7 @@ import com.metrolist.innertube.models.SongItem
 import com.metrolist.innertube.models.YTItem
 import com.metrolist.innertube.models.oddElements
 import com.metrolist.innertube.models.splitBySeparator
+import com.metrolist.innertube.models.splitArtistRuns
 import com.metrolist.innertube.utils.parseTime
 
 data class SearchResult(
@@ -115,6 +116,35 @@ object SearchPage {
             renderer.isSong -> {
                 val libraryTokens = PageHelper.extractLibraryTokensFromMenuItems(renderer.menu?.menuRenderer?.items)
 
+                // Search bylines are not consistent for uploaded songs. A regular YTM song is
+                // usually `artist • album • duration`, while an upload can be
+                // `date • uploader • duration`. Do not use fixed positions or the date becomes
+                // an artist and the uploader becomes an album.
+                val metadataGroups = secondaryLine.filterNot { group ->
+                    group.firstOrNull()?.text?.let(::isDateMetadata) == true ||
+                        group.firstOrNull()?.text?.parseTime() != null
+                }
+                val artistGroupIndex = secondaryLine.indexOfFirst { group ->
+                    group.any { it.navigationEndpoint?.browseEndpoint?.isArtistEndpoint == true }
+                }.takeIf { it >= 0 } ?: secondaryLine.indexOfFirst { group ->
+                    group in metadataGroups
+                }
+                val artistGroup = secondaryLine.getOrNull(artistGroupIndex).orEmpty()
+                val artistRuns = artistGroup
+                    .filter { it.navigationEndpoint?.browseEndpoint?.isArtistEndpoint == true }
+                    .ifEmpty { artistGroup }
+                    .splitArtistRuns()
+                val albumGroup = secondaryLine.drop(artistGroupIndex + 1)
+                    .firstOrNull { group ->
+                        group.any { it.navigationEndpoint?.browseEndpoint?.isAlbumEndpoint == true }
+                    }
+                val artists = artistRuns.map { run ->
+                    Artist(
+                        name = run.text,
+                        id = run.navigationEndpoint?.browseEndpoint?.browseId,
+                    )
+                }
+
                 SongItem(
                     id = renderer.playlistItemData?.videoId
                         ?: renderer.navigationEndpoint?.watchEndpoint?.videoId
@@ -134,15 +164,9 @@ object SearchPage {
                             ?.runs
                             ?.firstOrNull()
                             ?.text ?: return null,
-                    artists =
-                        secondaryLine.firstOrNull()?.oddElements()?.map {
-                            Artist(
-                                name = it.text,
-                                id = it.navigationEndpoint?.browseEndpoint?.browseId,
-                            )
-                        } ?: return null,
+                    artists = artists.ifEmpty { return null },
                     album =
-                        secondaryLine.getOrNull(1)?.firstOrNull()?.takeIf { it.navigationEndpoint?.browseEndpoint != null }?.let {
+                        albumGroup?.firstOrNull()?.takeIf { it.navigationEndpoint?.browseEndpoint?.isAlbumEndpoint == true }?.let {
                             Album(
                                 name = it.text,
                                 id = it.navigationEndpoint?.browseEndpoint?.browseId!!,
@@ -368,5 +392,12 @@ object SearchPage {
             }
             else -> null
         }
+    }
+
+    private fun isDateMetadata(text: String): Boolean {
+        val value = text.trim()
+        return value.matches(Regex("\\d{1,2}\\s+[\\p{L}.]+\\s+\\d{4}")) ||
+            value.matches(Regex("[A-Za-z]+\\s+\\d{1,2},?\\s+\\d{4}")) ||
+            value.matches(Regex("\\d{4}[-/]\\d{1,2}[-/]\\d{1,2}"))
     }
 }

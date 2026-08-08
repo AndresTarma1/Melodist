@@ -4,6 +4,7 @@ import com.metrolist.innertube.models.Artist
 import com.metrolist.innertube.models.Menu
 import com.metrolist.innertube.models.MusicResponsiveListItemRenderer.FlexColumn
 import com.metrolist.innertube.models.Run
+import com.metrolist.innertube.models.splitArtistRuns
 import io.github.aakira.napier.Napier
 
 object PageHelper {
@@ -183,7 +184,9 @@ object PageHelper {
         // count ("1527 M de vistas") — and previously slipped through a literal `!= " • "` check
         // that only matched one specific separator, leaving the rest (and the view count) rendered
         // as bogus "artists".
-        val filtered = runs.filter { run -> run.navigationEndpoint?.browseEndpoint?.browseId != null }
+        val filtered = runs
+            .filter { run -> run.navigationEndpoint?.browseEndpoint?.browseId != null }
+            .splitArtistRuns()
         Napier.d("extractArtists: after separator filter count=${filtered.size}")
         
         val result = filtered.map { run ->

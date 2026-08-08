@@ -8,7 +8,7 @@ import io.ktor.client.plugins.api.createClientPlugin
  * so flipping this one flag blocks the whole app's network traffic (search, browse, library sync,
  * likes, ...) without having to gate each call site individually.
  *
- * Set by `com.example.melodist.utils.OfflineModeController` in the app module, which keeps it in
+ * Set by `example.nucleus.utils.OfflineModeController` in the app module, which keeps it in
  * sync with the user's manual offline toggle and actual connectivity.
  */
 object OfflineGate {

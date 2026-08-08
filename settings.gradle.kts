@@ -1,5 +1,4 @@
-rootProject.name = "lyrik"
-enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
+rootProject.name = "NucleusPrototype"
 
 pluginManagement {
     repositories {
@@ -13,9 +12,9 @@ pluginManagement {
         maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
         mavenCentral()
         gradlePluginPortal()
-
     }
 }
+
 
 dependencyResolutionManagement {
     repositories {
@@ -38,8 +37,6 @@ plugins {
     id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
 }
 
-include(":composeApp")
+include(":desktopApp")
 include(":shared")
 include(":innertube")
-include(":lrclib")
-include(":kugou")

@@ -1,0 +1,161 @@
+package example.nucleus.ui.themes
+
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.ColorScheme
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Typography
+import androidx.compose.runtime.*
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
+import example.nucleus.data.repository.DarkLevel
+import example.nucleus.data.repository.BackgroundStyle
+import example.nucleus.data.repository.IslandStyle
+import example.nucleus.data.repository.LayoutMode
+import example.nucleus.data.repository.ThemeMode
+import example.nucleus.data.repository.ThemePalette
+import example.nucleus.data.repository.UserPreferencesRepository
+import example.nucleus.ui.components.artwork.ArtworkColors
+import com.materialkolor.PaletteStyle
+import com.materialkolor.rememberDynamicMaterialThemeState
+
+val LocalChromeSurface = staticCompositionLocalOf { Color.Transparent }
+val LocalIsSolidBackground = staticCompositionLocalOf { true }
+
+@Composable
+fun AppTheme(
+    artworkColors: ArtworkColors? = null,
+    userPreferences: UserPreferencesRepository,
+    content: @Composable () -> Unit,
+) {
+    val themeMode by userPreferences.themeMode.collectAsState(ThemeMode.SYSTEM)
+    val dynamicEnabled by userPreferences.dynamicColorFromArtwork.collectAsState(false)
+    val palette by userPreferences.themePalette.collectAsState(ThemePalette.DEFAULT)
+    val darkLevel by userPreferences.darkLevel.collectAsState(DarkLevel.DIM)
+    val backgroundStyle by userPreferences.appBackgroundStyle.collectAsState(BackgroundStyle.SOLID_COLOR)
+    val layoutMode by userPreferences.layoutMode.collectAsState(LayoutMode.ATTACHED)
+    val islandStyle by userPreferences.islandStyle.collectAsState(IslandStyle.COMFORTABLE)
+    val selectedFont by userPreferences.selectedFont.collectAsState("")
+
+    val isDarkTheme = when (themeMode) {
+        ThemeMode.DARK -> true
+        ThemeMode.LIGHT -> false
+        else -> isSystemInDarkTheme()
+    }
+
+    val seeds = remember(artworkColors, dynamicEnabled, palette) {
+        val basePrimary = if (dynamicEnabled && artworkColors != null && artworkColors != ArtworkColors.Default) {
+            artworkColors.vibrant
+        } else {
+            Color(palette.primary)
+        }
+        val baseSecondary = if (dynamicEnabled && artworkColors != null && artworkColors != ArtworkColors.Default) {
+            artworkColors.muted
+        } else {
+            Color(palette.secondary)
+        }
+        basePrimary to baseSecondary
+    }
+
+    val dynamicThemeState = rememberDynamicMaterialThemeState(
+        isDark = isDarkTheme,
+        style = PaletteStyle.Content,
+        primary = seeds.first,
+        secondary = seeds.second,
+    )
+
+    val baseScheme = dynamicThemeState.colorScheme
+    val colorScheme = remember(baseScheme, isDarkTheme, darkLevel, seeds.first) {
+        if (isDarkTheme) baseScheme.darkened(darkLevel, seeds.first) else baseScheme
+    }
+
+    MaterialTheme(
+        colorScheme = colorScheme,
+        typography = remember(selectedFont) {
+            Typography().withFontFamily(systemFontFamily(selectedFont))
+        },
+    ) {
+        CompositionLocalProvider(
+            LocalDimens provides dimensFor(layoutMode, islandStyle),
+            LocalLayoutMode provides layoutMode,
+            LocalIsSolidBackground provides (backgroundStyle == BackgroundStyle.SOLID_COLOR),
+            LocalChromeSurface provides if (darkLevel == DarkLevel.BLACK || backgroundStyle != BackgroundStyle.SOLID_COLOR) {
+                Color.Transparent
+            } else {
+                colorScheme.surfaceContainer
+            },
+            content = content,
+        )
+    }
+}
+
+/** Aplica [family] a todos los estilos de la tipografía (incluyendo las variantes emphasized). */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+private fun Typography.withFontFamily(family: FontFamily): Typography {
+    fun TextStyle.withFamily(): TextStyle = copy(fontFamily = family)
+    return copy(
+        displayLarge = displayLarge.withFamily(),
+        displayMedium = displayMedium.withFamily(),
+        displaySmall = displaySmall.withFamily(),
+        headlineLarge = headlineLarge.withFamily(),
+        headlineMedium = headlineMedium.withFamily(),
+        headlineSmall = headlineSmall.withFamily(),
+        titleLarge = titleLarge.withFamily(),
+        titleMedium = titleMedium.withFamily(),
+        titleSmall = titleSmall.withFamily(),
+        bodyLarge = bodyLarge.withFamily(),
+        bodyMedium = bodyMedium.withFamily(),
+        bodySmall = bodySmall.withFamily(),
+        labelLarge = labelLarge.withFamily(),
+        labelMedium = labelMedium.withFamily(),
+        labelSmall = labelSmall.withFamily(),
+        displayLargeEmphasized = displayLargeEmphasized.withFamily(),
+        displayMediumEmphasized = displayMediumEmphasized.withFamily(),
+        displaySmallEmphasized = displaySmallEmphasized.withFamily(),
+        headlineLargeEmphasized = headlineLargeEmphasized.withFamily(),
+        headlineMediumEmphasized = headlineMediumEmphasized.withFamily(),
+        headlineSmallEmphasized = headlineSmallEmphasized.withFamily(),
+        titleLargeEmphasized = titleLargeEmphasized.withFamily(),
+        titleMediumEmphasized = titleMediumEmphasized.withFamily(),
+        titleSmallEmphasized = titleSmallEmphasized.withFamily(),
+        bodyLargeEmphasized = bodyLargeEmphasized.withFamily(),
+        bodyMediumEmphasized = bodyMediumEmphasized.withFamily(),
+        bodySmallEmphasized = bodySmallEmphasized.withFamily(),
+        labelLargeEmphasized = labelLargeEmphasized.withFamily(),
+        labelMediumEmphasized = labelMediumEmphasized.withFamily(),
+        labelSmallEmphasized = labelSmallEmphasized.withFamily(),
+    )
+}
+
+/** Re-derives the dark scheme's surfaces for the chosen [level], tinting them with [accent]. */
+private fun ColorScheme.darkened(level: DarkLevel, accent: Color): ColorScheme = when (level) {
+    DarkLevel.BLACK -> copy(
+        background = Color(0xFF000000),
+        surface = Color(0xFF000000),
+        surfaceDim = Color(0xFF000000),
+        surfaceBright = Color(0xFF1C1C1C),
+        surfaceContainerLowest = Color(0xFF000000),
+        surfaceContainerLow = Color(0xFF0A0A0A),
+        surfaceContainer = Color(0xFF101010),
+        surfaceContainerHigh = Color(0xFF181818),
+        surfaceContainerHighest = Color(0xFF202020),
+        surfaceVariant = Color(0xFF1A1A1A),
+    )
+    DarkLevel.DIM -> {
+        fun t(baseHex: Long, amount: Float) = lerp(Color(baseHex), accent, amount)
+        copy(
+            background = t(0xFF0A0A0C, 0.04f),
+            surface = t(0xFF121214, 0.05f),
+            surfaceDim = t(0xFF0A0A0C, 0.04f),
+            surfaceBright = t(0xFF242428, 0.06f),
+            surfaceContainerLowest = t(0xFF0D0D0F, 0.04f),
+            surfaceContainerLow = t(0xFF161618, 0.05f),
+            surfaceContainer = t(0xFF1A1A1D, 0.06f),
+            surfaceContainerHigh = t(0xFF222226, 0.06f),
+            surfaceContainerHighest = t(0xFF2A2A2E, 0.06f),
+            surfaceVariant = t(0xFF26262A, 0.05f),
+        )
+    }
+}

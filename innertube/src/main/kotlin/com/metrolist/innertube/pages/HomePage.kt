@@ -49,7 +49,7 @@ data class HomePage(
         val thumbnail: String?,
         val endpoint: BrowseEndpoint?,
         val items: List<YTItem>,
-        /** LyriK-specific: when > 1, this shelf renders as a horizontally-scrolling grid. */
+        /** MusicPlayer-specific: when > 1, this shelf renders as a horizontally-scrolling grid. */
         val numItemsPerColumn: Int? = null,
     ) {
         companion object {

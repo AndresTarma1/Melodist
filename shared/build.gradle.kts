@@ -2,9 +2,14 @@ plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.sqldelight)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.composeMultiplatform)
+    alias(libs.plugins.composeCompiler)
 }
 
+
+
 kotlin {
+
     jvm()
     compilerOptions {
         freeCompilerArgs.add("-Xexpect-actual-classes")
@@ -13,7 +18,9 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             // coloca aquí tus dependencias Multiplatform
+
             api(project(":innertube"))
+            implementation("org.jetbrains.compose.components:components-resources:1.11.1")
             implementation(project.dependencies.platform(libs.koin.bom))
             implementation(libs.koin.core)
             implementation(libs.koin.compose)
@@ -47,8 +54,8 @@ kotlin {
         jvmMain.dependencies {
             api(libs.sqldelight.driver.jvm)
             // Proveedores de letras (LRC sincronizado) — módulos solo JVM
-            implementation(project(":lrclib"))
-            implementation(project(":kugou"))
+//            implementation(project(":lrclib"))
+//            implementation(project(":kugou"))
             // Fuente: https://mvnrepository.com/artifact/net.java.dev.jna/jna
             implementation("net.java.dev.jna:jna:5.18.1")
 
@@ -72,10 +79,15 @@ kotlin {
     }
 }
 
+compose.resources {
+    packageOfResClass = "example.nucleus.shared.generated.resources"
+    publicResClass = true
+}
+
 sqldelight {
     databases {
-        create("MelodistDatabase") {
-            packageName.set("com.example.musicApp.db")
+        create("MusicPlayerDatabase") {
+            packageName.set("example.nucleus.db")
         }
     }
 }

@@ -1581,20 +1581,26 @@ object YouTube {
         runCatching {
             val response =
                 innerTube.browse(WEB_REMIX, continuation = continuation).body<BrowseResponse>()
+            Napier.d(
+                "homeContinuation response: sectionContents=" +
+                    (response.continuationContents?.sectionListContinuation?.contents?.size ?: 0) +
+                    ", actions=${response.onResponseReceivedActions?.size ?: 0}"
+            )
             val continuation =
                 response.continuationContents
                     ?.sectionListContinuation
                     ?.continuations
                     ?.getContinuation()
+            val sections = response.continuationContents
+                ?.sectionListContinuation
+                ?.contents
+                ?.mapNotNull { it.musicCarouselShelfRenderer }
+                ?.mapNotNull { HomePage.Section.fromMusicCarouselShelfRenderer(it) }
+                .orEmpty()
+            Napier.d("homeContinuation parsed sections=${sections.size}, next=${continuation != null}")
             HomePage(
                 null,
-                response.continuationContents
-                    ?.sectionListContinuation
-                    ?.contents
-                    ?.mapNotNull { it.musicCarouselShelfRenderer }
-                    ?.mapNotNull {
-                        HomePage.Section.fromMusicCarouselShelfRenderer(it)
-                    }.orEmpty(),
+                sections,
                 continuation,
             )
         }
@@ -2948,7 +2954,7 @@ object YouTube {
         return ""
     }
 
-    // LyriK-specific: upstream simplified this to return the raw HttpResponse, but our two-way
+    // MusicPlayer-specific: upstream simplified this to return the raw HttpResponse, but our two-way
     // playlist sync (PlaylistRepository/LibraryViewModel) needs the setVideoId back to be able to
     // remove the song later. Keep parsing it out.
     suspend fun addToPlaylist(
