@@ -111,8 +111,7 @@ dependencies {
 
 nucleus.application {
     mainClass = "example.nucleus.MainKt"
-
-    args.add("-Dskiko.gpu.resourceCacheLimit=0")
+    jvmArgs("-Xmx512m")
 
 
     nativeDistributions {
@@ -122,7 +121,7 @@ nucleus.application {
         packageVersion = "0.7.1"
         vendor = "Tarma"
         homepage = "https://github.com/AndresTarma1/PaltaSound"
-        targetFormats(TargetFormat.Dmg, TargetFormat.Exe, TargetFormat.Msi, TargetFormat.Deb, TargetFormat.Rpm)
+        targetFormats(TargetFormat.Exe, TargetFormat.Msi, TargetFormat.Deb, TargetFormat.Rpm)
 
         windows {
             upgradeUuid = "4A2F8B6C-1D3E-4F5A-B7C8-9D0E1F2A3B4C"
