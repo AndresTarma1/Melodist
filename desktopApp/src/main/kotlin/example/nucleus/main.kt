@@ -30,6 +30,7 @@ import example.nucleus.player.WindowsMediaSession
 import example.nucleus.ui.components.CoilSetup
 import example.nucleus.utils.OfflineModeController
 import example.nucleus.viewmodels.AppViewModel
+import example.nucleus.windows.AppUserModelId
 import example.nucleus.viewmodels.DownloadViewModel
 import example.nucleus.viewmodels.PlayerViewModel
 import kotlinx.coroutines.flow.first
@@ -39,6 +40,10 @@ import org.koin.core.context.GlobalContext.startKoin
 
 @OptIn(ExperimentalDecomposeApi::class)
 fun main() = nucleusApplication(backend = NucleusBackend.Tao) {
+    // Windows solo muestra el panel de medios del sistema si el proceso tiene un AppUserModelID explícito.
+    // Debe llamarse antes de crear cualquier ventana.
+    AppUserModelId.register()
+
     // Configuración inicial
     DecomposeSettings.update { DecomposeSettings(mainThreadCheckEnabled = false) }
     AppEnvironment.initialize()
