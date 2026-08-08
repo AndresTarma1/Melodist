@@ -121,6 +121,7 @@ nucleus.application {
         packageName = "PaltaSound"
         packageVersion = "0.7.1"
         vendor = "Tarma"
+        homepage = "https://github.com/AndresTarma1/PaltaSound"
         targetFormats(TargetFormat.Dmg, TargetFormat.Exe, TargetFormat.Msi, TargetFormat.Deb, TargetFormat.Rpm)
 
         windows {
@@ -132,6 +133,7 @@ nucleus.application {
 
         linux {
             iconFile.set(project.file("src/icons/PaltaSound.png"))
+            debMaintainer = "Andres Tarma <andrestormenta1@gmail.com>"
         }
 
         includeAllModules = true
