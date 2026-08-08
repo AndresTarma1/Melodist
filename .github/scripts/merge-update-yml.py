@@ -1,20 +1,23 @@
 #!/usr/bin/env python3
-"""Merges electron-builder auto-update manifests (latest*.yml) into one per name.
+"""Builds the electron-builder auto-update manifests (`latest*.yml`) for a Nucleus/Compose build.
 
-Nucleus runs one electron-builder invocation per target format (Exe/NSIS, Msi, Deb...). Each
+Nucleus runs one electron-builder invocation per target format (Exe/NSIS, Msi, Deb, Rpm...). Each
 format writes a single-artifact `<channel><osSuffix>.yml` into its own output directory, and all
 formats of the same OS share the same manifest name (e.g. `latest.yml` for Windows). Uploading them
-as-is would clobber each other in the GitHub release, leaving only one format. This script merges
-them into a union manifest (deduplicated by url, sorted), exactly like the plugin's own
-`UpdateYmlMerger`.
+as-is would clobber each other in the GitHub release, leaving only one format.
+
+This script normalizes them into ONE manifest per OS:
+  - If electron-builder / the plugin already wrote manifests (Windows: NSIS + MSI), they are merged
+    into a union manifest (deduplicated by url, sorted), like the plugin's own `UpdateYmlMerger`.
+  - If NO manifest exists for a platform (observed on Linux: electron-builder does not emit
+    `latest-linux.yml` for .deb/.rpm when publishing is disabled), it is GENERATED from the
+    installer files, computing the SHA-512 (Base64) the updater's ChecksumVerifier expects.
 
 Usage:
     merge-update-yml.py <input_root> <output_dir> [--copy]
 
 - Input root: the `desktopApp/build/compose/binaries` tree.
-- Output dir: where the merged `<channel><osSuffix>.yml` files are written (one per distinct name).
-
-When only one manifest matches a name, it is copied verbatim (keeps electron-builder's exact bytes).
+- Output dir: where the `<channel><osSuffix>.yml` files are written (one per distinct name).
 
 With `--copy`, the files referenced by each manifest's `files[].url` are also copied into
 [output_dir]. This is the authoritative list of release assets: whatever the updater reads from the
@@ -23,11 +26,32 @@ of truth avoids sweeping in non-installer files (launcher .exe, java.exe, bundle
 live inside the app-image directories.
 """
 
+import base64
+import datetime
 import glob
+import hashlib
 import os
 import re
 import shutil
 import sys
+
+# target-format output dir -> (OS group, manifest file name)
+FORMAT_GROUPS = {
+    "msi": ("windows", "latest.yml"),
+    "exe": ("windows", "latest.yml"),
+    "deb": ("linux", "latest-linux.yml"),
+    "rpm": ("linux", "latest-linux.yml"),
+}
+GROUP_ORDER = ["latest.yml", "latest-linux.yml", "latest-mac.yml"]
+VERSION_RE = re.compile(r"(\d+\.\d+\.\d+)")
+
+
+def sha512_base64(path):
+    digest = hashlib.sha512()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return base64.b64encode(digest.digest()).decode("ascii")
 
 
 def parse(path):
@@ -71,20 +95,9 @@ def parse(path):
     return version, release_date, entries
 
 
-def merge(manifests):
-    version = next((v for v, _, _ in manifests if v), None)
-    if version is None:
-        raise SystemExit("No manifest declares a version")
-    by_url = {}
-    for _, _, entries in manifests:
-        for entry in entries:
-            by_url.setdefault(entry["url"], entry)
-    entries = sorted(by_url.values(), key=lambda e: e["url"])
-    if not entries:
-        raise SystemExit("No files entries found to merge")
-    release_date = max((rd for _, rd, _ in manifests if rd), default=None)
+def serialize(version, release_date, entries):
+    entries = sorted(entries, key=lambda e: e["url"])
     first = entries[0]
-
     out = [f"version: {version}", "files:"]
     for entry in entries:
         out.append(f"  - url: {entry['url']}")
@@ -100,6 +113,51 @@ def merge(manifests):
     if release_date:
         out.append(f"releaseDate: {release_date}")
     return "\n".join(out) + "\n"
+
+
+def merge(manifests):
+    version = next((v for v, _, _ in manifests if v), None)
+    if version is None:
+        raise SystemExit("No manifest declares a version")
+    by_url = {}
+    for _, _, entries in manifests:
+        for entry in entries:
+            by_url.setdefault(entry["url"], entry)
+    if not by_url:
+        raise SystemExit("No files entries found to merge")
+    release_date = max((rd for _, rd, _ in manifests if rd), default=None)
+    return version, release_date, list(by_url.values())
+
+
+def discover_installers(root):
+    """format dir -> list of installer files (files directly inside each target-format dir).
+
+    The glob is anchored so that only files directly in the `<format>` directory are matched;
+    nested `.app-image/...` trees (launcher .exe, java.exe, bundled yt-dlp, ...) are excluded.
+    """
+    found = {}
+    for fmt in FORMAT_GROUPS:
+        for path in glob.glob(os.path.join(root, "**", fmt, f"*.{fmt}"), recursive=True):
+            found.setdefault(fmt, []).append(path)
+    return found
+
+
+def build_generated_manifest(installer_files, version):
+    entries = []
+    for path in sorted(installer_files):
+        entries.append({
+            "url": os.path.basename(path),
+            "sha512": sha512_base64(path),
+            "size": str(os.path.getsize(path)),
+            "blockmap": None,
+        })
+    if version is None:
+        version = next(
+            (m.group(1) for p in installer_files for m in [VERSION_RE.search(os.path.basename(p))] if m),
+            "0.0.0",
+        )
+    release_date = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    return version, release_date, entries
 
 
 def find_file(root, name):
@@ -131,26 +189,48 @@ def main():
     do_copy = "--copy" in sys.argv
     os.makedirs(outdir, exist_ok=True)
 
+    # 1) Collect manifests electron-builder / the plugin already wrote.
     by_name = {}
     for path in glob.glob(os.path.join(root, "**", "latest*.yml"), recursive=True):
         by_name.setdefault(os.path.basename(path), []).append(path)
 
-    if not by_name:
-        print("No update manifests found under", root)
+    # 2) Map installers to the manifest name that must describe them.
+    installers = discover_installers(root)
+    group_manifests = {}  # yml name -> (manifests, installer_files)
+    for fmt, (group, yml_name) in FORMAT_GROUPS.items():
+        files = installers.get(fmt, [])
+        if not files:
+            continue
+        if yml_name in by_name:
+            manifests = [parse(p) for p in by_name[yml_name]]
+        else:
+            print(f"No '{yml_name}' manifest found; generating it from {fmt} installers")
+            manifests = [build_generated_manifest(files, None)]
+        group_manifests.setdefault(yml_name, []).extend(manifests)
+
+    if not group_manifests:
+        print("No installers or update manifests found under", root)
         return
 
-    for name, paths in sorted(by_name.items()):
-        if len(paths) == 1:
-            content = open(paths[0], encoding="utf-8", errors="replace").read()
-            manifests = [parse(paths[0])]
-        else:
-            manifests = [parse(p) for p in paths]
-            content = merge(manifests)
-        with open(os.path.join(outdir, name), "w", encoding="utf-8") as fh:
+    for yml_name in GROUP_ORDER:
+        manifests = group_manifests.get(yml_name)
+        if not manifests:
+            continue
+        version = next((v for v, _, _ in manifests if v), None)
+        by_url = {}
+        for _, _, entries in manifests:
+            for entry in entries:
+                by_url.setdefault(entry["url"], entry)
+        entries = sorted(by_url.values(), key=lambda e: e["url"])
+        release_date = max((rd for _, rd, _ in manifests if rd), default=None)
+        content = serialize(version, release_date, entries)
+
+        with open(os.path.join(outdir, yml_name), "w", encoding="utf-8") as fh:
             fh.write(content)
-        print(f"wrote {name} from {len(paths)} manifest(s): {', '.join(paths)}")
+        sources = by_name.get(yml_name, [])
+        print(f"wrote {yml_name} ({len(entries)} entr(ies); sources: {', '.join(sources) or 'generated'})")
         if do_copy:
-            copy_referenced_files(root, outdir, manifests)
+            copy_referenced_files(root, outdir, [(version, release_date, entries)])
 
 
 if __name__ == "__main__":
