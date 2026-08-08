@@ -1,7 +1,7 @@
 <div align="center">
-  <img src="shared/src/commonMain/composeResources/drawable/PaltaSound.png" alt="Logo de MusicApp" width="120" height="120">
+  <img src="shared/src/commonMain/composeResources/drawable/PaltaSound.png" alt="Logo de PaltaSound" width="120" height="120">
 
-  # MusicApp
+  # PaltaSound
 
   **Un reproductor de música de escritorio para YouTube Music — Windows (y Linux en _alpha_).**
 
@@ -20,7 +20,7 @@
 
   <br>
 
-  <img src="docs/screenshots/home.png" alt="Pantalla principal de MusicApp" width="90%">
+  <img src="docs/screenshots/home.png" alt="Pantalla principal de PaltaSound" width="90%">
 
 </div>
 
@@ -100,7 +100,7 @@ plataforma principal y la mejor soportada.
 problemas de dependencias). Instálalos con tu gestor de paquetes:
 
 ```bash
-# Debian / Ubuntu — libmpv2 is the actual client library MusicApp links against;
+# Debian / Ubuntu — libmpv2 is the actual client library PaltaSound links against;
 # the "mpv" package alone doesn't pull it in.
 sudo apt install mpv libmpv2 yt-dlp
 # Fedora
