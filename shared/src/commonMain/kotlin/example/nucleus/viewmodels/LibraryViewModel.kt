@@ -97,17 +97,14 @@ class LibraryViewModel(
         if (filter != null) loadYtmLibraryWithFilter(filter)
     }
 
-    val savedSongs = songRepository.getSavedSongs().map { it.map(::savedSongToSongItem) }
-        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
-
+    // Fuentes locales (SQLDelight). savedAlbums/savedPlaylists también las consume MusicOverlay.
     val savedAlbums = albumRepository.getSavedAlbums().map { it.map(::savedAlbumToAlbumItem) }
-        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
-
-    val savedArtists = artistRepository.getSavedArtists().map { it.map(::savedArtistToArtistItem) }
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     val savedPlaylists = playlistRepository.getSavedPlaylists().map { it.map(::savedPlaylistToPlaylistItem) }
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    private val savedArtists = artistRepository.getSavedArtists().map { it.map(::savedArtistToArtistItem) }
 
     val continuation = MutableStateFlow<String?>(null)
 
@@ -117,76 +114,51 @@ class LibraryViewModel(
     val ytmState: StateFlow<YtmLibraryState> = _ytmState.asStateFlow()
     private var ytmLibraryRequested = false
 
-    // ── Combined (local + YTM) → filtered → sorted ──────────
+    // ── Combinado (local + YTM) → filtrado → ordenado en UNA sola pasada ──
+    //
+    // Antes había hasta 5 StateFlow por categoría (saved*, ytm*, combined*, filtered*,
+    // sortedFiltered*), y cada stateIn retenía una copia completa de la lista en memoria.
+    // Ahora combine() calcula merged+filtrado+ordenado sobre la marcha y solo se persiste el
+    // resultado final (una copia por categoría). La pipeline de canciones (savedSongs→
+    // filteredSongs→sortedFilteredSongs) no la consume ninguna pantalla y se eliminó.
 
-    val filteredSongs = searchQuery.combine(savedSongs) { query, songs ->
-        if (query.isBlank()) songs else songs.filter { it.title.contains(query, ignoreCase = true) }
+    val sortedFilteredAlbums = combine(savedAlbums, ytmState, searchQuery, sortOrder) { local, ytm, query, order ->
+        mergedFilteredSorted(
+            local, (ytm as? YtmLibraryState.Success)?.albums.orEmpty(),
+            query, order, { it.id }, { it.title },
+        )
     }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
-    private val ytmAlbumsFlow = ytmState.map { (it as? YtmLibraryState.Success)?.albums.orEmpty() }
-        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
-
-    private val ytmArtistsFlow = ytmState.map { (it as? YtmLibraryState.Success)?.artists.orEmpty() }
-        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
-
-    private val ytmPlaylistsFlow = ytmState.map { (it as? YtmLibraryState.Success)?.playlists.orEmpty() }
-        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
-
-    private val combinedAlbums = savedAlbums.combine(ytmAlbumsFlow) { local, ytm ->
-        (local + ytm).distinctBy { it.id }
+    val sortedFilteredArtists = combine(savedArtists, ytmState, searchQuery, sortOrder) { local, ytm, query, order ->
+        mergedFilteredSorted(
+            local, (ytm as? YtmLibraryState.Success)?.artists.orEmpty(),
+            query, order, { it.id }, { it.title },
+        )
     }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
-    private val combinedArtists = savedArtists.combine(ytmArtistsFlow) { local, ytm ->
-        (local + ytm).distinctBy { it.id }
+    val sortedFilteredPlaylists = combine(savedPlaylists, ytmState, searchQuery, sortOrder) { local, ytm, query, order ->
+        mergedFilteredSorted(
+            local, (ytm as? YtmLibraryState.Success)?.playlists.orEmpty(),
+            query, order, { it.id }, { it.title },
+        )
     }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
-    private val combinedPlaylists = savedPlaylists.combine(ytmPlaylistsFlow) { local, ytm ->
-        (local + ytm).distinctBy { it.id }
-    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
-
-    val filteredAlbums = searchQuery.combine(combinedAlbums) { query, albums ->
-        if (query.isBlank()) albums else albums.filter { it.title.contains(query, ignoreCase = true) }
-    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
-
-    val filteredArtists = searchQuery.combine(combinedArtists) { query, artists ->
-        if (query.isBlank()) artists else artists.filter { it.title.contains(query, ignoreCase = true) }
-    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
-
-    val filteredPlaylists = searchQuery.combine(combinedPlaylists) { query, playlists ->
-        if (query.isBlank()) playlists else playlists.filter { it.title.contains(query, ignoreCase = true) }
-    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
-
-    val sortedFilteredAlbums = sortOrder.combine(filteredAlbums) { order, albums ->
-        when (order) {
-            LibrarySortOrder.NAME_ASC -> albums.sortedBy { it.title }
-            LibrarySortOrder.NAME_DESC -> albums.sortedByDescending { it.title }
-            LibrarySortOrder.DATE_ADDED -> albums
+    private fun <T> mergedFilteredSorted(
+        local: List<T>,
+        remote: List<T>,
+        query: String,
+        order: LibrarySortOrder,
+        idOf: (T) -> String,
+        titleOf: (T) -> String,
+    ): List<T> {
+        val merged = (local + remote).distinctBy(idOf)
+        val filtered = if (query.isBlank()) merged else merged.filter { titleOf(it).contains(query, ignoreCase = true) }
+        return when (order) {
+            LibrarySortOrder.NAME_ASC -> filtered.sortedBy(titleOf)
+            LibrarySortOrder.NAME_DESC -> filtered.sortedByDescending(titleOf)
+            LibrarySortOrder.DATE_ADDED -> filtered
         }
-    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
-
-    val sortedFilteredArtists = sortOrder.combine(filteredArtists) { order, artists ->
-        when (order) {
-            LibrarySortOrder.NAME_ASC -> artists.sortedBy { it.title }
-            LibrarySortOrder.NAME_DESC -> artists.sortedByDescending { it.title }
-            LibrarySortOrder.DATE_ADDED -> artists
-        }
-    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
-
-    val sortedFilteredPlaylists = sortOrder.combine(filteredPlaylists) { order, playlists ->
-        when (order) {
-            LibrarySortOrder.NAME_ASC -> playlists.sortedBy { it.title }
-            LibrarySortOrder.NAME_DESC -> playlists.sortedByDescending { it.title }
-            LibrarySortOrder.DATE_ADDED -> playlists
-        }
-    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
-
-    val sortedFilteredSongs = sortOrder.combine(filteredSongs) { order, songs ->
-        when (order) {
-            LibrarySortOrder.NAME_ASC -> songs.sortedBy { it.title }
-            LibrarySortOrder.NAME_DESC -> songs.sortedByDescending { it.title }
-            LibrarySortOrder.DATE_ADDED -> songs
-        }
-    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+    }
 
     init {
         // La biblioteca remota se solicita solo cuando el usuario abre Library, no al arrancar.
