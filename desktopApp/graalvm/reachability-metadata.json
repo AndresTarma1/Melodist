@@ -424,5 +424,17 @@
     ],
     "resources": [
         
-    ]
+    ],
+    "foreign": {
+        "downcalls": [
+            { "returnType": "void*", "parameterTypes": [] },
+            { "returnType": "int", "parameterTypes": ["void*"] },
+            { "returnType": "void", "parameterTypes": ["void*"] },
+            { "returnType": "void*", "parameterTypes": ["void*", "void*"] },
+            { "returnType": "int", "parameterTypes": ["void*", "void*"] },
+            { "returnType": "int", "parameterTypes": ["void*", "void*", "void*"] },
+            { "returnType": "int", "parameterTypes": ["void*", "jlong", "void*", "int"] },
+            { "returnType": "void*", "parameterTypes": ["void*", "double"] }
+        ]
+    }
 }

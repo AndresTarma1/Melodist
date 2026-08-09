@@ -91,6 +91,15 @@ fun main() = nucleusApplication(backend = NucleusBackend.Tao) {
             playerViewModel.primeVolume()
         }
 
+        // Validación experimental del binding FFM de mpv en el binario nativo:
+        // PALTASOUND_TEST_MPV=1 fuerza mpv_create/initialize al arranque. Si falla,
+        // runSafely escribe el error en startup.log. Solo activo con la env var.
+        if (System.getenv("PALTASOUND_TEST_MPV") == "1") {
+            PlatformCrashHandler.runSafely("mpv init test (FFM)") {
+                playerViewModel.initialize()
+            }
+        }
+
             java.awt.EventQueue.invokeLater {
                 PlatformCrashHandler.runSafely("Error iniciando WindowsMediaSession") {
                     val mediaSession = koin.get<WindowsMediaSession>()

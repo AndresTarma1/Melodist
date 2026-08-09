@@ -1,68 +1,112 @@
 package example.nucleus.player
 
 import example.nucleus.platform.Platform
-import com.sun.jna.Library
-import com.sun.jna.Native
-import com.sun.jna.Pointer
+import java.lang.foreign.Arena
+import java.lang.foreign.FunctionDescriptor
+import java.lang.foreign.Linker
+import java.lang.foreign.MemorySegment
+import java.lang.foreign.SegmentAllocator
+import java.lang.foreign.SymbolLookup
+import java.lang.foreign.ValueLayout
+import java.lang.invoke.MethodHandle
 import java.io.File
 import java.util.logging.Logger
 
-interface MpvLib : Library {
-    fun mpv_create(): Pointer?
-    fun mpv_initialize(handle: Pointer): Int
-    fun mpv_command(handle: Pointer, args: Array<String?>): Int
-    fun mpv_terminate_destroy(handle: Pointer)
-    fun mpv_set_property_string(handle: Pointer, name: String, value: String): Int
-    fun mpv_get_property_string(handle: Pointer, name: String): Pointer
-    fun mpv_free(data: Pointer)
+/**
+ * Binding de libmpv vía FFM (`java.lang.foreign`, JDK 22+) en lugar de JNA.
+ *
+ * Por qué FFM: JNA crea proxies dinámicos por reflexión en runtime, lo que NO funciona en
+ * GraalVM Native Image (mundo cerrado). FFM (downcalls con MethodHandle) sí compila y ejecuta
+ * en native-image. Esta es la única implementación usada por la app (JVM y nativa).
+ *
+ * Mantiene la MISMA superficie de API que el binding JNA anterior para minimizar los cambios
+ * en [MpvAudioPlayer]: mismas funciones, handle como [MemorySegment] en vez de Pointer.
+ */
+object MpvLib {
 
-    // --- API de eventos ---
-    /** Suscribirse a eventos de cambio para [name]; los eventos devuelven [replyUserdata]. */
-    fun mpv_observe_property(handle: Pointer, replyUserdata: Long, name: String, format: Int): Int
-    /** Bloquea hasta [timeout] segundos (negativo = indefinidamente) para el siguiente evento.
-     *  Devuelve un puntero a un mpv_event estático poseído por mpv (válido hasta el siguiente
-     *  mpv_wait_event en este handle). */
-    fun mpv_wait_event(handle: Pointer, timeout: Double): Pointer?
-    /** Interrumpe un mpv_wait_event bloqueante (se usa para desbloquear el hilo de eventos al cerrar). */
-    fun mpv_wakeup(handle: Pointer)
+    // mpv_event_id (client.h) — identificadores de eventos de mpv
+    const val MPV_EVENT_NONE = 0
+    const val MPV_EVENT_SHUTDOWN = 1
+    const val MPV_EVENT_END_FILE = 7
+    const val MPV_EVENT_FILE_LOADED = 8
+    const val MPV_EVENT_PLAYBACK_RESTART = 21
+    const val MPV_EVENT_PROPERTY_CHANGE = 22
 
-    companion object {
-        // mpv_event_id (client.h) — identificadores de eventos de mpv
-        const val MPV_EVENT_NONE = 0
-        const val MPV_EVENT_SHUTDOWN = 1
-        const val MPV_EVENT_END_FILE = 7
-        const val MPV_EVENT_FILE_LOADED = 8
-        const val MPV_EVENT_PLAYBACK_RESTART = 21
-        const val MPV_EVENT_PROPERTY_CHANGE = 22
+    // mpv_end_file_reason — razones de fin de archivo
+    const val MPV_END_FILE_REASON_EOF = 0
+    const val MPV_END_FILE_REASON_STOP = 2
+    const val MPV_END_FILE_REASON_QUIT = 3
+    const val MPV_END_FILE_REASON_ERROR = 4
+    const val MPV_END_FILE_REASON_REDIRECT = 5
 
-        // mpv_end_file_reason — razones de fin de archivo
-        const val MPV_END_FILE_REASON_EOF = 0
-        const val MPV_END_FILE_REASON_STOP = 2
-        const val MPV_END_FILE_REASON_QUIT = 3
-        const val MPV_END_FILE_REASON_ERROR = 4
-        const val MPV_END_FILE_REASON_REDIRECT = 5
+    // mpv_format — formatos de datos de mpv
+    const val MPV_FORMAT_NONE = 0
+    const val MPV_FORMAT_FLAG = 3
+    const val MPV_FORMAT_INT64 = 4
+    const val MPV_FORMAT_DOUBLE = 5
 
-        // mpv_format — formatos de datos de mpv
-        const val MPV_FORMAT_NONE = 0
-        const val MPV_FORMAT_FLAG = 3
-        const val MPV_FORMAT_INT64 = 4
-        const val MPV_FORMAT_DOUBLE = 5
+    private val log = Logger.getLogger("MpvLib")
 
-        private val log = Logger.getLogger("MpvLib")
+    // Arena global que mantiene viva la biblioteca cargada durante toda la vida de la app.
+    private val arena: Arena = Arena.ofShared()
+    private val linker: Linker = Linker.nativeLinker()
 
-        val INSTANCE: MpvLib by lazy {
-            if (Platform.isWindows) loadWindows() else loadUnix()
-        }
+    private val C_POINTER = ValueLayout.ADDRESS
+    private val C_INT = ValueLayout.JAVA_INT
+    private val C_LONG = ValueLayout.JAVA_LONG
+    private val C_DOUBLE = ValueLayout.JAVA_DOUBLE
 
-        /**
-         * Windows: libmpv está empaquetado como `libmpv-2.dll` junto a la aplicación; se apunta
-         * JNA a ese directorio y se carga por el nombre corto de JNA (se mapea a `libmpv-2.dll`).
-         */
-        private fun loadWindows(): MpvLib {
+    private val mpvCreate: MethodHandle
+    private val mpvInitialize: MethodHandle
+    private val mpvCommand: MethodHandle
+    private val mpvTerminateDestroy: MethodHandle
+    private val mpvSetPropertyString: MethodHandle
+    private val mpvGetPropertyString: MethodHandle
+    private val mpvFree: MethodHandle
+    private val mpvObserveProperty: MethodHandle
+    private val mpvWaitEvent: MethodHandle
+    private val mpvWakeup: MethodHandle
+
+    init {
+        val lookup = resolveLibrary()
+
+        fun bind(name: String, descriptor: FunctionDescriptor): MethodHandle =
+            linker.downcallHandle(
+                lookup.find(name).orElseThrow { UnsatisfiedLinkError("mpv symbol not found: $name") },
+                descriptor,
+            )
+
+        mpvCreate = bind("mpv_create", FunctionDescriptor.of(C_POINTER))
+        mpvInitialize = bind("mpv_initialize", FunctionDescriptor.of(C_INT, C_POINTER))
+        mpvCommand = bind("mpv_command", FunctionDescriptor.of(C_INT, C_POINTER, C_POINTER))
+        mpvTerminateDestroy = bind("mpv_terminate_destroy", FunctionDescriptor.ofVoid(C_POINTER))
+        mpvSetPropertyString = bind(
+            "mpv_set_property_string",
+            FunctionDescriptor.of(C_INT, C_POINTER, C_POINTER, C_POINTER),
+        )
+        mpvGetPropertyString = bind("mpv_get_property_string", FunctionDescriptor.of(C_POINTER, C_POINTER, C_POINTER))
+        mpvFree = bind("mpv_free", FunctionDescriptor.ofVoid(C_POINTER))
+        mpvObserveProperty = bind(
+            "mpv_observe_property",
+            FunctionDescriptor.of(C_INT, C_POINTER, C_LONG, C_POINTER, C_INT),
+        )
+        mpvWaitEvent = bind("mpv_wait_event", FunctionDescriptor.of(C_POINTER, C_POINTER, C_DOUBLE))
+        mpvWakeup = bind("mpv_wakeup", FunctionDescriptor.ofVoid(C_POINTER))
+    }
+
+    /**
+     * Resuelve y carga libmpv:
+     * - Windows: `libmpv-2.dll` empaquetado junto a la app (se busca en las carpetas habituales).
+     * - Linux/macOS: libmpv del sistema por ruta absoluta (versiones `libmpv.so.2` / `libmpv.2.dylib`).
+     * Devuelve el [SymbolLookup] para enlazar los símbolos.
+     */
+    private fun resolveLibrary(): SymbolLookup {
+        if (Platform.isWindows) {
             val userDir = File(System.getProperty("user.dir"))
             val rootDir = userDir.parentFile ?: userDir
             val resProp = System.getProperty("compose.application.resources.dir")
             val possibleDirs = mutableListOf(
+                userDir,                          // distributable nativo: DLL junto al exe
                 File(userDir, "resources"),
                 File(userDir, "app/resources"),
                 File(userDir, "app/app/resources"),
@@ -77,56 +121,110 @@ interface MpvLib : Library {
                 possibleDirs.add(File(resProp, "windows"))
             }
 
-            val libraryDir = possibleDirs.firstOrNull { File(it, "libmpv-2.dll").exists() }
-            if (libraryDir != null) {
-                System.setProperty("jna.library.path", libraryDir.absolutePath)
-                log.info("MpvLib: cargando libmpv desde ${libraryDir.absolutePath}")
-            } else {
-                log.warning(
-                    "MpvLib: no se encontró libmpv-2.dll en: ${possibleDirs.joinToString { it.absolutePath }}"
-                )
+            val dll = possibleDirs.map { File(it, "libmpv-2.dll") }.firstOrNull { it.exists() }
+            if (dll != null) {
+                log.info("MpvLib: cargando libmpv (FFM) desde ${dll.absolutePath}")
+                return SymbolLookup.libraryLookup(dll.absolutePath, arena)
             }
-
-            return Native.load("libmpv-2", MpvLib::class.java)
+            log.warning("MpvLib: no se encontró libmpv-2.dll en: ${possibleDirs.joinToString { it.absolutePath }}")
+            return SymbolLookup.libraryLookup("libmpv-2", arena)
         }
 
-        /**
-         * Linux/macOS: se prefiere el libmpv del sistema (mpv está empaquetado en cada distro;
-         * empaquetarlo es frágil debido a diferencias de glibc/dependencias). Las distribuciones
-         * incluyen `libmpv.so.2` versionado y solo añaden el enlace simbólico `libmpv.so` sin
-         * versión con el paquete `-dev`, por lo que se buscan primero los nombres versionados por
-         * ruta absoluta y luego se recurre a la resolución de nombres de JNA (que encuentra
-         * `libmpv.so` / `libmpv.dylib` cuando están presentes, por ejemplo vía LD_LIBRARY_PATH).
-         */
-        private fun loadUnix(): MpvLib {
-            val soNames = if (Platform.isMac)
-                listOf("libmpv.2.dylib", "libmpv.dylib")
-            else
-                listOf("libmpv.so.2", "libmpv.so.1", "libmpv.so")
+        // Linux/macOS: libmpv del sistema.
+        val soNames = if (Platform.isMac)
+            listOf("libmpv.2.dylib", "libmpv.dylib")
+        else
+            listOf("libmpv.so.2", "libmpv.so.1", "libmpv.so")
 
-            val searchDirs = listOf(
-                "/usr/lib/x86_64-linux-gnu", // Multiarquitectura Debian/Ubuntu
-                "/usr/lib64",                // Fedora/RHEL/openSUSE
-                "/usr/lib",
-                "/usr/local/lib",
-                "/opt/homebrew/lib",         // macOS arm64
-                "/usr/local/opt/mpv/lib",    // Keg de mpv en Homebrew de macOS
-                "/app/lib",                  // Flatpak
-            )
-
-            for (dir in searchDirs) {
-                for (name in soNames) {
-                    val f = File(dir, name)
-                    if (f.exists()) {
-                        log.info("MpvLib: cargando libmpv del sistema desde ${f.absolutePath}")
-                        return Native.load(f.absolutePath, MpvLib::class.java)
-                    }
+        val searchDirs = listOf(
+            "/usr/lib/x86_64-linux-gnu",
+            "/usr/lib64",
+            "/usr/lib",
+            "/usr/local/lib",
+            "/opt/homebrew/lib",
+            "/usr/local/opt/mpv/lib",
+            "/app/lib",
+        )
+        for (dir in searchDirs) {
+            for (name in soNames) {
+                val f = File(dir, name)
+                if (f.exists()) {
+                    log.info("MpvLib: cargando libmpv del sistema (FFM) desde ${f.absolutePath}")
+                    return SymbolLookup.libraryLookup(f.absolutePath, arena)
                 }
             }
-
-            // Último recurso: dejar que JNA resuelva "mpv" mediante el enlazador (LD_LIBRARY_PATH, rutas predeterminadas).
-            log.info("MpvLib: libmpv del sistema no encontrada en rutas conocidas; probando resolución por JNA")
-            return Native.load("mpv", MpvLib::class.java)
         }
+        log.info("MpvLib: libmpv del sistema no encontrada en rutas conocidas; probando resolución por nombre")
+        return SymbolLookup.libraryLookup(if (Platform.isMac) "mpv" else "mpv", arena)
+    }
+
+    // ── API pública (misma forma que el binding JNA) ──────────────────────────
+
+    /** Convierte [s] en una C-string NUL-terminada en [allocator] (compatible JDK 21+). */
+    private fun SegmentAllocator.utf8(s: String): MemorySegment {
+        val bytes = s.toByteArray(Charsets.UTF_8)
+        val seg = allocate(bytes.size + 1L)
+        bytes.forEachIndexed { i, b -> seg.set(ValueLayout.JAVA_BYTE, i.toLong(), b) }
+        seg.set(ValueLayout.JAVA_BYTE, bytes.size.toLong(), 0.toByte())
+        return seg
+    }
+
+    fun mpv_create(): MemorySegment? {
+        val seg = mpvCreate.invokeWithArguments() as MemorySegment
+        return if (seg.address() == 0L) null else seg
+    }
+
+    fun mpv_initialize(handle: MemorySegment): Int =
+        mpvInitialize.invokeWithArguments(handle) as Int
+
+    /** [args] es una lista de argumentos terminada en null (el array se copia en una arena confinada). */
+    fun mpv_command(handle: MemorySegment, args: Array<String?>) {
+        Arena.ofConfined().use { a ->
+            val arr = a.allocate(C_POINTER, (args.size + 1).toLong())
+            args.forEachIndexed { i, s ->
+                val p: MemorySegment = if (s != null) a.utf8(s) else MemorySegment.NULL
+                arr.set(C_POINTER, (i * C_POINTER.byteSize()).toLong(), p)
+            }
+            mpvCommand.invokeWithArguments(handle, arr)
+        }
+    }
+
+    fun mpv_terminate_destroy(handle: MemorySegment) {
+        mpvTerminateDestroy.invokeWithArguments(handle)
+    }
+
+    fun mpv_set_property_string(handle: MemorySegment, name: String, value: String): Int =
+        Arena.ofConfined().use { a ->
+            mpvSetPropertyString.invokeWithArguments(
+                handle,
+                a.utf8(name),
+                a.utf8(value),
+            ) as Int
+        }
+
+    /** Devuelve un segmento apuntando a la cadena nativa; hay que liberarlo con [mpv_free]. */
+    fun mpv_get_property_string(handle: MemorySegment, name: String): MemorySegment? =
+        Arena.ofConfined().use { a ->
+            val seg = mpvGetPropertyString.invokeWithArguments(handle, a.utf8(name)) as MemorySegment
+            if (seg.address() == 0L) null else seg
+        }
+
+    fun mpv_free(data: MemorySegment) {
+        mpvFree.invokeWithArguments(data)
+    }
+
+    fun mpv_observe_property(handle: MemorySegment, replyUserdata: Long, name: String, format: Int): Int =
+        Arena.ofConfined().use { a ->
+            mpvObserveProperty.invokeWithArguments(handle, replyUserdata, a.utf8(name), format) as Int
+        }
+
+    /** Bloquea hasta [timeout] segundos (negativo = indefinidamente). Devuelve null en error/fin. */
+    fun mpv_wait_event(handle: MemorySegment, timeout: Double): MemorySegment? {
+        val seg = mpvWaitEvent.invokeWithArguments(handle, timeout) as MemorySegment
+        return if (seg.address() == 0L) null else seg
+    }
+
+    fun mpv_wakeup(handle: MemorySegment) {
+        mpvWakeup.invokeWithArguments(handle)
     }
 }

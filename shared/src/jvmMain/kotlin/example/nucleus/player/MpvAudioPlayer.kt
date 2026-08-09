@@ -1,7 +1,8 @@
 package example.nucleus.player
 
 import example.nucleus.platform.Platform
-import com.sun.jna.Pointer
+import java.lang.foreign.MemorySegment
+import java.lang.foreign.ValueLayout
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -13,7 +14,7 @@ import kotlin.time.Duration.Companion.milliseconds
 
 class MpvAudioPlayer {
     private val log = Logger.getLogger("MpvAudioPlayer")
-    private var handle: Pointer? = null
+    private var handle: MemorySegment? = null
 
     // Ajustes de audio solicitados antes de que exista el handle nativo (init diferido/perezoso
     // de mpv) — se almacenan aquí y se reaplican en init() para no perder nada.
@@ -48,11 +49,11 @@ class MpvAudioPlayer {
      * @return El valor de la propiedad como cadena, o `null` si el handle no está inicializado o la propiedad no está disponible.
      */
     private fun getMpvPropertyString(name: String): String? {
-        val ptr = handle?.let { MpvLib.INSTANCE.mpv_get_property_string(it, name) } ?: return null
+        val ptr = handle?.let { MpvLib.mpv_get_property_string(it, name) } ?: return null
         return try {
-            ptr.getString(0L)
+            ptr.reinterpret(1024).getString(0)
         } finally {
-            MpvLib.INSTANCE.mpv_free(ptr)
+            MpvLib.mpv_free(ptr)
         }
     }
 
@@ -69,38 +70,38 @@ class MpvAudioPlayer {
     fun init() {
         if (handle != null) return
         try {
-            handle = MpvLib.INSTANCE.mpv_create()
+            handle = MpvLib.mpv_create()
             handle?.let {
                 // Siempre pasamos URLs de flujo directo completamente resueltas; no dejamos que mpv
                 // invoque yt-dlp (su fallback ytdl_hook lanza yt-dlp al fallar la apertura,
                 // añadiendo latencia/ruido).
-                MpvLib.INSTANCE.mpv_set_property_string(it, "ytdl", "no")
+                MpvLib.mpv_set_property_string(it, "ytdl", "no")
 
                 // Configuraciones críticas para estabilidad
-                MpvLib.INSTANCE.mpv_set_property_string(it, "video", "no")
-                MpvLib.INSTANCE.mpv_set_property_string(it, "audio-display", "no")
-                MpvLib.INSTANCE.mpv_set_property_string(it, "audio-channels", "stereo")
+                MpvLib.mpv_set_property_string(it, "video", "no")
+                MpvLib.mpv_set_property_string(it, "audio-display", "no")
+                MpvLib.mpv_set_property_string(it, "audio-channels", "stereo")
                 // WASAPI es solo para Windows — forzarlo en Linux/macOS falla silenciosamente al
                 // abrir un dispositivo de audio (mpv_initialize tiene éxito, pero la reproducción
                 // se bloquea esperando uno que nunca se abre, sin error aparente). En otros
                 // sistemas, dejar "ao" sin configurar: la autodetección de mpv
                 // (pipewire/pulse/alsa, o coreaudio en macOS) es más robusta que adivinar un backend.
                 if (Platform.isWindows) {
-                    MpvLib.INSTANCE.mpv_set_property_string(it, "ao", "wasapi")
+                    MpvLib.mpv_set_property_string(it, "ao", "wasapi")
                 }
 
-                MpvLib.INSTANCE.mpv_set_property_string(it, "initial-audio-sync", "no")
-                MpvLib.INSTANCE.mpv_set_property_string(it, "hr-seek", "no")
+                MpvLib.mpv_set_property_string(it, "initial-audio-sync", "no")
+                MpvLib.mpv_set_property_string(it, "hr-seek", "no")
 
-                MpvLib.INSTANCE.mpv_initialize(it)
+                MpvLib.mpv_initialize(it)
 
 // 3. Límites de memoria y control de búfer optimizado
-                MpvLib.INSTANCE.mpv_set_property_string(it, "cache", "yes")
-                MpvLib.INSTANCE.mpv_set_property_string(it, "cache-secs", "10") // Caché de tiempo corto para arrancar rápido
-                MpvLib.INSTANCE.mpv_set_property_string(it, "demuxer-max-bytes", "10485760") // 10 MiB
-                MpvLib.INSTANCE.mpv_set_property_string(it, "demuxer-max-back-bytes", "2097152") // 2 MiB
+                MpvLib.mpv_set_property_string(it, "cache", "yes")
+                MpvLib.mpv_set_property_string(it, "cache-secs", "10") // Caché de tiempo corto para arrancar rápido
+                MpvLib.mpv_set_property_string(it, "demuxer-max-bytes", "10485760") // 10 MiB
+                MpvLib.mpv_set_property_string(it, "demuxer-max-back-bytes", "2097152") // 2 MiB
 
-                MpvLib.INSTANCE.mpv_set_property_string(it, "cache-pause", "yes")
+                MpvLib.mpv_set_property_string(it, "cache-pause", "yes")
 
                 startEventLoop(it)
             }
@@ -122,17 +123,18 @@ class MpvAudioPlayer {
      *  - la señal de fin natural de la pista ([ended]) — reemplaza la heurística pos≈dur,
      *  - el estado real de reproducción ([_isPlaying]).
      */
-    private fun startEventLoop(h: Pointer) {
+    private fun startEventLoop(h: MemorySegment) {
         if (eventThread != null) return
         eventLoopRunning = true
         eventThread = Thread({
             while (eventLoopRunning) {
                 val evPtr = try {
-                    MpvLib.INSTANCE.mpv_wait_event(h, -1.0)
+                    MpvLib.mpv_wait_event(h, -1.0)
                 } catch (e: Throwable) {
                     null
                 } ?: continue
-                when (evPtr.getInt(0)) { // event_id @ offset 0
+                val ev = evPtr.reinterpret(64) // mpv_event: event_id(4)+error(4)+reply_userdata(8)+data(8)
+                when (ev.get(ValueLayout.JAVA_INT, 0L)) { // event_id @ offset 0
                     MpvLib.MPV_EVENT_SHUTDOWN -> eventLoopRunning = false
 
                     MpvLib.MPV_EVENT_PLAYBACK_RESTART -> {
@@ -144,7 +146,12 @@ class MpvAudioPlayer {
 
                     MpvLib.MPV_EVENT_END_FILE -> {
                         // datos en offset 16 -> mpv_event_end_file; la razón es su primer int.
-                        val reason = evPtr.getPointer(16)?.getInt(0) ?: -1
+                        val dataPtr = ev.get(ValueLayout.ADDRESS, 16L)
+                        val reason = if (dataPtr.address() != 0L) {
+                            dataPtr.reinterpret(16).get(ValueLayout.JAVA_INT, 0L)
+                        } else {
+                            -1
+                        }
                         when (reason) {
                             MpvLib.MPV_END_FILE_REASON_ERROR -> {
                                 _isPlaying.value = false
@@ -184,10 +191,10 @@ class MpvAudioPlayer {
             _isPlaying.value = false
             openUriJob = scope.launch {
                 withContext(Dispatchers.IO) {
-                    MpvLib.INSTANCE.mpv_set_property_string(h, "user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:140.0) Gecko/20100101 Firefox/140.0")
-                    MpvLib.INSTANCE.mpv_set_property_string(h, "referrer", "https://music.youtube.com")
-                    MpvLib.INSTANCE.mpv_command(h, arrayOf("loadfile", uri, "replace", null))
-                    MpvLib.INSTANCE.mpv_set_property_string(h, "pause", "no")
+                    MpvLib.mpv_set_property_string(h, "user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:140.0) Gecko/20100101 Firefox/140.0")
+                    MpvLib.mpv_set_property_string(h, "referrer", "https://music.youtube.com")
+                    MpvLib.mpv_command(h, arrayOf("loadfile", uri, "replace", null))
+                    MpvLib.mpv_set_property_string(h, "pause", "no")
                 }
             }
         }
@@ -208,21 +215,21 @@ class MpvAudioPlayer {
      */
     fun play() {
         handle?.let {
-            MpvLib.INSTANCE.mpv_set_property_string(it, "pause", "no")
+            MpvLib.mpv_set_property_string(it, "pause", "no")
             _isPlaying.value = true
         }
     }
 
     fun pause() {
         handle?.let {
-            MpvLib.INSTANCE.mpv_set_property_string(it, "pause", "yes")
+            MpvLib.mpv_set_property_string(it, "pause", "yes")
             _isPlaying.value = false
         }
     }
 
     fun stop() {
         handle?.let {
-            MpvLib.INSTANCE.mpv_command(it, arrayOf("stop", null))
+            MpvLib.mpv_command(it, arrayOf("stop", null))
             _isPlaying.value = false
         }
     }
@@ -230,7 +237,7 @@ class MpvAudioPlayer {
     fun seekTo(percent: Float) {
         handle?.let {
             val position = (percent * 100).coerceIn(0f, 100f)
-            MpvLib.INSTANCE.mpv_command(it, arrayOf("seek", "$position", "absolute-percent", null))
+            MpvLib.mpv_command(it, arrayOf("seek", "$position", "absolute-percent", null))
         }
     }
 
@@ -241,7 +248,7 @@ class MpvAudioPlayer {
         set(value) {
             handle?.let {
                 val vol = (value * 100).toInt().coerceIn(0, 100)
-                MpvLib.INSTANCE.mpv_set_property_string(it, "volume", "$vol")
+                MpvLib.mpv_set_property_string(it, "volume", "$vol")
             }
         }
 
@@ -249,14 +256,14 @@ class MpvAudioPlayer {
         val clamped = value.coerceIn(0.25f, 3f)
         lastSpeed = clamped
         handle?.let {
-            MpvLib.INSTANCE.mpv_set_property_string(it, "speed", clamped.toString())
+            MpvLib.mpv_set_property_string(it, "speed", clamped.toString())
         }
     }
 
     fun setGaplessAudio(enabled: Boolean) {
         lastGapless = enabled
         handle?.let {
-            MpvLib.INSTANCE.mpv_set_property_string(it, "gapless-audio", if (enabled) "yes" else "no")
+            MpvLib.mpv_set_property_string(it, "gapless-audio", if (enabled) "yes" else "no")
         }
     }
 
@@ -270,10 +277,10 @@ class MpvAudioPlayer {
             }.joinToString(";")
 
             if (bands.all { it == 0f }) {
-                MpvLib.INSTANCE.mpv_set_property_string(mpv, "af", "")
+                MpvLib.mpv_set_property_string(mpv, "af", "")
             } else {
                 val filter = "lavfi=[firequalizer=gain='cubic_interpolate(f)':gain_entry='$entries']"
-                MpvLib.INSTANCE.mpv_set_property_string(mpv, "af", filter)
+                MpvLib.mpv_set_property_string(mpv, "af", filter)
             }
         }
     }
@@ -292,9 +299,9 @@ class MpvAudioPlayer {
         openUriJob?.cancel()
         eventLoopRunning = false
         handle?.let {
-            MpvLib.INSTANCE.mpv_wakeup(it) // desbloquear el mpv_wait_event del hilo de eventos
+            MpvLib.mpv_wakeup(it) // desbloquear el mpv_wait_event del hilo de eventos
             eventThread = null
-            MpvLib.INSTANCE.mpv_terminate_destroy(it)
+            MpvLib.mpv_terminate_destroy(it)
             handle = null
         }
         scope.cancel()
