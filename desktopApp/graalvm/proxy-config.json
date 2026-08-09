@@ -1,0 +1,7 @@
+[
+    {
+        "interfaces": [
+            "example.nucleus.windows.WindowsThumbBar$User32X"
+        ]
+    }
+]

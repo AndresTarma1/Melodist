@@ -295,6 +295,9 @@
             "type": "example.nucleus.windows.WindowsThumbBar$wndProc$1"
         },
         {
+            "type": "example.nucleus.windows.WindowsThumbBar$User32X"
+        },
+        {
             "type": "java.lang.Object",
             "jniAccessible": true,
             "methods": [
