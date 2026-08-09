@@ -423,7 +423,9 @@
         }
     ],
     "resources": [
-        
+        {
+            "glob": "thumbbar/**"
+        }
     ],
     "foreign": {
         "downcalls": [

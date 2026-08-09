@@ -184,6 +184,9 @@ nucleus.application {
         buildArgs.add("-Djava.awt.headless=false")
         // SLF4J termina en el image heap durante el build (doc de Nucleus: paquete completo).
         buildArgs.add("--initialize-at-build-time=org.slf4j")
+        // Iconos del thumbbar: incluir los .ico como recursos del image heap para que
+        // getResourceAsStream("/thumbbar/...") funcione en el binario nativo.
+        buildArgs.add("-H:IncludeResources=thumbbar/.*")
         // Heap del binario nativo acotado (objetivo RAM); Serial GC por defecto.
         maxHeapSize = "320m"
     }

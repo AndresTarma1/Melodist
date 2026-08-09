@@ -3,14 +3,16 @@ package example.nucleus.windows
 import com.sun.jna.Function
 import com.sun.jna.Native
 import com.sun.jna.Pointer
-import com.sun.jna.WString
 import com.sun.jna.Structure
+import com.sun.jna.win32.StdCallLibrary
+import com.sun.jna.WString
 import com.sun.jna.platform.win32.Guid
 import com.sun.jna.platform.win32.Ole32
 import com.sun.jna.ptr.PointerByReference
-import com.sun.jna.win32.StdCallLibrary
 import io.github.aakira.napier.Napier
 import java.io.File
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 
 /**
  * Barra de miniaturas de la tarea de Windows (ITaskbarList3) — agrega botones de Anterior / Reproducir-Pausar / Siguiente
@@ -53,6 +55,11 @@ class WindowsThumbBar(
         private val IID_ITaskbarList3 = Guid.GUID.fromString("{EA1AFB91-9E28-4B86-90E9-9E9F8A5EEFAF}")
     }
 
+    /** Procedimiento de ventana subclasificado: captura clics en los botones de miniaturas, reenvía el resto. */
+    interface WndProc : StdCallLibrary.StdCallCallback {
+        fun callback(hWnd: Pointer, uMsg: Int, wParam: Pointer?, lParam: Pointer?): Pointer?
+    }
+
     private interface User32X : StdCallLibrary {
         fun LoadImageW(hinst: Pointer?, name: WString, type: Int, cx: Int, cy: Int, fuLoad: Int): Pointer?
         fun SetWindowLongPtrW(hWnd: Pointer, nIndex: Int, dwNewLong: WndProc): Pointer?
@@ -61,11 +68,6 @@ class WindowsThumbBar(
         companion object {
             val INSTANCE: User32X = Native.load("user32", User32X::class.java)
         }
-    }
-
-    /** Procedimiento de ventana subclasificado: captura clics en los botones de miniaturas, reenvía el resto. */
-    interface WndProc : StdCallLibrary.StdCallCallback {
-        fun callback(hWnd: Pointer, uMsg: Int, wParam: Pointer?, lParam: Pointer?): Pointer?
     }
 
     @Structure.FieldOrder("dwMask", "iId", "iBitmap", "hIcon", "szTip", "dwFlags")
@@ -121,6 +123,13 @@ class WindowsThumbBar(
                 Napier.w("[thumbbar] no window handle"); return
             }
             val handle = Pointer(hwnd)
+            // Restaurar desde el tray recrea el botón de taskbar, pero no la ventana.
+            // Conservamos el subclass y el objeto COM y simplemente volvemos a agregar botones.
+            if (this.hwnd?.equals(handle) == true && taskbar != null) {
+                buttonsAdded = false
+                safe { addButtons() }
+                return
+            }
             this.hwnd = handle
             Ole32.INSTANCE.CoInitializeEx(Pointer.NULL, COINIT_APARTMENTTHREADED)
             val ref = PointerByReference()
@@ -195,15 +204,30 @@ class WindowsThumbBar(
     }
 
     private fun loadIcon(name: String): Pointer? = runCatching {
-        // Ruta fija y reutilizada en lugar de un createTempFile() nuevo por cada ejecución: deleteOnExit()
-        // solo se ejecuta en un apagado limpio de la JVM, por lo que un nombre único por ejecución dejaba
-        // archivos .ico huérfanos en %TEMP% cada vez que la app se cerraba de forma forzada (detención desde IDE, cierre inesperado, administrador de tareas).
+        // Extraer siempre el recurso: el ejecutable nativo puede tener un archivo temporal
+        // antiguo o incompleto de una ejecución anterior.
         val tmp = File(System.getProperty("java.io.tmpdir"), "musicplayer-thb-$name.ico")
-        if (!tmp.exists()) {
-            javaClass.getResourceAsStream("/thumbbar/$name.ico")?.use { input ->
-                tmp.outputStream().use { input.copyTo(it) }
-            } ?: return@runCatching null
+        val resourcePath = "/thumbbar/$name.ico"
+        (javaClass.getResourceAsStream(resourcePath)
+            ?: javaClass.classLoader.getResourceAsStream("thumbbar/$name.ico"))?.use { input ->
+            Files.copy(input, tmp.toPath(), StandardCopyOption.REPLACE_EXISTING)
+        } ?: run {
+            Napier.w("[thumbbar] resource missing: $resourcePath")
+            return@runCatching null
         }
-        User32X.INSTANCE.LoadImageW(null, WString(tmp.absolutePath), IMAGE_ICON, 0, 0, LR_LOADFROMFILE or LR_DEFAULTSIZE)
-    }.getOrNull()
+        val icon = User32X.INSTANCE.LoadImageW(
+            null,
+            WString(tmp.absolutePath),
+            IMAGE_ICON,
+            0,
+            0,
+            LR_LOADFROMFILE or LR_DEFAULTSIZE,
+        )
+        if (icon == null || Pointer.nativeValue(icon) == 0L) {
+            Napier.w("[thumbbar] LoadImageW failed for ${tmp.absolutePath}")
+            null
+        } else {
+            icon
+        }
+    }.onFailure { Napier.w("[thumbbar] icon $name failed: ${it.message}") }.getOrNull()
 }

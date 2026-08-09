@@ -345,7 +345,8 @@ fun NucleusApplicationScope.App(
                         }
 
                         if (isWindows) {
-                            LaunchedEffect(Unit) {
+                            LaunchedEffect(isVisible) {
+                                if (!isVisible) return@LaunchedEffect
                                 var attempts = 0
                                 while (nucleusWindow.unsafe.taoWindow?.nativeHandle == 0L && attempts++ < 100) {
                                     delay(50.milliseconds)

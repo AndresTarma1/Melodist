@@ -1231,43 +1231,51 @@ class PlayerViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             _currentLyrics.value = null
             _syncedLyrics.value = null
+            try {
+                withTimeout(20_000L) {
+                    val artist = song.artists.joinToString(", ") { it.name }
+                    val album = song.album?.title
 
-            val artist = song.artists.joinToString(", ") { it.name }
-            val album = song.album?.title
+                    // Intentar proveedores sincronizados en orden de fiabilidad. El primer LRC utilizable gana.
+                    //   1) LrcLib  — gratuito, confiable, sincronizado por líneas
+                    //   2) KuGou   — sincronizado por líneas
+                    //   3) BetterLyrics — sincronizado por palabras
+                    val lrc = runCatching { LrcLib.getLyrics(song.title, artist, song.duration, album).getOrNull() }.getOrNull()
+                        ?: runCatching { KuGou.getLyrics(song.title, artist, song.duration, album).getOrNull() }.getOrNull()
+                        ?: runCatching { BetterLyrics.getLyrics(song.title, artist, song.duration, album) }.getOrNull()
 
-            // Intentar proveedores sincronizados en orden de fiabilidad. El primer LRC utilizable gana.
-            //   1) LrcLib  — gratuito, confiable, sincronizado por líneas
-            //   2) KuGou   — sincronizado por líneas
-            //   3) BetterLyrics — sincronizado por palabras (mejor UX, pero puede requerir autenticación/no estar disponible)
-            val lrc = runCatching { LrcLib.getLyrics(song.title, artist, song.duration, album).getOrNull() }.getOrNull()
-                ?: runCatching { KuGou.getLyrics(song.title, artist, song.duration, album).getOrNull() }.getOrNull()
-                ?: runCatching { BetterLyrics.getLyrics(song.title, artist, song.duration, album) }.getOrNull()
+                    if (lrc != null) {
+                        if (SyncedLyrics.isSynced(lrc)) {
+                            val parsed = SyncedLyrics.parse(lrc)
+                            if (parsed.isNotEmpty()) {
+                                _syncedLyrics.value = parsed
+                                _currentLyrics.value = parsed.joinToString("\n") { it.text }
+                                return@withTimeout
+                            }
+                        }
+                        // LRC plano sin marcas de tiempo — mostrar como texto.
+                        _currentLyrics.value = lrc
+                        return@withTimeout
+                    }
 
-            if (lrc != null) {
-                if (SyncedLyrics.isSynced(lrc)) {
-                    val parsed = SyncedLyrics.parse(lrc)
-                    if (parsed.isNotEmpty()) {
-                        _syncedLyrics.value = parsed
-                        _currentLyrics.value = parsed.joinToString("\n") { it.text }
-                        return@launch
+                    // Recurrir a las letras de YouTube.
+                    val nextResult = YouTube.next(WatchEndpoint(videoId = song.id)).getOrNull() ?: return@withTimeout
+                    val endpoint = nextResult.lyricsEndpoint ?: return@withTimeout
+                    val lyrics = YouTube.lyrics(endpoint).getOrNull()
+                    _currentLyrics.value = lyrics
+                    if (lyrics != null && SyncedLyrics.isSynced(lyrics)) {
+                        _syncedLyrics.value = SyncedLyrics.parse(lyrics).takeIf { it.isNotEmpty() }
                     }
                 }
-                // LRC plano sin marcas de tiempo — mostrar como texto.
-                _currentLyrics.value = lrc
-                return@launch
-            }
-
-            // Recurrir a las letras de YouTube (usualmente texto plano, ocasionalmente LRC).
-            try {
-                val nextResult = YouTube.next(WatchEndpoint(videoId = song.id)).getOrNull() ?: return@launch
-                val endpoint = nextResult.lyricsEndpoint ?: return@launch
-                val lyrics = YouTube.lyrics(endpoint).getOrNull()
-                _currentLyrics.value = lyrics
-                if (lyrics != null && SyncedLyrics.isSynced(lyrics)) {
-                    _syncedLyrics.value = SyncedLyrics.parse(lyrics).takeIf { it.isNotEmpty() }
-                }
-            } catch (_: Exception) {
-                _currentLyrics.value = null
+            } catch (_: TimeoutCancellationException) {
+                Napier.w("Lyrics lookup timed out for ${song.id}")
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Napier.w("Lyrics lookup failed for ${song.id}: ${e.message}")
+            } finally {
+                // null means loading in the UI; always finish with an explicit empty result.
+                if (_currentLyrics.value == null) _currentLyrics.value = ""
             }
         }
     }
