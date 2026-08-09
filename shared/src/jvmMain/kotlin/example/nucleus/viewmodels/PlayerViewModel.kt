@@ -1240,9 +1240,17 @@ class PlayerViewModel(
                     //   1) LrcLib  — gratuito, confiable, sincronizado por líneas
                     //   2) KuGou   — sincronizado por líneas
                     //   3) BetterLyrics — sincronizado por palabras
-                    val lrc = runCatching { LrcLib.getLyrics(song.title, artist, song.duration, album).getOrNull() }.getOrNull()
-                        ?: runCatching { KuGou.getLyrics(song.title, artist, song.duration, album).getOrNull() }.getOrNull()
-                        ?: runCatching { BetterLyrics.getLyrics(song.title, artist, song.duration, album) }.getOrNull()
+                    suspend fun <T> attempt(block: suspend () -> T): T? = try {
+                        block()
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (_: Exception) {
+                        null
+                    }
+
+                    val lrc = attempt { LrcLib.getLyrics(song.title, artist, song.duration, album).getOrNull() }
+                        ?: attempt { KuGou.getLyrics(song.title, artist, song.duration, album).getOrNull() }
+                        ?: attempt { BetterLyrics.getLyrics(song.title, artist, song.duration, album) }
 
                     if (lrc != null) {
                         if (SyncedLyrics.isSynced(lrc)) {
