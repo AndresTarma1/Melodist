@@ -3,5 +3,10 @@
         "interfaces": [
             "example.nucleus.windows.WindowsThumbBar$User32X"
         ]
+    },
+    {
+        "interfaces": [
+            "dev.toastbits.mediasession.smtc.SMTCAdapterLibrary"
+        ]
     }
 ]

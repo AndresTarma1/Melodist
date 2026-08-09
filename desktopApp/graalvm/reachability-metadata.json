@@ -241,7 +241,215 @@
             "type": "dev.nucleusframework.window.tao.event.TaoSyntheticMouseWheelEvent$source$1"
         },
         {
-            "type": "dev.toastbits.mediasession.smtc.Callback1"
+            "type": "dev.toastbits.mediasession.smtc.SMTCAdapterLibrary",
+            "allDeclaredMethods": true,
+            "methods": [
+                {
+                    "name": "init",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "setOnPause",
+                    "parameterTypes": [
+                        "dev.toastbits.mediasession.smtc.Callback1"
+                    ]
+                },
+                {
+                    "name": "setOnStop",
+                    "parameterTypes": [
+                        "dev.toastbits.mediasession.smtc.Callback1"
+                    ]
+                },
+                {
+                    "name": "setOnPlay",
+                    "parameterTypes": [
+                        "dev.toastbits.mediasession.smtc.Callback1"
+                    ]
+                },
+                {
+                    "name": "setOnNext",
+                    "parameterTypes": [
+                        "dev.toastbits.mediasession.smtc.Callback1"
+                    ]
+                },
+                {
+                    "name": "setOnPrevious",
+                    "parameterTypes": [
+                        "dev.toastbits.mediasession.smtc.Callback1"
+                    ]
+                },
+                {
+                    "name": "setOnSeek",
+                    "parameterTypes": [
+                        "dev.toastbits.mediasession.smtc.CallbackSeek"
+                    ]
+                },
+                {
+                    "name": "setOnRateChanged",
+                    "parameterTypes": [
+                        "dev.toastbits.mediasession.smtc.CallbackRate"
+                    ]
+                },
+                {
+                    "name": "setOnLoopChanged",
+                    "parameterTypes": [
+                        "dev.toastbits.mediasession.smtc.CallbackLoop"
+                    ]
+                },
+                {
+                    "name": "setOnShuffleChanged",
+                    "parameterTypes": [
+                        "dev.toastbits.mediasession.smtc.CallbackShuffle"
+                    ]
+                },
+                {
+                    "name": "setMusicTitle",
+                    "parameterTypes": [
+                        "java.lang.String"
+                    ]
+                },
+                {
+                    "name": "setMusicArtist",
+                    "parameterTypes": [
+                        "java.lang.String"
+                    ]
+                },
+                {
+                    "name": "setMusicAlbumTitle",
+                    "parameterTypes": [
+                        "java.lang.String"
+                    ]
+                },
+                {
+                    "name": "setMusicAlbumArtist",
+                    "parameterTypes": [
+                        "java.lang.String"
+                    ]
+                },
+                {
+                    "name": "setThumbnail",
+                    "parameterTypes": [
+                        "java.lang.String",
+                        "boolean"
+                    ]
+                },
+                {
+                    "name": "setTimelineProperties",
+                    "parameterTypes": [
+                        "long",
+                        "long",
+                        "long",
+                        "long"
+                    ]
+                },
+                {
+                    "name": "setPosition",
+                    "parameterTypes": [
+                        "long"
+                    ]
+                },
+                {
+                    "name": "setPlaybackState",
+                    "parameterTypes": [
+                        "int"
+                    ]
+                },
+                {
+                    "name": "setEnabled",
+                    "parameterTypes": [
+                        "boolean"
+                    ]
+                },
+                {
+                    "name": "update",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "reset",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "revokeCallbacks",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "setMediaType",
+                    "parameterTypes": [
+                        "int"
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "dev.toastbits.mediasession.smtc.SMTCAdapter",
+            "allDeclaredMethods": true
+        },
+        {
+            "type": "dev.toastbits.mediasession.smtc.Callback1",
+            "methods": [
+                {
+                    "name": "callback",
+                    "parameterTypes": [
+                        "java.lang.Integer"
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "dev.toastbits.mediasession.smtc.CallbackSeek",
+            "methods": [
+                {
+                    "name": "callback",
+                    "parameterTypes": [
+                        "long",
+                        "java.lang.Integer"
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "dev.toastbits.mediasession.smtc.CallbackRate",
+            "methods": [
+                {
+                    "name": "callback",
+                    "parameterTypes": [
+                        "float",
+                        "java.lang.Integer"
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "dev.toastbits.mediasession.smtc.CallbackLoop",
+            "methods": [
+                {
+                    "name": "callback",
+                    "parameterTypes": [
+                        "int",
+                        "java.lang.Integer"
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "dev.toastbits.mediasession.smtc.CallbackShuffle",
+            "methods": [
+                {
+                    "name": "callback",
+                    "parameterTypes": [
+                        "boolean",
+                        "java.lang.Integer"
+                    ]
+                }
+            ]
         },
         {
             "type": "example.nucleus.windows.WindowsThumbBar$THUMBBUTTON",
