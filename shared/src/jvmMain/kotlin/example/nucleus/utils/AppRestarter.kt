@@ -24,8 +24,8 @@ object AppRestarter {
         "-XX:CICompilerCount=2",
         "-XX:ActiveProcessorCount=4",
         "-Xss768k",
-        "-Dkotlinx.coroutines.io.parallelism=8",
-        "-Dskiko.gpu.resourceCacheLimit=64M",
+        "-Dkotlinx.coroutines.io.parallelism=16",
+        "-Dskiko.gpu.resourceCacheLimit=128M",
         "-Dskiko.buffering=DOUBLE",
         "-Dskiko.vsync.enabled=true",
     )

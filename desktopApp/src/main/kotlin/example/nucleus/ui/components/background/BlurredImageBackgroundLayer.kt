@@ -132,9 +132,9 @@ fun BackgroundWithBlur(
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),
-                    // El blur de 99dp suaviza todo detalle: decodificar a 256px ahorra ~3 MB por
-                    // bitmap vs 512px sin pérdida visual apreciable en el fondo.
-                    coilSizeOverride = 256,
+                    // El blur de 99dp suaviza todo detalle: decodificar a 192px ahorra memoria
+                    // nativa (192^2x4 = 144 KB) sin pérdida visual apreciable en el fondo.
+                    coilSizeOverride = 192,
                 )
             }
         }

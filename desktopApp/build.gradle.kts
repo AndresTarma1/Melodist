@@ -139,9 +139,9 @@ nucleus.application {
         // Pilas de hilo más pequeñas (muchos hilos IO/render).
         "-Xss768k",
         // Pool IO de coroutines: default real es 64 hilos (~1MB stack c/u).
-        "-Dkotlinx.coroutines.io.parallelism=8",
+        "-Dkotlinx.coroutines.io.parallelism=16",
         // Skiko: render en GPU (Direct3D) pero con caché de recursos acotada (default ilimitada).
-        "-Dskiko.gpu.resourceCacheLimit=64M",
+        "-Dskiko.gpu.resourceCacheLimit=128M",
         "-Dskiko.buffering=DOUBLE",
         "-Dskiko.vsync.enabled=true",
     )

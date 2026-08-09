@@ -89,7 +89,9 @@ fun MusicPlayerImage(
         } else if (effectiveLowRes) {
             128
         } else {
-            512
+            // Portadas grandes (hero/NowPlaying): 384px equilibra nitidez vs memoria nativa
+            // (384^2x4 = 576 KB vs 1 MB a 512px).
+            384
         }
 
         val effectiveUrl = upscaleThumbnailUrl(url, coilSize)
