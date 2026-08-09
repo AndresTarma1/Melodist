@@ -64,11 +64,12 @@ kotlin {
             implementation("org.jetbrains.runtime:jbr-api:1.10.1")
             implementation("dev.toastbits:mediasession:0.1.1")
 
-            // Fuente: https://mvnrepository.com/artifact/org.graalvm.js/js-scriptengine
-            implementation("org.graalvm.js:js-scriptengine:25.0.3")
-
-            // Fuente: https://mvnrepository.com/artifact/org.graalvm.js/js
-            implementation("org.graalvm.js:js:25.0.3")
+            // GraalJS (cipher `n`/`s` de player.js) EXCLUIDO en la rama experimental de GraalVM:
+            // truffle-runtime es un módulo JPMS incompatible con native-image dentro del uber JAR.
+            // Sin él, el cipher degrada al fallback de yt-dlp (código ya lo maneja). Re-add si
+            // se abandona el experimento y se vuelve a JVM-only.
+            // implementation("org.graalvm.js:js-scriptengine:25.0.3")
+            // implementation("org.graalvm.js:js:25.0.3")
 
             // API de JCEF (Chromium) solo — usada para generar poTokens de BotGuard. La implementación
             // nativa real es proporcionada en tiempo de ejecución por el módulo `jcef` de JetBrains Runtime

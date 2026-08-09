@@ -1,0 +1,428 @@
+{
+    "reflection": [
+        {
+            "type": "androidx.datastore.preferences.PreferencesProto$PreferenceMap",
+            "fields": [
+                {
+                    "name": "preferences_"
+                }
+            ]
+        },
+        {
+            "type": "androidx.datastore.preferences.PreferencesProto$Value",
+            "fields": [
+                {
+                    "name": "valueCase_"
+                },
+                {
+                    "name": "value_"
+                }
+            ]
+        },
+        {
+            "type": "com.github.kwhat.jnativehook.DefaultLibraryLocator",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "com.github.kwhat.jnativehook.GlobalScreen",
+            "jniAccessible": true,
+            "fields": [
+                {
+                    "name": "hookThread"
+                }
+            ]
+        },
+        {
+            "type": "com.github.kwhat.jnativehook.GlobalScreen$NativeHookThread",
+            "jniAccessible": true,
+            "methods": [
+                {
+                    "name": "dispatchEvent",
+                    "parameterTypes": [
+                        "com.github.kwhat.jnativehook.NativeInputEvent"
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "com.github.kwhat.jnativehook.NativeHookException",
+            "jniAccessible": true,
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        "int",
+                        "java.lang.String"
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "com.github.kwhat.jnativehook.NativeInputEvent",
+            "jniAccessible": true,
+            "fields": [
+                {
+                    "name": "reserved"
+                },
+                {
+                    "name": "when"
+                }
+            ],
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        "java.lang.Class",
+                        "int",
+                        "int"
+                    ]
+                },
+                {
+                    "name": "getID",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "getModifiers",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "com.github.kwhat.jnativehook.NativeMonitorInfo",
+            "jniAccessible": true,
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        "short",
+                        "int",
+                        "int",
+                        "short",
+                        "short"
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "com.github.kwhat.jnativehook.keyboard.NativeKeyEvent",
+            "jniAccessible": true,
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        "int",
+                        "int",
+                        "int",
+                        "int",
+                        "char",
+                        "int"
+                    ]
+                },
+                {
+                    "name": "getKeyChar",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "getKeyCode",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "getKeyLocation",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "com.github.kwhat.jnativehook.mouse.NativeMouseEvent",
+            "jniAccessible": true,
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        "int",
+                        "int",
+                        "int",
+                        "int",
+                        "int",
+                        "int"
+                    ]
+                },
+                {
+                    "name": "getButton",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "getClickCount",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "getX",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "getY",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "com.github.kwhat.jnativehook.mouse.NativeMouseListener[]"
+        },
+        {
+            "type": "com.github.kwhat.jnativehook.mouse.NativeMouseMotionListener[]"
+        },
+        {
+            "type": "com.github.kwhat.jnativehook.mouse.NativeMouseWheelEvent",
+            "jniAccessible": true,
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        "int",
+                        "int",
+                        "int",
+                        "int",
+                        "int",
+                        "int",
+                        "int",
+                        "int",
+                        "int"
+                    ]
+                },
+                {
+                    "name": "getScrollAmount",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "getScrollType",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "getWheelRotation",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "com.github.kwhat.jnativehook.mouse.NativeMouseWheelListener[]"
+        },
+        {
+            "type": "dev.nucleusframework.window.tao.event.TaoSyntheticMouseWheelEvent$source$1"
+        },
+        {
+            "type": "dev.toastbits.mediasession.smtc.Callback1"
+        },
+        {
+            "type": "example.nucleus.windows.WindowsThumbBar$THUMBBUTTON",
+            "fields": [
+                {
+                    "name": "dwFlags"
+                },
+                {
+                    "name": "dwMask"
+                },
+                {
+                    "name": "hIcon"
+                },
+                {
+                    "name": "iBitmap"
+                },
+                {
+                    "name": "iId"
+                },
+                {
+                    "name": "szTip"
+                }
+            ],
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "example.nucleus.windows.WindowsThumbBar$THUMBBUTTON[]"
+        },
+        {
+            "type": "example.nucleus.windows.WindowsThumbBar$WndProc",
+            "methods": [
+                {
+                    "name": "callback",
+                    "parameterTypes": [
+                        "com.sun.jna.Pointer",
+                        "int",
+                        "com.sun.jna.Pointer",
+                        "com.sun.jna.Pointer"
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "example.nucleus.windows.WindowsThumbBar$wndProc$1"
+        },
+        {
+            "type": "java.lang.Object",
+            "jniAccessible": true,
+            "methods": [
+                {
+                    "name": "notify",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "toString",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "java.lang.System",
+            "jniAccessible": true,
+            "methods": [
+                {
+                    "name": "clearProperty",
+                    "parameterTypes": [
+                        "java.lang.String"
+                    ]
+                },
+                {
+                    "name": "getProperty",
+                    "parameterTypes": [
+                        "java.lang.String"
+                    ]
+                },
+                {
+                    "name": "setProperty",
+                    "parameterTypes": [
+                        "java.lang.String",
+                        "java.lang.String"
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "java.nio.Buffer",
+            "jniAccessible": true,
+            "fields": [
+                {
+                    "name": "address"
+                }
+            ],
+            "methods": [
+                {
+                    "name": "position",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "java.util.logging.Logger",
+            "jniAccessible": true,
+            "methods": [
+                {
+                    "name": "fine",
+                    "parameterTypes": [
+                        "java.lang.String"
+                    ]
+                },
+                {
+                    "name": "getLogger",
+                    "parameterTypes": [
+                        "java.lang.String"
+                    ]
+                },
+                {
+                    "name": "info",
+                    "parameterTypes": [
+                        "java.lang.String"
+                    ]
+                },
+                {
+                    "name": "severe",
+                    "parameterTypes": [
+                        "java.lang.String"
+                    ]
+                },
+                {
+                    "name": "warning",
+                    "parameterTypes": [
+                        "java.lang.String"
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "libcore.io.Memory"
+        },
+        {
+            "type": "okhttp3.internal.connection.RealConnectionPool"
+        },
+        {
+            "type": "org.robolectric.Robolectric"
+        },
+        {
+            "type": "sun.net.www.protocol.http.Handler",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "sun.security.provider.MD5",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        }
+    ],
+    "resources": [
+        
+    ]
+}

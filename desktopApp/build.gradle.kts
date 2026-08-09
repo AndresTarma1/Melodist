@@ -26,6 +26,7 @@ dependencies {
     implementation("dev.nucleusframework:nucleus.updater-runtime:${nucleusVersion}")
     implementation("dev.nucleusframework:nucleus.decorated-window-tao:${nucleusVersion}")
     implementation("dev.nucleusframework:nucleus.decorated-window-material3:${nucleusVersion}")
+    implementation("dev.nucleusframework:nucleus.graalvm-runtime:${nucleusVersion}")
     // Add only the modules you need:
     implementation("dev.nucleusframework:nucleus.notification-common:${nucleusVersion}")
     implementation("dev.nucleusframework:nucleus.global-hotkey:${nucleusVersion}")
@@ -170,6 +171,21 @@ nucleus.application {
 
         includeAllModules = true
         appResourcesRootDir.set(project.layout.projectDirectory.dir("../mpv-resources"))
+    }
+
+    // ── GraalVM Native Image (EXPERIMENTO) ──────────────────────────────────
+    // Compila la app a un binario nativo sin JVM. Nucleus genera los metadatos de
+    // reflexión/recursos/JNI automáticamente (5 niveles) y descarga GraalVM CE.
+    // Tareas: packageGraalvmNative, runGraalvmNative, runWithNativeAgent.
+    graalvm {
+        isEnabled = true
+        imageName = "paltasound"
+        // GUI desktop: AWT no-headless explícito para native-image.
+        buildArgs.add("-Djava.awt.headless=false")
+        // SLF4J termina en el image heap durante el build (doc de Nucleus: paquete completo).
+        buildArgs.add("--initialize-at-build-time=org.slf4j")
+        // Heap del binario nativo acotado (objetivo RAM); Serial GC por defecto.
+        maxHeapSize = "320m"
     }
 
 }
