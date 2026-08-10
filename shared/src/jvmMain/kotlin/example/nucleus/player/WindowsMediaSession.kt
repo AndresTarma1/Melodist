@@ -74,6 +74,7 @@ class WindowsMediaSession {
         fun smtc_set_buttons(play: Boolean, pause: Boolean, next: Boolean, previous: Boolean, stop: Boolean)
         fun smtc_set_callbacks(onPlay: VoidCb?, onPause: VoidCb?, onNext: VoidCb?, onPrevious: VoidCb?, onStop: VoidCb?)
         fun smtc_release()
+        fun smtc_fix_shortcut_aumid(aumid: WString?): Int
 
         companion object {
             fun resolve(): SmtcBridge? = runCatching {
@@ -153,6 +154,10 @@ class WindowsMediaSession {
                 }
                 b.smtc_enable(false)
                 b.smtc_set_buttons(true, true, true, true, true)
+                // Asegura que el acceso directo del menú Inicio lleve el mismo AppUserModelID
+                // que el proceso (para que el panel de medios muestre "PaltaSound" y no
+                // "Aplicación Desconocida"). No-op si no hay acceso directo (p. ej. en dev).
+                runCatching { b.smtc_fix_shortcut_aumid(WString("Tarma.MusicPlayer")) }
                 attachCallbacks()
                 initialized = true
                 lastInitError = null
