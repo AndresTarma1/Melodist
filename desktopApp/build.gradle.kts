@@ -155,7 +155,10 @@ nucleus.application {
         packageVersion = "0.7.2"
         vendor = "Tarma"
         homepage = "https://github.com/AndresTarma1/PaltaSound"
-        targetFormats(TargetFormat.Exe, TargetFormat.Msi, TargetFormat.Deb, TargetFormat.Rpm)
+        // Nsis (no Exe): el updater selecciona el instalador .exe filtrando por el sufijo
+        // "-nsis." del nombre del artefacto, y el plugin solo añade ese sufijo para el target
+        // Nsis/NsisWeb/Portable. Ambos generan el mismo instalador electron-builder "nsis".
+        targetFormats(TargetFormat.Nsis, TargetFormat.Msi, TargetFormat.Deb, TargetFormat.Rpm)
 
         windows {
             upgradeUuid = "4A2F8B6C-1D3E-4F5A-B7C8-9D0E1F2A3B4C"
@@ -206,7 +209,7 @@ nucleus.application {
     tasks.matching { it.name.startsWith("packageGraalvm") && it.name.contains("Distribution") }.configureEach {
         dependsOn("copySmtcBridgeGraalvm")
     }
-    tasks.matching { it.name == "packageGraalvmMsi" || it.name == "packageGraalvmExe" }.configureEach {
+    tasks.matching { it.name == "packageGraalvmMsi" || it.name == "packageGraalvmNsis" }.configureEach {
         dependsOn("copySmtcBridgeGraalvm")
     }
 

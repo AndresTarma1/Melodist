@@ -35,12 +35,15 @@ import re
 import shutil
 import sys
 
-# target-format output dir -> (OS group, manifest file name)
+# target-format -> (output dir name, installer extension, OS group, manifest file name)
+# `nsis` y `exe` son el mismo instalador electron-builder; el plugin nombra el directorio según el
+# TargetFormat. El ext del .exe es `.exe` aunque el formato se llame `nsis`.
 FORMAT_GROUPS = {
-    "msi": ("windows", "latest.yml"),
-    "exe": ("windows", "latest.yml"),
-    "deb": ("linux", "latest-linux.yml"),
-    "rpm": ("linux", "latest-linux.yml"),
+    "exe": ("exe", "exe", "windows", "latest.yml"),
+    "nsis": ("nsis", "exe", "windows", "latest.yml"),
+    "msi": ("msi", "msi", "windows", "latest.yml"),
+    "deb": ("deb", "deb", "linux", "latest-linux.yml"),
+    "rpm": ("rpm", "rpm", "linux", "latest-linux.yml"),
 }
 GROUP_ORDER = ["latest.yml", "latest-linux.yml", "latest-mac.yml"]
 VERSION_RE = re.compile(r"(\d+\.\d+\.\d+)")
@@ -130,7 +133,7 @@ def merge(manifests):
 
 
 def discover_installers(root):
-    """format dir -> list of installer files (files directly inside each target-format dir).
+    """format -> list of installer files (files directly inside each target-format dir).
 
     The glob is anchored so that only files directly in the `<format>` directory are matched;
     nested `.app-image/...` trees (launcher .exe, java.exe, bundled yt-dlp, ...) are excluded.
@@ -139,9 +142,9 @@ def discover_installers(root):
     `graalvm-exe/`, ...) are matched, but a given CI build only produces one of them.
     """
     found = {}
-    for fmt in FORMAT_GROUPS:
-        for dirname in (fmt, f"graalvm-{fmt}"):
-            for path in glob.glob(os.path.join(root, "**", dirname, f"*.{fmt}"), recursive=True):
+    for fmt, (dirname, ext, _group, _yml) in FORMAT_GROUPS.items():
+        for d in (dirname, f"graalvm-{dirname}"):
+            for path in glob.glob(os.path.join(root, "**", d, f"*.{ext}"), recursive=True):
                 found.setdefault(fmt, []).append(path)
     return found
 
@@ -201,7 +204,7 @@ def main():
     # 2) Map installers to the manifest name that must describe them.
     installers = discover_installers(root)
     group_manifests = {}  # yml name -> list of manifests (parsed or generated)
-    for fmt, (group, yml_name) in FORMAT_GROUPS.items():
+    for fmt, (_dirname, _ext, _group, yml_name) in FORMAT_GROUPS.items():
         files = installers.get(fmt, [])
         if not files:
             continue
