@@ -8,6 +8,9 @@ name: Build & Release
 # para packageVersion 0.7.1). El updater de la app descarga el instalador desde
 #   https://github.com/AndresTarma1/PaltaSound/releases/download/v<version>/<archivo>
 # así que tag y versión tienen que coincidir exactamente (el job `release` lo valida).
+#
+# Los instaladores se compilan como binario GraalVM nativo (sin JVM). En Windows las tareas
+# packageGraalvmMsi/packageGraalvmExe; en Linux packageGraalvmDeb/packageGraalvmRpm.
 
 on:
   push:
@@ -35,10 +38,12 @@ jobs:
             # yt-dlp solo se empaqueta en Windows (en Linux se usa el del sistema).
             needs_yt_dlp: true
             python_cmd: python
+            gradle_tasks: ":desktopApp:packageGraalvmExe :desktopApp:packageGraalvmMsi"
           - os: ubuntu-latest
             dist_name: linux
             needs_yt_dlp: false
             python_cmd: python3
+            gradle_tasks: ":desktopApp:packageGraalvmDeb :desktopApp:packageGraalvmRpm"
     steps:
       - name: Checkout (con Git LFS para libmpv-2.dll)
         uses: actions/checkout@v4
@@ -64,10 +69,10 @@ jobs:
             "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe"
           ls -lh mpv-resources/windows/
 
-      - name: Build installers (packageDistributionForCurrentOS)
+      - name: Build GraalVM installers (${{ matrix.dist_name }})
         shell: bash
         run: |
-          ./gradlew :desktopApp:packageDistributionForCurrentOS --stacktrace
+          ./gradlew ${{ matrix.gradle_tasks }} --stacktrace
 
       - name: Stage installers and merge update YAMLs
         shell: bash

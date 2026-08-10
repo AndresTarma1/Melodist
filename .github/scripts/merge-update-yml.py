@@ -134,11 +134,15 @@ def discover_installers(root):
 
     The glob is anchored so that only files directly in the `<format>` directory are matched;
     nested `.app-image/...` trees (launcher .exe, java.exe, bundled yt-dlp, ...) are excluded.
+
+    Both the JVM layout (`msi/`, `exe/`, ...) and the GraalVM layout (`graalvm-msi/`,
+    `graalvm-exe/`, ...) are matched, but a given CI build only produces one of them.
     """
     found = {}
     for fmt in FORMAT_GROUPS:
-        for path in glob.glob(os.path.join(root, "**", fmt, f"*.{fmt}"), recursive=True):
-            found.setdefault(fmt, []).append(path)
+        for dirname in (fmt, f"graalvm-{fmt}"):
+            for path in glob.glob(os.path.join(root, "**", dirname, f"*.{fmt}"), recursive=True):
+                found.setdefault(fmt, []).append(path)
     return found
 
 
