@@ -191,4 +191,26 @@ nucleus.application {
         maxHeapSize = "320m"
     }
 
+    // smtc_bridge.dll (SMTC vía GetForWindow) se empaqueta en el binario nativo y en la
+    // distribución JVM. El empaquetado de appResources a veces no la propaga por caching,
+    // así que se copia explícitamente (las tareas de empaquetado se crean de forma diferida).
+    val smtcBridgeDll = rootProject.file("mpv-resources/windows/smtc_bridge.dll")
+    val graalvmOutputDir = layout.buildDirectory.dir("compose/binaries/main/graalvm-app/PaltaSound")
+    tasks.register<Copy>("copySmtcBridgeGraalvm") {
+        from(smtcBridgeDll)
+        into(graalvmOutputDir)
+    }
+    tasks.matching { it.name == "packageGraalvmNative" }.configureEach {
+        finalizedBy("copySmtcBridgeGraalvm")
+    }
+
+    val jvmOutputDir = layout.buildDirectory.dir("compose/binaries/main/app/PaltaSound")
+    tasks.register<Copy>("copySmtcBridgeJvm") {
+        from(smtcBridgeDll)
+        into(jvmOutputDir)
+    }
+    tasks.matching { it.name == "packageDistributionForCurrentOS" }.configureEach {
+        finalizedBy("copySmtcBridgeJvm")
+    }
+
 }

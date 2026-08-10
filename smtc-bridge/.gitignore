@@ -1,0 +1,5 @@
+*.obj
+*.lib
+*.exp
+*.pdb
+smtc_bridge.dll

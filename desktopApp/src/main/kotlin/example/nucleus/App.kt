@@ -344,6 +344,8 @@ fun NucleusApplicationScope.App(
                             )
                         }
 
+                        val mediaSession: example.nucleus.player.WindowsMediaSession = koinInject()
+
                         if (isWindows) {
                             LaunchedEffect(isVisible) {
                                 if (!isVisible) return@LaunchedEffect
@@ -353,6 +355,7 @@ fun NucleusApplicationScope.App(
                                 }
                                 nucleusWindow.unsafe.taoWindow?.nativeHandle?.takeIf { it != 0L }?.let {
                                     thumbBar.init(it)
+                                    mediaSession.setWindowHandle(it)
                                 }
                             }
                         }

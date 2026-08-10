@@ -503,6 +503,35 @@
             "type": "example.nucleus.windows.WindowsThumbBar$wndProc$1"
         },
         {
+            "type": "example.nucleus.player.WindowsMediaSession$SmtcBridge"
+        },
+        {
+            "type": "example.nucleus.player.WindowsMediaSession$VoidCb",
+            "methods": [
+                {
+                    "name": "callback",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "example.nucleus.player.WindowsMediaSession$attachCallbacks$1"
+        },
+        {
+            "type": "example.nucleus.player.WindowsMediaSession$attachCallbacks$2"
+        },
+        {
+            "type": "example.nucleus.player.WindowsMediaSession$attachCallbacks$3"
+        },
+        {
+            "type": "example.nucleus.player.WindowsMediaSession$attachCallbacks$4"
+        },
+        {
+            "type": "example.nucleus.player.WindowsMediaSession$attachCallbacks$5"
+        },
+        {
             "type": "example.nucleus.windows.WindowsThumbBar$User32X"
         },
         {
@@ -647,7 +676,13 @@
             { "returnType": "int", "parameterTypes": ["void*", "void*"] },
             { "returnType": "int", "parameterTypes": ["void*", "void*", "void*"] },
             { "returnType": "int", "parameterTypes": ["void*", "jlong", "void*", "int"] },
-            { "returnType": "void*", "parameterTypes": ["void*", "double"] }
+            { "returnType": "void*", "parameterTypes": ["void*", "double"] },
+            { "returnType": "void", "parameterTypes": [] },
+            { "returnType": "int", "parameterTypes": ["void*", "int"] },
+            { "returnType": "int", "parameterTypes": ["void*", "void*", "int", "int", "int"] },
+            { "returnType": "jlong", "parameterTypes": ["void*"] },
+            { "returnType": "int", "parameterTypes": ["int", "void*", "int", "int", "int"] },
+            { "returnType": "void*", "parameterTypes": ["void*", "int", "int", "void*"] }
         ]
     }
 }

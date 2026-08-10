@@ -8,5 +8,10 @@
         "interfaces": [
             "dev.toastbits.mediasession.smtc.SMTCAdapterLibrary"
         ]
+    },
+    {
+        "interfaces": [
+            "example.nucleus.player.WindowsMediaSession$SmtcBridge"
+        ]
     }
 ]
