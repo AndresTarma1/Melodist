@@ -152,7 +152,7 @@ nucleus.application {
         enableAotCache = true
         appName = "PaltaSound"
         packageName = "PaltaSound"
-        packageVersion = "0.7.1"
+        packageVersion = "0.7.2"
         vendor = "Tarma"
         homepage = "https://github.com/AndresTarma1/PaltaSound"
         targetFormats(TargetFormat.Exe, TargetFormat.Msi, TargetFormat.Deb, TargetFormat.Rpm)
