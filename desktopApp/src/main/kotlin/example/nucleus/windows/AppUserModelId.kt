@@ -45,18 +45,9 @@ object AppUserModelId {
 
     /** Llama SetCurrentProcessExplicitAppUserModelID; no lanza si falla (la app sigue funcionando). */
     fun register() {
-        val fn = setCurrentProcessExplicitAppUserModelId ?: return
-        try {
-            Arena.ofConfined().use { a ->
-                val hr = fn.invokeWithArguments(a.utf16(AUMID)) as Int
-                if (hr == 0) {
-                    Napier.i("[appuserid] AppUserModelID registrado: $AUMID")
-                } else {
-                    Napier.w("[appuserid] SetCurrentProcessExplicitAppUserModelID falló hr=0x${hr.toString(16)}")
-                }
-            }
-        } catch (error: Throwable) {
-            Napier.w("[appuserid] no se pudo registrar AppUserModelID: ${error.message}")
-        }
+        // No-op temporal: un AUMID custom no registrado hace que el panel de medios muestre
+        // "Aplicación Desconocida". Sin AUMID, Windows usa la identidad del ejecutable
+        // (ProductName = PaltaSound). Si la sesión desaparece, restaurar.
+        return
     }
 }

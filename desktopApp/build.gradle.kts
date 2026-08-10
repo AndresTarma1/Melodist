@@ -203,6 +203,12 @@ nucleus.application {
     tasks.matching { it.name == "packageGraalvmNative" }.configureEach {
         finalizedBy("copySmtcBridgeGraalvm")
     }
+    tasks.matching { it.name.startsWith("packageGraalvm") && it.name.contains("Distribution") }.configureEach {
+        dependsOn("copySmtcBridgeGraalvm")
+    }
+    tasks.matching { it.name == "packageGraalvmMsi" || it.name == "packageGraalvmExe" }.configureEach {
+        dependsOn("copySmtcBridgeGraalvm")
+    }
 
     val jvmOutputDir = layout.buildDirectory.dir("compose/binaries/main/app/PaltaSound")
     tasks.register<Copy>("copySmtcBridgeJvm") {
