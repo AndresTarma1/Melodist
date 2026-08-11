@@ -165,6 +165,12 @@ nucleus.application {
             menu = true
             perUserInstall = true
             iconFile.set(project.file("src/icons/PaltaSound.ico"))
+            // NSIS (EXE): instalador asistido con página de licencia GPL-3.0 y elección de carpeta.
+            nsis {
+                oneClick = false
+                allowToChangeInstallationDirectory = true
+                license = rootProject.file("LICENSE")
+            }
         }
 
         linux {

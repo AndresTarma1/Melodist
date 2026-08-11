@@ -10,8 +10,10 @@ Todas las versiones de PaltaSound. Formato basado en [Keep a Changelog](https://
 - El panel de medios de Windows ahora muestra **PaltaSound** (en vez de "Aplicación Desconocida"): se registra el AppUserModelID del proceso y la app repara su acceso directo del menú Inicio en el arranque para que el panel muestre el nombre correcto.
 - El auto-updater vuelve a funcionar para los instaladores `.exe`: el artefacto ahora se nombra `paltasound-<v>-win-x64-nsis.exe` (target `Nsis`), porque el updater selecciona el EXE filtrando por el sufijo `-nsis.` del nombre.
 - El empaquetado GraalVM de Windows copia explícitamente `libmpv-2.dll` y `yt-dlp.exe`; así los builds limpios de GitHub Actions no generan instaladores incompletos.
+- El instalador EXE (NSIS) ahora es asistido: muestra la licencia **GPL-3.0** con botón de aceptación y permite elegir la carpeta de instalación.
 
 ### Compilación
 
 - Los instaladores de **Windows** (`.msi` y `.exe`) se generan en GitHub Actions como binario **GraalVM nativo** (sin JVM).
+- Se restaura el archivo `LICENSE` (GNU GPL-3.0) en la raíz del repo.
 - **Linux** (`.deb`/`.rpm`) mantiene la distribución JVM (el native-image de GraalVM falla en los runners de GitHub por memoria).
