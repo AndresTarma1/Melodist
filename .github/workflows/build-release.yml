@@ -60,6 +60,20 @@ jobs:
       - name: Setup Gradle (cache)
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Verify libmpv LFS asset
+        if: matrix.needs_yt_dlp
+        shell: pwsh
+        run: |
+          $file = "mpv-resources/windows/libmpv-2.dll"
+          if (!(Test-Path -LiteralPath $file)) {
+            throw "Missing $file after checkout"
+          }
+          $size = (Get-Item -LiteralPath $file).Length
+          if ($size -lt 100000000) {
+            throw "$file is only $size bytes; Git LFS pointer was not materialized"
+          }
+          Write-Host ("{0}: {1} bytes" -f $file, $size)
+
       - name: Download latest yt-dlp
         if: matrix.needs_yt_dlp
         shell: bash
@@ -70,10 +84,24 @@ jobs:
             "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe"
           ls -lh mpv-resources/windows/
 
-      - name: Build GraalVM installers (${{ matrix.dist_name }})
+      - name: Build installers (${{ matrix.dist_name }})
         shell: bash
         run: |
           ./gradlew ${{ matrix.gradle_tasks }} --stacktrace
+
+      - name: Verify GraalVM runtime resources
+        if: matrix.needs_yt_dlp
+        shell: pwsh
+        run: |
+          $file = "desktopApp/build/compose/binaries/main/graalvm-app/PaltaSound/libmpv-2.dll"
+          if (!(Test-Path -LiteralPath $file)) {
+            throw "GraalVM app-image does not contain libmpv-2.dll"
+          }
+          $size = (Get-Item -LiteralPath $file).Length
+          if ($size -lt 100000000) {
+            throw "GraalVM app-image contains an invalid libmpv-2.dll ($size bytes)"
+          }
+          Write-Host ("{0}: {1} bytes" -f $file, $size)
 
       - name: Stage installers and merge update YAMLs
         shell: bash

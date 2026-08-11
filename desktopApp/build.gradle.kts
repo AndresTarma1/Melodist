@@ -194,26 +194,28 @@ nucleus.application {
         maxHeapSize = "320m"
     }
 
-    // smtc_bridge.dll (SMTC vía GetForWindow) se empaqueta en el binario nativo y en la
-    // distribución JVM. El empaquetado de appResources a veces no la propaga por caching,
-    // así que se copia explícitamente (las tareas de empaquetado se crean de forma diferida).
-    val smtcBridgeDll = rootProject.file("mpv-resources/windows/smtc_bridge.dll")
+    // Los recursos Windows de runtime a veces no se propagan desde appResources al app-image
+    // GraalVM (especialmente en un checkout limpio). Se copian explícitamente antes de empaquetar.
+    val windowsRuntimeResources = rootProject.file("mpv-resources/windows")
     val graalvmOutputDir = layout.buildDirectory.dir("compose/binaries/main/graalvm-app/PaltaSound")
-    tasks.register<Copy>("copySmtcBridgeGraalvm") {
-        from(smtcBridgeDll)
+    tasks.register<Copy>("copyWindowsRuntimeResourcesGraalvm") {
+        from(windowsRuntimeResources) {
+            include("libmpv-2.dll", "smtc_bridge.dll", "yt-dlp.exe")
+        }
         into(graalvmOutputDir)
     }
     tasks.matching { it.name == "packageGraalvmNative" }.configureEach {
-        finalizedBy("copySmtcBridgeGraalvm")
+        finalizedBy("copyWindowsRuntimeResourcesGraalvm")
     }
     tasks.matching { it.name.startsWith("packageGraalvm") && it.name.contains("Distribution") }.configureEach {
-        dependsOn("copySmtcBridgeGraalvm")
+        dependsOn("copyWindowsRuntimeResourcesGraalvm")
     }
     tasks.matching { it.name == "packageGraalvmMsi" || it.name == "packageGraalvmNsis" }.configureEach {
-        dependsOn("copySmtcBridgeGraalvm")
+        dependsOn("copyWindowsRuntimeResourcesGraalvm")
     }
 
     val jvmOutputDir = layout.buildDirectory.dir("compose/binaries/main/app/PaltaSound")
+    val smtcBridgeDll = rootProject.file("mpv-resources/windows/smtc_bridge.dll")
     tasks.register<Copy>("copySmtcBridgeJvm") {
         from(smtcBridgeDll)
         into(jvmOutputDir)
