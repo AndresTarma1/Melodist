@@ -124,7 +124,10 @@ fun BackgroundWithBlur(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .blur(radius = 99.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
+                    // Rectangle (no Unbounded): acota el layer del blur a la ventana. Con Unbounded
+                    // Skia renderiza sin límites de clipping (capa infinita) y el blur de 99dp a
+                    // pantalla completa recalcula cada frame -> lag al abrir NowPlaying.
+                    .blur(radius = 99.dp, edgeTreatment = BlurredEdgeTreatment.Rectangle)
                     .alpha(0.25f)
             ) {
                 MusicPlayerImage(

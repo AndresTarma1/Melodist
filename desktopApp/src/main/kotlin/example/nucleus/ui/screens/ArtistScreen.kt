@@ -49,6 +49,7 @@ import com.metrolist.innertube.models.*
 import com.metrolist.innertube.pages.ArtistPage
 import example.nucleus.shared.generated.resources.Res
 import example.nucleus.shared.generated.resources.*
+import example.nucleus.utils.upscaleThumbnailUrl
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
@@ -187,17 +188,15 @@ private fun ArtistScreenContent(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(
-                            horizontal = 32.dp,
-                            vertical = 16.dp
-                        )
-                ) {
+                        .padding(top = 10.dp, bottom = 10.dp, end = 12.dp))
+                {
 
                     Text(
                         text = section.title,
                         style = MaterialTheme.typography.headlineSmall.copy(
                             fontWeight = FontWeight.Bold,
                         ),
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
                     )
 
                     if (index == 0) {
@@ -243,58 +242,78 @@ private fun ArtistScreenContent(
 
 // BANNER — imagen con gradientes multicapa al estilo YouTube Music
 @Composable
-private fun ArtistBanner(
+fun ArtistBanner(
     artistPage: ArtistPage,
     isSaved: Boolean,
     actions: ArtistScreenActions,
-    surfaceColor: Color
+    surfaceColor: Color,
+    modifier: Modifier = Modifier // Añadido para mejor reutilización
 ) {
     var descExpanded by remember { mutableStateOf(false) }
-    val hasPlayable = artistPage.sections.any { s -> s.items.any { it is SongItem } }
+
+    // Evita recalcular en cada recomposición
+    val hasPlayable = remember(artistPage.sections) {
+        artistPage.sections.any { s -> s.items.any { it is SongItem } }
+    }
+
+    // Aumentamos la resolución a 1440 para que no se pixele en monitores grandes
+    val urlImage = upscaleThumbnailUrl(artistPage.artist.thumbnail, 1200)
+
+    // Memorizamos los gradientes para ahorrar CPU
+    val verticalGradient = remember(surfaceColor) {
+        Brush.verticalGradient(
+            colorStops = arrayOf(
+                0.00f to Color.Transparent,
+                0.28f to Color.Transparent,
+                0.52f to surfaceColor.copy(alpha = 0.20f),
+                0.70f to surfaceColor.copy(alpha = 0.62f),
+                0.84f to surfaceColor.copy(alpha = 0.88f),
+                1.00f to surfaceColor
+            )
+        )
+    }
+
+    val horizontalGradient = remember {
+        Brush.horizontalGradient(
+            colorStops = arrayOf(
+                0.00f to Color.Black.copy(alpha = 0.55f),
+                1.00f to Color.Transparent
+            )
+        )
+    }
 
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .height(520.dp)
+            .height(520.dp) // Permite que el contenedor crezca si es necesario
+            .animateContentSize() // Suaviza el cambio de tamaño al expandir el texto
     ) {
         MusicPlayerImage(
-            url = artistPage.artist.thumbnail,
+            url = urlImage,
             contentDescription = artistPage.artist.title,
             modifier = Modifier.fillMaxSize(),
             shape = RectangleShape,
             placeholderType = PlaceholderType.ARTIST,
             contentScale = ContentScale.Crop,
-            alignment = Alignment.TopCenter
+            alignment = Alignment.TopCenter,
+            // La URL se pide a 1200px; sin override MusicPlayerImage decodifica a 384px y se ve borrosa
+            // al estirarse al banner (igual que hace Metrolist con AsyncImage + resize(1200, 1200)).
+            coilSizeOverride = 1200,
         )
+
+        // Capa de gradiente vertical
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colorStops = arrayOf(
-                            0.00f to Color.Transparent,
-                            0.28f to Color.Transparent,
-                            0.52f to surfaceColor.copy(alpha = 0.20f),
-                            0.70f to surfaceColor.copy(alpha = 0.62f),
-                            0.84f to surfaceColor.copy(alpha = 0.88f),
-                            1.00f to surfaceColor
-                        )
-                    )
-                )
+                .background(verticalGradient)
         )
 
+        // Capa de gradiente horizontal (sombra para el texto)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.TopStart)
-                .background(
-                    Brush.horizontalGradient(
-                        colorStops = arrayOf(
-                            0.00f to Color.Black.copy(alpha = 0.55f),
-                            1.00f to Color.Transparent
-                        )
-                    )
-                )
+                .background(horizontalGradient)
         )
 
         Column(
@@ -303,7 +322,6 @@ private fun ArtistBanner(
                 .fillMaxWidth()
                 .padding(horizontal = 40.dp, vertical = 32.dp)
         ) {
-            // Nombre
             Text(
                 text = artistPage.artist.title,
                 style = MaterialTheme.typography.displayLarge.copy(
@@ -317,7 +335,6 @@ private fun ArtistBanner(
 
             Spacer(Modifier.height(6.dp))
 
-            // Oyentes mensuales
             artistPage.monthlyListenerCount?.let { listeners ->
                 Text(
                     text = listeners,
@@ -327,7 +344,6 @@ private fun ArtistBanner(
                 Spacer(Modifier.height(8.dp))
             }
 
-            // Descripción expandible
             artistPage.description?.let { desc ->
                 if (desc.isNotBlank()) {
                     Column(modifier = Modifier.fillMaxWidth(0.55f)) {
@@ -345,7 +361,6 @@ private fun ArtistBanner(
                             )
                         }
 
-                        // Solo muestra "Más / Menos" si el texto es largo
                         if (desc.length > 120) {
                             TextButton(
                                 onClick = { descExpanded = !descExpanded },
@@ -364,12 +379,11 @@ private fun ArtistBanner(
                 }
             }
 
-            // Botones de acción
+            // Fila de botones (sin cambios lógicos, pero ahora dentro de un contenedor más seguro)
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                // Aleatorio — botón blanco sólido
                 Button(
                     onClick = { if (hasPlayable) actions.onShuffleArtist() },
                     enabled = hasPlayable,
@@ -380,14 +394,14 @@ private fun ArtistBanner(
                         disabledContentColor = Color.White.copy(alpha = 0.5f)
                     ),
                     shape = circleAwareShape(),
-                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp)
+                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp),
+                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)
                 ) {
                     Icon(Icons.Rounded.Shuffle, null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
                     Text(stringResource(Res.string.shuffle), fontWeight = FontWeight.SemiBold)
                 }
 
-                // Radio — botón blanco sólido
                 Button(
                     onClick = { if (hasPlayable) actions.onRadioArtist() },
                     enabled = hasPlayable,
@@ -398,24 +412,25 @@ private fun ArtistBanner(
                         disabledContentColor = Color.White.copy(alpha = 0.5f)
                     ),
                     shape = circleAwareShape(),
-                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp)
+                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp),
+                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)
                 ) {
                     Icon(Icons.Rounded.Radio, null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
                     Text(stringResource(Res.string.radio_text), fontWeight = FontWeight.SemiBold)
                 }
 
-                // Suscribirse — borde blanco semitransparente (como YouTube Music)
                 val subscribedText = stringResource(Res.string.subscribed)
                 val subscribeText = stringResource(Res.string.subscribe_text)
                 val subLabel = buildString {
                     append(if (isSaved) subscribedText else subscribeText)
                     artistPage.subscriberCountText?.let { append("  $it") }
                 }
+
                 OutlinedButton(
                     onClick = actions.onToggleSave,
                     colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = if (isSaved) Color.White else Color.White,
+                        contentColor = Color.White,
                         containerColor = if (isSaved) Color.White.copy(alpha = 0.15f) else Color.Transparent
                     ),
                     border = BorderStroke(
@@ -423,7 +438,8 @@ private fun ArtistBanner(
                         color = Color.White.copy(alpha = if (isSaved) 0.6f else 0.85f)
                     ),
                     shape = circleAwareShape(),
-                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp)
+                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp),
+                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)
                 ) {
                     if (isSaved) {
                         Icon(Icons.Rounded.Check, null, modifier = Modifier.size(16.dp))
@@ -432,7 +448,6 @@ private fun ArtistBanner(
                     Text(subLabel, fontWeight = FontWeight.Medium)
                 }
 
-                // Más opciones
                 Box(
                     modifier = Modifier
                         .size(36.dp)
