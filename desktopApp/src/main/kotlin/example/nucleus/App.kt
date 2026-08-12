@@ -38,6 +38,7 @@ import com.metrolist.innertube.models.AccountInfo
 import com.metrolist.innertube.models.YouTubeLocale
 import dev.nucleusframework.application.DecoratedWindow
 import dev.nucleusframework.application.NucleusApplicationScope
+import dev.nucleusframework.application.NucleusDecoratedWindowScope
 import dev.nucleusframework.autolaunch.AutoLaunch
 import dev.nucleusframework.autolaunch.AutoLaunchResult
 import dev.nucleusframework.window.NucleusDecoratedWindowTheme
@@ -253,121 +254,36 @@ fun NucleusApplicationScope.App(
                         minimumSize = DpSize(900.dp, 600.dp),
                     ) {
 
-                        // Diálogo de actualizaciones
+                        // Estado de actualizaciones
                         val updateStatus by appViewModel.updateStatus.collectAsState()
                         val showInstallPrompt by appViewModel.showInstallPrompt.collectAsState()
+                        LaunchedEffect(Unit) { appViewModel.checkForUpdates() }
 
-                        LaunchedEffect(Unit) {
-                            appViewModel.checkForUpdates()
-                        }
+                        UpdateReadyDialog(
+                            updateStatus = updateStatus,
+                            showInstallPrompt = showInstallPrompt,
+                            onInstall = { appViewModel.installUpdate { handleExit() } },
+                            onPostpone = { appViewModel.postponeInstall() },
+                        )
 
-                        val readyStatus = updateStatus as? UpdateStatus.Ready
-                        if (showInstallPrompt && readyStatus != null) {
-                            val info = readyStatus.info
-                            AlertDialog(
-                                onDismissRequest = { appViewModel.postponeInstall() },
-                                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                                tonalElevation = 0.dp,
-                                icon = { Icon(Icons.Rounded.SystemUpdate, null) },
-                                title = { Text(stringResource(Res.string.update_ready_title)) },
-                                text = { Text(stringResource(Res.string.update_ready_message, info.latestVersion)) },
-                                confirmButton = {
-                                    TextButton(onClick = { appViewModel.installUpdate { handleExit() } }) {
-                                        Text(stringResource(Res.string.update_install_now))
-                                    }
-                                },
-                                dismissButton = {
-                                    TextButton(onClick = { appViewModel.postponeInstall() }) {
-                                        Text(stringResource(Res.string.update_install_later))
-                                    }
-                                }
-                            )
-                        }
+                        YtmSyncWarningDialog(
+                            show = showYtmSyncWarningFromMenu,
+                            onConfirm = {
+                                scope.launch { userPreferences.setYtmSyncEnabled(true) }
+                                showYtmSyncWarningFromMenu = false
+                            },
+                            onDismiss = { showYtmSyncWarningFromMenu = false },
+                        )
 
-                        // Diálogo de sincronización YTM
-                        if (showYtmSyncWarningFromMenu) {
-                            AlertDialog(
-                                onDismissRequest = { showYtmSyncWarningFromMenu = false },
-                                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                                tonalElevation = 0.dp,
-                                title = { Text(stringResource(Res.string.ytm_sync_warning_title)) },
-                                text = { Text(stringResource(Res.string.ytm_sync_warning_message)) },
-                                confirmButton = {
-                                    TextButton(onClick = {
-                                        scope.launch { userPreferences.setYtmSyncEnabled(true) }
-                                        showYtmSyncWarningFromMenu = false
-                                    }) { Text(stringResource(Res.string.ytm_sync_warning_confirm)) }
-                                },
-                                dismissButton = {
-                                    TextButton(onClick = { showYtmSyncWarningFromMenu = false }) {
-                                        Text(stringResource(Res.string.cancel))
-                                    }
-                                }
-                            )
-                        }
+                        UnsentCrashReportsDialog()
 
-                        // Diálogo de reportes de crash
-                        var unsentCrashReports by remember {
-                            mutableStateOf<List<Pair<java.io.File, CrashReport>>>(emptyList())
-                        }
-                        var showCrashDialog by remember { mutableStateOf(false) }
-                        LaunchedEffect(Unit) {
-                            val reports = CrashReportRepository.getUnsentReports()
-                            if (reports.isNotEmpty()) {
-                                unsentCrashReports = reports
-                                showCrashDialog = true
-                            }
-                        }
-                        if (showCrashDialog && unsentCrashReports.isNotEmpty()) {
-                            CrashReportDialog(
-                                reports = unsentCrashReports,
-                                onSend = {
-                                    unsentCrashReports.forEach { (_, report) ->
-                                        CrashReportRepository.openCrashAsGitHubIssue(report)
-                                    }
-                                    CrashReportRepository.markAllAsSent()
-                                    showCrashDialog = false
-                                },
-                                onDismiss = {
-                                    CrashReportRepository.markAllAsSent()
-                                    showCrashDialog = false
-                                },
-                            )
-                        }
-
-                        val isWindows = remember { System.getProperty("os.name").orEmpty().lowercase().contains("win") }
-                        val thumbBar = remember {
-                            WindowsThumbBar(
-                                onPrevious = { playerViewModel.previous() },
-                                onPlayPause = { playerViewModel.togglePlayPause() },
-                                onNext = { playerViewModel.next() },
-                            )
-                        }
-
-                        if (isWindows) {
-                            LaunchedEffect(isVisible) {
-                                if (!isVisible) return@LaunchedEffect
-                                var attempts = 0
-                                // NOTA: usar `taoWindow?.nativeHandle` (getNativeHandle), NO `taoHandle`
-                                // (getHandle): el primero traduce el handle interno de Tao al HWND real de
-                                // Windows vía NativeTaoBridge.nativeHwndHandle; `taoHandle` devuelve el
-                                // handle interno (en dev JVM es 1, un placeholder inválido para IsWindow).
-                                while ((nucleusWindow.unsafe.taoWindow?.nativeHandle ?: 0L) == 0L && attempts++ < 100) {
-                                    delay(50.milliseconds)
-                                }
-                                val hwnd = nucleusWindow.unsafe.taoWindow?.nativeHandle
-                                if (hwnd != null && hwnd != 0L) {
-                                    Napier.i("[thumbbar] hwnd=0x${hwnd.toString(16)}")
-                                    thumbBar.init(hwnd)
-                                }
-                            }
-                        }
-
-                        if (isWindows) {
-                            LaunchedEffect(isPlaying) {
-                                thumbBar.setPlaying(isPlaying)
-                            }
-                        }
+                        WindowsTaskbarIntegration(
+                            isVisible = isVisible,
+                            isPlaying = isPlaying,
+                            onPrevious = { playerViewModel.previous() },
+                            onPlayPause = { playerViewModel.togglePlayPause() },
+                            onNext = { playerViewModel.next() },
+                        )
 
                         BackgroundStyle(
                             imageUrl = playerUiState.currentSong?.thumbnailUrl,
@@ -424,3 +340,122 @@ fun NucleusApplicationScope.App(
         }
     }
 }
+
+// ── Diálogos del ciclo de vida de la ventana ────────────────────────────────
+
+@Composable
+private fun UpdateReadyDialog(
+    updateStatus: UpdateStatus,
+    showInstallPrompt: Boolean,
+    onInstall: () -> Unit,
+    onPostpone: () -> Unit,
+) {
+    val readyStatus = updateStatus as? UpdateStatus.Ready
+    if (showInstallPrompt && readyStatus != null) {
+        val info = readyStatus.info
+        AlertDialog(
+            onDismissRequest = onPostpone,
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            tonalElevation = 0.dp,
+            icon = { Icon(Icons.Rounded.SystemUpdate, null) },
+            title = { Text(stringResource(Res.string.update_ready_title)) },
+            text = { Text(stringResource(Res.string.update_ready_message, info.latestVersion)) },
+            confirmButton = {
+                TextButton(onClick = onInstall) { Text(stringResource(Res.string.update_install_now)) }
+            },
+            dismissButton = {
+                TextButton(onClick = onPostpone) { Text(stringResource(Res.string.update_install_later)) }
+            },
+        )
+    }
+}
+
+@Composable
+private fun YtmSyncWarningDialog(
+    show: Boolean,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    if (show) {
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            tonalElevation = 0.dp,
+            title = { Text(stringResource(Res.string.ytm_sync_warning_title)) },
+            text = { Text(stringResource(Res.string.ytm_sync_warning_message)) },
+            confirmButton = {
+                TextButton(onClick = onConfirm) { Text(stringResource(Res.string.ytm_sync_warning_confirm)) }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) }
+            },
+        )
+    }
+}
+
+@Composable
+private fun UnsentCrashReportsDialog() {
+    var unsentCrashReports by remember { mutableStateOf<List<Pair<java.io.File, CrashReport>>>(emptyList()) }
+    var showCrashDialog by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        val reports = CrashReportRepository.getUnsentReports()
+        if (reports.isNotEmpty()) {
+            unsentCrashReports = reports
+            showCrashDialog = true
+        }
+    }
+    if (showCrashDialog && unsentCrashReports.isNotEmpty()) {
+        CrashReportDialog(
+            reports = unsentCrashReports,
+            onSend = {
+                unsentCrashReports.forEach { (_, report) -> CrashReportRepository.openCrashAsGitHubIssue(report) }
+                CrashReportRepository.markAllAsSent()
+                showCrashDialog = false
+            },
+            onDismiss = {
+                CrashReportRepository.markAllAsSent()
+                showCrashDialog = false
+            },
+        )
+    }
+}
+
+// ── Integración con Windows (taskbar / thumbbar) ────────────────────────────
+
+/**
+ * Espera el HWND real de la ventana Tao (getNativeHandle, no getHandle — el primero traduce el
+ * handle interno de Tao al HWND real vía NativeTaoBridge.nativeHwndHandle; `taoHandle` devuelve el
+ * handle interno, que en dev JVM es 1, un placeholder inválido para IsWindow) y subclasea la ventana
+ * para los botones de miniaturas de la taskbar.
+ */
+@Composable
+private fun NucleusDecoratedWindowScope.WindowsTaskbarIntegration(
+    isVisible: Boolean,
+    isPlaying: Boolean,
+    onPrevious: () -> Unit,
+    onPlayPause: () -> Unit,
+    onNext: () -> Unit,
+) {
+    if (!isWindows()) return
+    val thumbBar = remember { WindowsThumbBar(onPrevious, onPlayPause, onNext) }
+
+    LaunchedEffect(isVisible) {
+        if (!isVisible) return@LaunchedEffect
+        var attempts = 0
+        while ((nucleusWindow.unsafe.taoWindow?.nativeHandle ?: 0L) == 0L && attempts++ < 100) {
+            delay(50.milliseconds)
+        }
+        val hwnd = nucleusWindow.unsafe.taoWindow?.nativeHandle
+        if (hwnd != null && hwnd != 0L) {
+            Napier.i("[thumbbar] hwnd=0x${hwnd.toString(16)}")
+            thumbBar.init(hwnd)
+        }
+    }
+
+    LaunchedEffect(isPlaying) {
+        thumbBar.setPlaying(isPlaying)
+    }
+}
+
+private fun isWindows(): Boolean =
+    System.getProperty("os.name").orEmpty().lowercase().contains("win")

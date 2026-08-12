@@ -16,6 +16,7 @@ import com.arkivanov.essenty.lifecycle.LifecycleRegistry
 import dev.nucleusframework.application.NucleusBackend
 import dev.nucleusframework.application.nucleusApplication
 import example.nucleus.bootstrap.AppEnvironment
+import example.nucleus.bootstrap.AppStartup
 import example.nucleus.bootstrap.JvmConfigLauncher
 import example.nucleus.bootstrap.PlatformCrashHandler
 import example.nucleus.data.account.AccountManager
@@ -23,9 +24,7 @@ import example.nucleus.data.repository.UserPreferencesRepository
 import example.nucleus.di.appModule
 import example.nucleus.di.dataStoreModule
 import example.nucleus.lifecycle.AppLifecycleManager
-import example.nucleus.listentogether.ListenTogetherManager
 import example.nucleus.navigation.RootComponent
-import example.nucleus.player.WindowsMediaSession
 import example.nucleus.ui.components.CoilSetup
 import example.nucleus.utils.OfflineModeController
 import example.nucleus.viewmodels.AppViewModel
@@ -83,44 +82,8 @@ fun main() = nucleusApplication(backend = NucleusBackend.Tao) {
     }
     val lifecycleManager = koin.get<AppLifecycleManager>()
 
-    // Inicializar servicios nativos en background
-    Thread {
-        // mpv NO se inicializa aquí: se crea en el primer play() (ahorra ~20 MB de arranque).
-        // Solo se hidrata el volumen guardado para que la UI lo muestre desde el inicio.
-        PlatformCrashHandler.runSafely("Error cargando volumen inicial") {
-            playerViewModel.primeVolume()
-        }
-
-        // Validación experimental del binding FFM de mpv en el binario nativo:
-        // PALTASOUND_TEST_MPV=1 fuerza mpv_create/initialize al arranque. Si falla,
-        // runSafely escribe el error en startup.log. Solo activo con la env var.
-        if (System.getenv("PALTASOUND_TEST_MPV") == "1") {
-            PlatformCrashHandler.runSafely("mpv init test (FFM)") {
-                playerViewModel.initialize()
-            }
-        }
-
-        // Media controls del sistema (SMTC en Windows / MPRIS en Linux) vía Nucleus
-        // `MediaControlService`. Ya no requiere HWND ni retry: el backend se configura solo.
-        PlatformCrashHandler.runSafely("Error iniciando media controls") {
-            val mediaSession = koin.get<WindowsMediaSession>()
-            mediaSession.setCallbacks(
-                onPlay = { playerViewModel.togglePlayPause() },
-                onPause = { playerViewModel.togglePlayPause() },
-                onNext = { playerViewModel.next() },
-                onPrevious = { playerViewModel.previous() },
-                onStop = { playerViewModel.stop() },
-            )
-            mediaSession.setPositionProvider { playerViewModel.progressState.value.positionMs }
-            mediaSession.initialize()
-        }
-
-        PlatformCrashHandler.runSafely("Error iniciando ListenTogetherManager") {
-            val listenTogetherManager = koin.get<ListenTogetherManager>()
-            listenTogetherManager.initialize()
-            listenTogetherManager.setPlayer(playerViewModel)
-        }
-    }.apply { name = "nucleus-deferred-init"; isDaemon = true }.start()
+    // Inicializar servicios nativos en background (mpv, media controls, Listen Together).
+    AppStartup.startDeferred(playerViewModel)
 
     // Restaurar estado de ventana
     val saved = runBlocking {
