@@ -9,12 +9,13 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 enum class RenderApi(
-    val jvmArg: String?,
+    /** Valor real de la propiedad `skiko.renderApi` de Skiko. `null` = dejar que Skiko elija el default por SO. */
+    val skikoValue: String?,
 ) {
-    DIRECTX(jvmArg = null),
-    OPENGL(jvmArg = "-Dskiko.renderApi=OPENGL"),
-    SOFTWARE(jvmArg = "-Dskiko.renderApi=SOFTWARE"),
-    ANGLE(jvmArg = "-Dskiko.renderApi=ANGLE"),
+    DIRECTX(skikoValue = null),
+    OPENGL(skikoValue = "OPENGL"),
+    SOFTWARE(skikoValue = "SOFTWARE_FAST"),
+    ANGLE(skikoValue = "ANGLE"),
 }
 
 data class JvmConfig(
@@ -73,7 +74,7 @@ data class JvmConfig(
         args.add("-Dskiko.gpu.resourceCacheLimit=128M")
         args.add("-Dskiko.buffering=DOUBLE")
         args.add("-Dskiko.vsync.enabled=true")
-        renderApi.jvmArg?.let(args::add)
+        renderApi.skikoValue?.let { args.add("-Dskiko.renderApi=$it") }
         return args
     }
 

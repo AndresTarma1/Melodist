@@ -2,7 +2,6 @@ package example.nucleus.bootstrap
 
 import example.nucleus.data.repository.JvmConfig
 import example.nucleus.data.repository.JvmConfigRepository
-import example.nucleus.data.repository.RenderApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -27,8 +26,9 @@ class JvmConfigLauncher(
         // OpenGL en Linux, Metal en macOS. Fijar "skiko.renderApi=DIRECTX" sería un valor inválido fuera de
         // Windows (skiko no tiene dicha API), así que solo se establece la propiedad para una elección
         // no por defecto explícita; de lo contrario se deja sin establecer para que skiko elija correctamente por SO.
-        if (config.renderApi != RenderApi.DIRECTX) {
-            System.setProperty("skiko.renderApi", config.renderApi.name)
+        val skikoValue = config.renderApi.skikoValue
+        if (skikoValue != null) {
+            System.setProperty("skiko.renderApi", skikoValue)
         }
     }
 }
