@@ -136,6 +136,9 @@ class PlayerViewModel(
     }
 
     init {
+        // Seek desde los media controls del sistema (SMTC/MPRIS) hacia el reproductor.
+        mediaSession.setSeekHandler { target -> seekTo(target) }
+
         viewModelScope.launch {
             userPreferences.equalizerBands.collect { bands ->
                 playerService.setEqualizer(bands)
@@ -185,6 +188,7 @@ class PlayerViewModel(
             playerService.volume
                 .collect { vol ->
                     _volume.value = vol
+                    mediaSession.setVolume(vol / 100f)
                 }
         }
 
@@ -202,7 +206,8 @@ class PlayerViewModel(
                             title = song.title,
                             artist = song.artists.joinToString(", ") { it.name },
                             album = song.album?.title ?: "",
-                            thumbnailUrl = thumbUri
+                            thumbnailUrl = thumbUri,
+                            durationMs = song.duration.toLong() * 1000L,
                         )
                     } else {
                         mediaSession.resetToIdle()

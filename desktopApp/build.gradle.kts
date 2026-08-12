@@ -18,7 +18,7 @@ kotlin {
 
 dependencies {
     implementation(project(":shared"))
-    val nucleusVersion = "2.3.2"
+    val nucleusVersion = "2.4.0"
 
 
 
@@ -30,6 +30,7 @@ dependencies {
     // Add only the modules you need:
     implementation("dev.nucleusframework:nucleus.notification-common:${nucleusVersion}")
     implementation("dev.nucleusframework:nucleus.global-hotkey:${nucleusVersion}")
+    implementation("dev.nucleusframework:nucleus.media-control:${nucleusVersion}")
     implementation("dev.nucleusframework:nucleus.autolaunch:${nucleusVersion}")
 
     implementation("dev.nucleusframework:composenativetray:2.0.3")

@@ -344,8 +344,6 @@ fun NucleusApplicationScope.App(
                             )
                         }
 
-                        val mediaSession: example.nucleus.player.WindowsMediaSession = koinInject()
-
                         if (isWindows) {
                             LaunchedEffect(isVisible) {
                                 if (!isVisible) return@LaunchedEffect
@@ -359,23 +357,8 @@ fun NucleusApplicationScope.App(
                                 }
                                 val hwnd = nucleusWindow.unsafe.taoWindow?.nativeHandle
                                 if (hwnd != null && hwnd != 0L) {
-                                    Napier.i("[mediasession] hwnd=0x${hwnd.toString(16)}")
+                                    Napier.i("[thumbbar] hwnd=0x${hwnd.toString(16)}")
                                     thumbBar.init(hwnd)
-                                    mediaSession.setWindowHandle(hwnd)
-                                    // En dev (JVM) la ventana tarda más en crearse que en el binario
-                                    // nativo, y el retry de main.kt (10 intentos con javax.swing.Timer)
-                                    // puede agotarse antes de tener el HWND -> la sesión nunca se
-                                    // inicializa. Aquí, una vez que el handle está disponible, se
-                                    // re-intenta la inicialización si aún no ocurrió.
-                                    mediaSession.setCallbacks(
-                                        onPlay = { playerViewModel.togglePlayPause() },
-                                        onPause = { playerViewModel.togglePlayPause() },
-                                        onNext = { playerViewModel.next() },
-                                        onPrevious = { playerViewModel.previous() },
-                                        onStop = { playerViewModel.stop() },
-                                    )
-                                    mediaSession.setPositionProvider { playerViewModel.progressState.value.positionMs }
-                                    if (!mediaSession.isInitialized()) mediaSession.initialize()
                                 }
                             }
                         }
