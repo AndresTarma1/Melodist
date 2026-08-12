@@ -350,12 +350,32 @@ fun NucleusApplicationScope.App(
                             LaunchedEffect(isVisible) {
                                 if (!isVisible) return@LaunchedEffect
                                 var attempts = 0
-                                while (nucleusWindow.unsafe.taoWindow?.nativeHandle == 0L && attempts++ < 100) {
+                                // NOTA: usar `taoWindow?.nativeHandle` (getNativeHandle), NO `taoHandle`
+                                // (getHandle): el primero traduce el handle interno de Tao al HWND real de
+                                // Windows vía NativeTaoBridge.nativeHwndHandle; `taoHandle` devuelve el
+                                // handle interno (en dev JVM es 1, un placeholder inválido para IsWindow).
+                                while ((nucleusWindow.unsafe.taoWindow?.nativeHandle ?: 0L) == 0L && attempts++ < 100) {
                                     delay(50.milliseconds)
                                 }
-                                nucleusWindow.unsafe.taoWindow?.nativeHandle?.takeIf { it != 0L }?.let {
-                                    thumbBar.init(it)
-                                    mediaSession.setWindowHandle(it)
+                                val hwnd = nucleusWindow.unsafe.taoWindow?.nativeHandle
+                                if (hwnd != null && hwnd != 0L) {
+                                    Napier.i("[mediasession] hwnd=0x${hwnd.toString(16)}")
+                                    thumbBar.init(hwnd)
+                                    mediaSession.setWindowHandle(hwnd)
+                                    // En dev (JVM) la ventana tarda más en crearse que en el binario
+                                    // nativo, y el retry de main.kt (10 intentos con javax.swing.Timer)
+                                    // puede agotarse antes de tener el HWND -> la sesión nunca se
+                                    // inicializa. Aquí, una vez que el handle está disponible, se
+                                    // re-intenta la inicialización si aún no ocurrió.
+                                    mediaSession.setCallbacks(
+                                        onPlay = { playerViewModel.togglePlayPause() },
+                                        onPause = { playerViewModel.togglePlayPause() },
+                                        onNext = { playerViewModel.next() },
+                                        onPrevious = { playerViewModel.previous() },
+                                        onStop = { playerViewModel.stop() },
+                                    )
+                                    mediaSession.setPositionProvider { playerViewModel.progressState.value.positionMs }
+                                    if (!mediaSession.isInitialized()) mediaSession.initialize()
                                 }
                             }
                         }

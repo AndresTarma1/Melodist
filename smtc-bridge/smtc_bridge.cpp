@@ -31,6 +31,9 @@ __declspec(dllexport) int __cdecl smtc_init(void* hwnd)
 {
     if (g_smtc) return 0;
     try {
+        // GetForWindow exige una ventana top-level válida del proceso. IsWindow distingue
+        // "hwnd inválido" (retorno -2) de un fallo de GetForWindow (hr).
+        if (!IsWindow(static_cast<HWND>(hwnd))) return -2;
         winrt::init_apartment();
         winrt::hstring cls(L"Windows.Media.SystemMediaTransportControls");
         winrt::com_ptr<ISystemMediaTransportControlsInterop> interop;
