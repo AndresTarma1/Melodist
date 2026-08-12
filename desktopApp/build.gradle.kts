@@ -5,7 +5,7 @@ plugins {
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.kotlin.serialization)
-    id("dev.nucleusframework") version "2.3.2"
+    id("dev.nucleusframework") version "2.4.0"
 
 }
 
@@ -143,8 +143,8 @@ nucleus.application {
         "-Dkotlinx.coroutines.io.parallelism=16",
         // Skiko: render en GPU (Direct3D) pero con caché de recursos acotada (default ilimitada).
         "-Dskiko.gpu.resourceCacheLimit=128M",
-        "-Dskiko.buffering=DOUBLE",
-        "-Dskiko.vsync.enabled=true",
+//        "-Dskiko.buffering=DOUBLE",
+//        "-Dskiko.vsync.enabled=true",
     )
 
 
@@ -205,6 +205,7 @@ nucleus.application {
     val windowsRuntimeResources = rootProject.file("mpv-resources/windows")
     val graalvmOutputDir = layout.buildDirectory.dir("compose/binaries/main/graalvm-app/PaltaSound")
     tasks.register<Copy>("copyWindowsRuntimeResourcesGraalvm") {
+        description = "Copiamos el runtime de windows necesario para un perfecto funcionamiento en GraalVM"
         from(windowsRuntimeResources) {
             include("libmpv-2.dll", "smtc_bridge.dll", "yt-dlp.exe")
         }
