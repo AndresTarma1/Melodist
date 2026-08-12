@@ -3,13 +3,13 @@ package example.nucleus.ui.components.player
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
@@ -20,6 +20,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.onSizeChanged
@@ -38,10 +39,32 @@ import com.metrolist.innertube.models.MediaInfo
 import example.nucleus.shared.generated.resources.Res
 import example.nucleus.shared.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
-import org.jetbrains.compose.resources.stringResource
 import kotlinx.coroutines.launch
 
 enum class NowPlayingTab { LYRICS, QUEUE, INFO }
+
+/**
+ * Entrada simple de la carátula en NowPlaying: escala+fade desde el tamaño del thumbnail.
+ * Sustituye a la transición hero compartida (que tiembla con el runtime Tao).
+ */
+@Composable
+private fun rememberCoverEnter(): Pair<Animatable<Float, *>, Animatable<Float, *>> {
+    val scale = remember { Animatable(0.55f) }
+    val alpha = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        launch { scale.animateTo(1f, tween(320, easing = FastOutSlowInEasing)) }
+        launch { alpha.animateTo(1f, tween(260, easing = FastOutSlowInEasing)) }
+    }
+    return scale to alpha
+}
+
+@Composable
+private fun Modifier.coverEnter(scaleAnim: Animatable<Float, *>, alphaAnim: Animatable<Float, *>): Modifier =
+    this.graphicsLayer {
+        scaleX = scaleAnim.value
+        scaleY = scaleAnim.value
+        alpha = alphaAnim.value
+    }
 
 @Composable
 fun NowPlayingLayout(
@@ -133,6 +156,8 @@ private fun ExpandedNowPlayingLayout(
     sharedTransitionScope: SharedTransitionScope? = null,
     animatedVisibilityScope: AnimatedVisibilityScope? = null,
 ) {
+    val (coverScale, coverAlpha) = rememberCoverEnter()
+
     Row(
         modifier = Modifier.fillMaxSize(),
         verticalAlignment = Alignment.CenterVertically,
@@ -149,7 +174,8 @@ private fun ExpandedNowPlayingLayout(
                 modifier = Modifier
                     .weight(1f, fill = false)
                     .sizeIn(maxHeight = 380.dp, maxWidth = 380.dp)
-                    .heroCoverElement(song.id, sharedTransitionScope, animatedVisibilityScope),
+                    .heroCoverElement(song.id, sharedTransitionScope, animatedVisibilityScope)
+                    .coverEnter(coverScale, coverAlpha),
             )
             Spacer(Modifier.height(18.dp))
             SongHeader(
@@ -198,6 +224,8 @@ private fun CompactNowPlayingLayout(
     animatedVisibilityScope: AnimatedVisibilityScope? = null,
     reservedEndPadding: Dp = 0.dp,
 ) {
+    val (coverScale, coverAlpha) = rememberCoverEnter()
+
     Column(
         modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
@@ -214,7 +242,8 @@ private fun CompactNowPlayingLayout(
                 title = song.title,
                 modifier = Modifier
                     .size(96.dp)
-                    .heroCoverElement(song.id, sharedTransitionScope, animatedVisibilityScope),
+                    .heroCoverElement(song.id, sharedTransitionScope, animatedVisibilityScope)
+                    .coverEnter(coverScale, coverAlpha),
             )
 
             SongHeader(

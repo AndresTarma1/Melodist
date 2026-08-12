@@ -32,7 +32,11 @@ import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
-fun CoverArt(url: String?, title: String, modifier: Modifier = Modifier) {
+fun CoverArt(
+    url: String?,
+    title: String,
+    modifier: Modifier = Modifier,
+) {
 
     Card(
         modifier = modifier.aspectRatio(1f),

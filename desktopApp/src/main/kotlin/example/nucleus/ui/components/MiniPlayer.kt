@@ -59,9 +59,6 @@ import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.jewel.foundation.modifier.onHover
 
 
-@OptIn(
-    ExperimentalMaterial3ExpressiveApi::class,
-)
 @Composable
 fun MiniPlayer(
     progressState: PlayerProgressState,
