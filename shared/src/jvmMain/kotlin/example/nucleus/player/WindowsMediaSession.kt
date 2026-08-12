@@ -140,15 +140,13 @@ class WindowsMediaSession {
 
     fun updateMetadata(title: String, artist: String, album: String, thumbnailUrl: String? = null, durationMs: Long? = null) {
         if (!configured || !MediaControlService.isAvailable()) return
-        val coverUrl = thumbnailUrl?.let {
-            runCatching { File(it).toURI().toString() }.getOrNull()
-        }
+        // thumbnailUrl ya llega como URI (file:///... desde downloadThumbToTemp, o una URL remota).
         MediaControlService.setMetadata(
             MediaMetadata(
                 title = title,
                 artist = artist,
                 album = album,
-                coverUrl = coverUrl,
+                coverUrl = thumbnailUrl,
                 duration = durationMs,
             ),
         )

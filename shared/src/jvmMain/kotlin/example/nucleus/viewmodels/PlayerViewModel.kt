@@ -198,15 +198,13 @@ class PlayerViewModel(
                 .distinctUntilChanged()
                 .collectLatest { song ->
                     if (song != null) {
-                        val thumbUri = withContext(Dispatchers.IO) {
-                            downloadThumbToTemp(song.thumbnailUrl)
-                        }
-
                         mediaSession.updateMetadata(
                             title = song.title,
                             artist = song.artists.joinToString(", ") { it.name },
                             album = song.album?.title ?: "",
-                            thumbnailUrl = thumbUri,
+                            // URL remota directa: el SMTC la descarga vía CreateFromUri(https://).
+                            // Un archivo local (file://) es best-effort en SMTC de Windows y no carga.
+                            thumbnailUrl = song.thumbnailUrl,
                             durationMs = song.duration.toLong() * 1000L,
                         )
                     } else {
@@ -220,32 +218,6 @@ class PlayerViewModel(
                 .distinctUntilChanged()
                 .filterNotNull()
                 .collectLatest { fetchLyrics(); fetchMetadataInfo() }
-        }
-    }
-
-    suspend fun downloadThumbToTemp(url: String?): String? = withContext(Dispatchers.IO)  {
-        if (url.isNullOrBlank()) return@withContext null
-        return@withContext try {
-            val hash = url.hashCode()
-            val tmpFile = java.io.File(System.getProperty("java.io.tmpdir"), "musicplayer_smtc_thumb_$hash.jpg")
-
-            if (tmpFile.exists()) {
-                return@withContext "file:///${tmpFile.absolutePath.replace('\\', '/')}"
-            }
-
-            val conn = URI(url).toURL().openConnection() as HttpURLConnection
-            conn.connectTimeout = 5_000
-            conn.readTimeout = 10_000
-            conn.setRequestProperty("User-Agent", "Mozilla/5.0")
-            conn.connect()
-            val bytes = conn.inputStream.use { it.readBytes() }
-            conn.disconnect()
-
-            tmpFile.writeBytes(bytes)
-            "file:///${tmpFile.absolutePath.replace('\\', '/')}"
-        } catch (e: Exception) {
-                    log.fine("Error al descargar miniatura SMTC: ${e.message}")
-            url
         }
     }
 
