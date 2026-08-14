@@ -36,6 +36,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import example.nucleus.ui.utils.circleAwareShape
+import example.nucleus.utils.LocalAnimationsEnabled
 
 @Composable
 internal fun YtmSectionHeader(title: String, isLoading: Boolean = false) {
@@ -91,13 +92,22 @@ internal fun LocalSectionHeader(title: String) {
 
 @Composable
 internal fun LibraryGridSkeleton(count: Int = 4, isCircle: Boolean = false) {
+    val animationsEnabled = LocalAnimationsEnabled.current
     val infiniteTransition = rememberInfiniteTransition(label = "shimmer")
-    val alpha by infiniteTransition.animateFloat(
-        initialValue = 0.25f,
-        targetValue = 0.6f,
-        animationSpec = infiniteRepeatable(tween(900, easing = FastOutSlowInEasing), RepeatMode.Reverse),
-        label = "shimmerAlpha"
-    )
+    val animAlpha = if (animationsEnabled) {
+        infiniteTransition.animateFloat(
+            initialValue = 0.25f,
+            targetValue = 0.6f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(900, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "shimmerAlpha"
+        )
+    } else {
+        null
+    }
+    val alpha = animAlpha?.value ?: 0.42f
     val color = MaterialTheme.colorScheme.onSurface.copy(alpha = alpha * 0.15f)
     val shape = if (isCircle) circleAwareShape() else RoundedCornerShape(12.dp)
 

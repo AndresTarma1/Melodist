@@ -1,6 +1,8 @@
 package example.nucleus.ui.screens.library
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -44,6 +46,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import example.nucleus.viewmodels.CsvImportState
+import example.nucleus.utils.LocalAnimationsEnabled
 import example.nucleus.shared.generated.resources.Res
 import example.nucleus.shared.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
@@ -79,10 +82,11 @@ fun BoxScope.CsvImportProgressOverlay(
         }
     }
 
+    val animationsEnabled = LocalAnimationsEnabled.current
     AnimatedVisibility(
         visible = visible,
-        enter = slideInVertically(initialOffsetY = { it / 2 }) + fadeIn(),
-        exit = slideOutVertically(targetOffsetY = { it / 2 }) + fadeOut(),
+        enter = if (animationsEnabled) slideInVertically(initialOffsetY = { it / 2 }) + fadeIn() else EnterTransition.None,
+        exit = if (animationsEnabled) slideOutVertically(targetOffsetY = { it / 2 }) + fadeOut() else ExitTransition.None,
         modifier = Modifier
             .align(Alignment.BottomEnd)
             .padding(20.dp),

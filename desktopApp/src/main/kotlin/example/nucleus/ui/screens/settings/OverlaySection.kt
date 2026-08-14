@@ -1,6 +1,10 @@
 package example.nucleus.ui.screens.settings
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Keyboard
 import androidx.compose.material.icons.rounded.VideogameAsset
@@ -10,6 +14,7 @@ import com.alorma.compose.settings.ui.SettingsGroup
 import com.alorma.compose.settings.ui.expressive.SettingsMenuLink
 import com.alorma.compose.settings.ui.expressive.SettingsSwitch
 import example.nucleus.overlay.HotkeyCombo.Companion.DEFAULT
+import example.nucleus.utils.LocalAnimationsEnabled
 import example.nucleus.viewmodels.SettingsViewModel
 import example.nucleus.shared.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
@@ -41,7 +46,9 @@ fun OverlaySettingsGroup(
         )
 
         AnimatedVisibility(
-            overlayHotkeyEnabled
+            visible = overlayHotkeyEnabled,
+            enter = if (LocalAnimationsEnabled.current) fadeIn() else EnterTransition.None,
+            exit = if (LocalAnimationsEnabled.current) fadeOut() else ExitTransition.None,
         ){
             SettingsMenuLink(
                 icon = { Icon(Icons.Rounded.Keyboard, null) },

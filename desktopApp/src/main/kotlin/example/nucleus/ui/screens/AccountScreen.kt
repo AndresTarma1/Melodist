@@ -41,6 +41,7 @@ import example.nucleus.ui.components.images.MusicPlayerImage
 import example.nucleus.ui.components.images.PlaceholderType
 import example.nucleus.ui.utils.circleAwareShape
 import example.nucleus.utils.LocalPlayerViewModel
+import example.nucleus.utils.LocalAnimationsEnabled
 import example.nucleus.viewmodels.AccountState
 import example.nucleus.viewmodels.AccountManagerViewModel
 import com.metrolist.innertube.models.PlaylistItem
@@ -163,6 +164,7 @@ fun AccountScreen(
             )
         }
     ) { innerPadding ->
+        val animationsEnabled = LocalAnimationsEnabled.current
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -171,7 +173,8 @@ fun AccountScreen(
             AnimatedContent(
                 targetState = state.uiState,
                 transitionSpec = {
-                    fadeIn(tween(300)) togetherWith fadeOut(tween(200))
+                    if (animationsEnabled) fadeIn(tween(300)) togetherWith fadeOut(tween(200))
+                    else EnterTransition.None togetherWith ExitTransition.None
                 },
                 label = "accountContent"
             ) { contentState ->
@@ -354,7 +357,11 @@ private fun LoginSection(
                     Text(stringResource(Res.string.import_from_browser))
                 }
 
-                AnimatedVisibility(visible = showAdvanced) {
+                AnimatedVisibility(
+                    visible = showAdvanced,
+                    enter = if (LocalAnimationsEnabled.current) fadeIn() else EnterTransition.None,
+                    exit = if (LocalAnimationsEnabled.current) fadeOut() else ExitTransition.None,
+                ) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
                             stringResource(Res.string.pick_browser_desc),
@@ -484,7 +491,11 @@ private fun LoginSection(
                 }
             )
 
-            AnimatedVisibility(visible = cookieWarnings.isNotEmpty()) {
+            AnimatedVisibility(
+                visible = cookieWarnings.isNotEmpty(),
+                enter = if (LocalAnimationsEnabled.current) fadeIn() else EnterTransition.None,
+                exit = if (LocalAnimationsEnabled.current) fadeOut() else ExitTransition.None,
+            ) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.65f)),
@@ -954,16 +965,22 @@ private fun PlaylistAccountItem(
 
 @Composable
 private fun PlaylistSkeletonItem() {
+    val animationsEnabled = LocalAnimationsEnabled.current
     val infiniteTransition = rememberInfiniteTransition(label = "shimmer")
-    val alpha by infiniteTransition.animateFloat(
-        initialValue = 0.3f,
-        targetValue = 0.7f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(900, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "shimmerAlpha"
-    )
+    val animAlpha = if (animationsEnabled) {
+        infiniteTransition.animateFloat(
+            initialValue = 0.3f,
+            targetValue = 0.7f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(900, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "shimmerAlpha"
+        )
+    } else {
+        null
+    }
+    val alpha = animAlpha?.value ?: 0.5f
     val shimmerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = alpha * 0.15f)
 
     Row(
@@ -1064,7 +1081,11 @@ private fun CookieExpiredSection(
                 }
             )
 
-            AnimatedVisibility(visible = cookieWarnings.isNotEmpty()) {
+            AnimatedVisibility(
+                visible = cookieWarnings.isNotEmpty(),
+                enter = if (LocalAnimationsEnabled.current) fadeIn() else EnterTransition.None,
+                exit = if (LocalAnimationsEnabled.current) fadeOut() else ExitTransition.None,
+            ) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.65f)),

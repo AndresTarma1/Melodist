@@ -29,3 +29,7 @@ val LocalSnackbarHostState = staticCompositionLocalOf<SnackbarHostState> {
 val LocalSnackbarScope = staticCompositionLocalOf<CoroutineScope> {
     error("No se ha proporcionado un SnackbarScope")
 }
+
+val LocalAnimationsEnabled = staticCompositionLocalOf<Boolean> {
+    error("No se ha proporcionado animationsEnabled")
+}

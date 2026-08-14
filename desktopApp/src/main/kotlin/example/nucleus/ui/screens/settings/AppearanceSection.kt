@@ -28,6 +28,7 @@ fun AppearanceSettingsGroup(
     val appBackgroundStyle by viewModel.appBackgroundStyle.collectAsState()
     val uiScale by viewModel.uiScale.collectAsState()
     val selectedFont by viewModel.selectedFont.collectAsState()
+    val animationsEnabled by viewModel.animationsEnabled.collectAsState()
 
     var showThemeDropdown by remember { mutableStateOf(false) }
     var showDarkLevelDropdown by remember { mutableStateOf(false) }
@@ -41,11 +42,20 @@ fun AppearanceSettingsGroup(
         title = { Text(stringResource(Res.string.section_appearance)) },
         colors = colors,
     ) {
+        SettingsSwitch(
+            icon = { Icon(Icons.Rounded.Animation, null) },
+            title = { Text(stringResource(Res.string.animations_enabled)) },
+            subtitle = { Text(stringResource(Res.string.animations_enabled_subtitle)) },
+            shapes = ListItemDefaults.segmentedShapes(index = 0, count = 10),
+            colors = colors,
+            state = animationsEnabled,
+            onCheckedChange = { viewModel.setAnimationsEnabled(it) }
+        )
         DropdownSelector(
             label = stringResource(Res.string.theme),
             icon = Icons.Rounded.DarkMode,
             currentValue = themeMode.displayName(),
-            segmentedShape = ListItemDefaults.segmentedShapes(index = 0, count = 9),
+            segmentedShape = ListItemDefaults.segmentedShapes(index = 1, count = 10),
             expanded = showThemeDropdown,
             onExpandedChange = { showThemeDropdown = it },
             options = ThemeMode.entries.map { it to it.displayName() },
@@ -58,7 +68,7 @@ fun AppearanceSettingsGroup(
             icon = Icons.Rounded.Contrast,
             currentValue = darkLevel.displayName(),
             expanded = showDarkLevelDropdown,
-            segmentedShape = ListItemDefaults.segmentedShapes(index = 1, count = 9),
+            segmentedShape = ListItemDefaults.segmentedShapes(index = 2, count = 10),
             onExpandedChange = { showDarkLevelDropdown = it },
             options = DarkLevel.entries.map { it to it.displayName() },
             isSelected = { it == darkLevel },
@@ -70,7 +80,7 @@ fun AppearanceSettingsGroup(
             icon = Icons.Rounded.Dashboard,
             currentValue = layoutMode.displayName(),
             expanded = showLayoutDropdown,
-            segmentedShape = ListItemDefaults.segmentedShapes(index = 2, count = 9),
+            segmentedShape = ListItemDefaults.segmentedShapes(index = 3, count = 10),
             onExpandedChange = { showLayoutDropdown = it },
             options = listOf(LayoutMode.ATTACHED to LayoutMode.ATTACHED.displayName()),
             isSelected = { it == layoutMode },
@@ -83,7 +93,7 @@ fun AppearanceSettingsGroup(
             currentValue = navigationRailStyle.displayName(),
             expanded = showNavigationRailStyle,
             onExpandedChange = { showNavigationRailStyle = it },
-            segmentedShape = ListItemDefaults.segmentedShapes(index = 3, count = 9),
+            segmentedShape = ListItemDefaults.segmentedShapes(index = 4, count = 10),
             options = NavigationRailStyle.entries.map { it to it.displayName() },
             isSelected = { it == navigationRailStyle },
             onSelect = { viewModel.setNavigationRailStyle(it); showNavigationRailStyle = false },
@@ -95,7 +105,7 @@ fun AppearanceSettingsGroup(
             currentValue = themePalette.displayName(),
             expanded = showPaletteDropdown,
             onExpandedChange = { showPaletteDropdown = it },
-            segmentedShape = ListItemDefaults.segmentedShapes(index = 4, count = 9),
+            segmentedShape = ListItemDefaults.segmentedShapes(index = 5, count = 10),
             options = ThemePalette.entries.map { it to it.displayName() },
             isSelected = { it == themePalette },
             onSelect = { viewModel.setThemePalette(it); showPaletteDropdown = false },
@@ -105,7 +115,7 @@ fun AppearanceSettingsGroup(
         SettingsSwitch(
             icon = { Icon(Icons.Rounded.ColorLens, null) },
             title = { Text(stringResource(Res.string.dynamic_colors)) },
-            shapes = ListItemDefaults.segmentedShapes(index = 5, count = 8),
+            shapes = ListItemDefaults.segmentedShapes(index = 6, count = 10),
             colors = colors,
             state = dynamicColor,
             onCheckedChange = { viewModel.setDynamicColorFromArtwork(it) }
@@ -115,7 +125,7 @@ fun AppearanceSettingsGroup(
             icon = Icons.Rounded.Wallpaper,
             currentValue = appBackgroundStyle.displayName(),
             expanded = showAppBackgroundDropdown,
-            segmentedShape = ListItemDefaults.segmentedShapes(index = 6, count = 9),
+            segmentedShape = ListItemDefaults.segmentedShapes(index = 7, count = 10),
             onExpandedChange = { showAppBackgroundDropdown = it },
             options = BackgroundStyle.entries.map { it to it.displayName() },
             isSelected = { it == appBackgroundStyle },
@@ -129,7 +139,7 @@ fun AppearanceSettingsGroup(
             icon = Icons.Rounded.ZoomIn,
             currentValue = "${(closestScale * 100).roundToInt()}%",
             expanded = showUiScaleDropdown,
-            segmentedShape = ListItemDefaults.segmentedShapes(index = 7, count = 9),
+            segmentedShape = ListItemDefaults.segmentedShapes(index = 8, count = 10),
             onExpandedChange = { showUiScaleDropdown = it },
             options = scalePresets.map { it to "${(it * 100).roundToInt()}%" },
             isSelected = { it == closestScale },
@@ -140,7 +150,7 @@ fun AppearanceSettingsGroup(
             selectedFont = selectedFont,
             onSelect = { viewModel.setSelectedFont(it) },
             colors = colors,
-            segmentedShape = ListItemDefaults.segmentedShapes(index = 8, count = 9),
+            segmentedShape = ListItemDefaults.segmentedShapes(index = 9, count = 10),
         )
     }
 }

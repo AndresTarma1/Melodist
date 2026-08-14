@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
+import example.nucleus.utils.LocalAnimationsEnabled
 
 /**
  * ✅ Altamente Optimizado:
@@ -41,39 +42,59 @@ fun AnimatedEqualizer(
     color: Color = MaterialTheme.colorScheme.primary,
 ) {
     if (isPlaying) {
-        val infiniteTransition = rememberInfiniteTransition(label = "equalizer_animation")
+        val animationsEnabled = LocalAnimationsEnabled.current
 
-        val bars = List(barCount) { index ->
-            infiniteTransition.animateFloat(
-                initialValue = 0.2f,
-                targetValue = 1f,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(
-                        durationMillis = 400 + (index * 120),
-                        easing = LinearEasing
+        if (animationsEnabled) {
+            val infiniteTransition = rememberInfiniteTransition(label = "equalizer_animation")
+
+            val bars = List(barCount) { index ->
+                infiniteTransition.animateFloat(
+                    initialValue = 0.2f,
+                    targetValue = 1f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(
+                            durationMillis = 400 + (index * 120),
+                            easing = LinearEasing
+                        ),
+                        repeatMode = RepeatMode.Reverse
                     ),
-                    repeatMode = RepeatMode.Reverse
-                ),
-                label = "bar_$index"
-            )
-        }
-
-        Row(
-            modifier = modifier.height(24.dp),
-            verticalAlignment = Alignment.Bottom,
-            horizontalArrangement = Arrangement.spacedBy(3.dp)
-        ) {
-            bars.forEach { anim ->
-                Box(
-                    modifier = Modifier
-                        .width(4.dp)
-                        .fillMaxHeight()
-                        .graphicsLayer {
-                            scaleY = anim.value
-                            transformOrigin = TransformOrigin(0.5f, 1f) // Escalado desde el fondo
-                        }
-                        .background(color, RoundedCornerShape(2.dp))
+                    label = "bar_$index"
                 )
+            }
+
+            Row(
+                modifier = modifier.height(24.dp),
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = Arrangement.spacedBy(3.dp)
+            ) {
+                bars.forEach { anim ->
+                    Box(
+                        modifier = Modifier
+                            .width(4.dp)
+                            .fillMaxHeight()
+                            .graphicsLayer {
+                                scaleY = anim.value
+                                transformOrigin = TransformOrigin(0.5f, 1f) // Escalado desde el fondo
+                            }
+                            .background(color, RoundedCornerShape(2.dp))
+                    )
+                }
+            }
+        } else {
+            // Sin animaciones: barras estáticas a altura completa
+            Row(
+                modifier = modifier.height(24.dp),
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = Arrangement.spacedBy(3.dp)
+            ) {
+                repeat(barCount) {
+                    Box(
+                        modifier = Modifier
+                            .width(4.dp)
+                            .fillMaxHeight()
+                            .background(color, RoundedCornerShape(2.dp))
+                    )
+                }
             }
         }
     } else {

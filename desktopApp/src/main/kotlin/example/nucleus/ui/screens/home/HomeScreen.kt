@@ -198,9 +198,8 @@ fun HomeScreenContent(
                             .padding(32.dp),
                         contentAlignment = Alignment.Center,
                     ) {
-
-                        CircularWavyProgressIndicator(
-                            modifier = Modifier.size(48.dp),
+                        LoadingIndicator(
+                            modifier = Modifier.fillMaxSize(),
                             color = MaterialTheme.colorScheme.primary,
                         )
                     }

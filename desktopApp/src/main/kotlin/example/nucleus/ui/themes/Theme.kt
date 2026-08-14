@@ -71,10 +71,18 @@ fun AppTheme(
         if (isDarkTheme) baseScheme.darkened(darkLevel, seeds.first) else baseScheme
     }
 
+    // Roboto (empaquetada) es la fuente por defecto; el selector solo la reemplaza
+    // cuando el usuario elige otra fuente del sistema.
+    val defaultFamily = robotoFamily()
+    val customFamily = remember(selectedFont) {
+        if (selectedFont.isBlank()) null else systemFontFamily(selectedFont)
+    }
+    val fontFamily = customFamily ?: defaultFamily
+
     MaterialTheme(
         colorScheme = colorScheme,
-        typography = remember(selectedFont) {
-            Typography().withFontFamily(systemFontFamily(selectedFont))
+        typography = remember(fontFamily) {
+            Typography().withFontFamily(fontFamily)
         },
     ) {
         CompositionLocalProvider(

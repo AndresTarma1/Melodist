@@ -116,6 +116,9 @@ class SettingsViewModel(
     val selectedFont: StateFlow<String> = preferencesRepository.selectedFont
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
 
+    val animationsEnabled: StateFlow<Boolean> = preferencesRepository.animationsEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
 
     fun setAudioQuality(quality: AudioQuality) {
         viewModelScope.launch { preferencesRepository.setAudioQuality(quality) }
@@ -251,5 +254,9 @@ class SettingsViewModel(
 
     fun setSelectedFont(name: String) {
         viewModelScope.launch { preferencesRepository.setSelectedFont(name) }
+    }
+
+    fun setAnimationsEnabled(enabled: Boolean) {
+        viewModelScope.launch { preferencesRepository.setAnimationsEnabled(enabled) }
     }
 }

@@ -42,6 +42,7 @@ import example.nucleus.ui.screens.shared.SectionGridItem
 import example.nucleus.ui.screens.shared.SectionListItem
 import example.nucleus.ui.utils.circleAwareShape
 import example.nucleus.utils.LocalPlayerViewModel
+import example.nucleus.utils.LocalAnimationsEnabled
 import example.nucleus.viewmodels.ArtistState
 import example.nucleus.viewmodels.ArtistManagerViewModel
 import example.nucleus.viewmodels.PlayerViewModel
@@ -286,7 +287,7 @@ fun ArtistBanner(
         modifier = modifier
             .fillMaxWidth()
             .height(520.dp) // Permite que el contenedor crezca si es necesario
-            .animateContentSize() // Suaviza el cambio de tamaño al expandir el texto
+            .animateContentSize(if (LocalAnimationsEnabled.current) tween(220) else snap()) // Suaviza el cambio de tamaño al expandir el texto
     ) {
         MusicPlayerImage(
             url = urlImage,
@@ -347,9 +348,16 @@ fun ArtistBanner(
             artistPage.description?.let { desc ->
                 if (desc.isNotBlank()) {
                     Column(modifier = Modifier.fillMaxWidth(0.55f)) {
+                        val animationsEnabled = LocalAnimationsEnabled.current
                         AnimatedContent(
                             targetState = descExpanded,
-                            transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(150)) },
+                            transitionSpec = {
+                                if (animationsEnabled) {
+                                    fadeIn(tween(200)) togetherWith fadeOut(tween(150))
+                                } else {
+                                    EnterTransition.None togetherWith ExitTransition.None
+                                }
+                            },
                             label = "descAnim"
                         ) { expanded ->
                             Text(

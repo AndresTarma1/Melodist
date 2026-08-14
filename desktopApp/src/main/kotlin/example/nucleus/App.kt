@@ -44,6 +44,8 @@ import dev.nucleusframework.autolaunch.AutoLaunchResult
 import dev.nucleusframework.window.NucleusDecoratedWindowTheme
 import dev.nucleusframework.window.TitleBar
 import dev.nucleusframework.window.macOSLargeCornerRadius
+import dev.nucleusframework.window.material.MaterialDecoratedWindow
+import dev.nucleusframework.window.material.MaterialTitleBar
 import dev.nucleusframework.window.styling.TitleBarColors
 import dev.nucleusframework.window.styling.TitleBarMetrics
 import dev.nucleusframework.window.styling.TitleBarStyle
@@ -73,11 +75,13 @@ import example.nucleus.utils.LocalPlaylistsViewModel
 import example.nucleus.utils.LocalSnackbarHostState
 import example.nucleus.utils.LocalSnackbarScope
 import example.nucleus.utils.LocalUserPreferences
+import example.nucleus.utils.LocalAnimationsEnabled
 import example.nucleus.viewmodels.AppViewModel
 import example.nucleus.viewmodels.DownloadViewModel
 import example.nucleus.viewmodels.LibraryPlaylistsViewModel
 import example.nucleus.viewmodels.PlayerViewModel
 import example.nucleus.viewmodels.UpdateStatus
+import example.nucleus.windows.TaskBarMediaWidget
 import example.nucleus.windows.WindowsThumbBar
 import io.github.aakira.napier.Napier
 import kotlinx.coroutines.delay
@@ -183,6 +187,7 @@ fun NucleusApplicationScope.App(
     val artworkColors = rememberArtworkColors(currentSong?.thumbnailUrl)
     val themeMode by remember(userPreferences) { userPreferences.themeMode }.collectAsState(ThemeMode.SYSTEM)
     val youtubeRegion by remember(userPreferences) { userPreferences.youtubeRegion }.collectAsState(YouTubeRegion.SYSTEM)
+    val animationsEnabled by remember(userPreferences) { userPreferences.animationsEnabled }.collectAsState(true)
 
     if (!isVisible || minimizeToTray) {
         TrayCustom(
@@ -231,7 +236,17 @@ fun NucleusApplicationScope.App(
                 LocalDownloadViewModel provides downloadViewModel,
                 LocalPlaylistsViewModel provides playlistsViewModel,
                 LocalUserPreferences provides userPreferences,
+                LocalAnimationsEnabled provides animationsEnabled,
             ) {
+                // Widget de medios dentro de la barra de tareas de Windows (antes de la bandeja).
+                // Se compone en su propia ventana pero hereda estos CompositionLocals y el tema.
+                TaskBarMediaWidget(
+                    playerViewModel = playerViewModel,
+                    userPreferences = userPreferences,
+                    animationsEnabled = animationsEnabled,
+                    onExit = { handleExit() },
+                    onShowWindow = { isVisible = true },
+                )
 
                 val titleBarStyle = TitleBarStyle(
                     colors = TitleBarColors(

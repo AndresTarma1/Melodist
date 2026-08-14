@@ -1,6 +1,8 @@
 package example.nucleus.ui.components.player
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -30,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.unit.sp
 import example.nucleus.lyrics.LyricLine
+import example.nucleus.utils.LocalAnimationsEnabled
 
 /**
  * Letras sincronizadas al estilo karaoke: la línea activa se resalta (con relleno por palabra
@@ -100,9 +103,18 @@ private fun LyricLineRow(
     val activeColor = MaterialTheme.colorScheme.onSurface
     val sungColor = MaterialTheme.colorScheme.primary
     val idleColor = MaterialTheme.colorScheme.onSurface.copy(alpha = if (isPast) 0.24f else 0.42f)
-    val rowAlpha by animateFloatAsState(if (isActive) 1f else if (isPast) 0.72f else 0.9f, label = "lyricAlpha")
+    val animationsEnabled = LocalAnimationsEnabled.current
+    val rowAlpha by animateFloatAsState(
+        targetValue = if (isActive) 1f else if (isPast) 0.72f else 0.9f,
+        animationSpec = if (animationsEnabled) tween(300) else snap(),
+        label = "lyricAlpha"
+    )
 
-    val scale by animateFloatAsState(if (isActive) 1.06f else 0.98f, label = "lyricScale")
+    val scale by animateFloatAsState(
+        targetValue = if (isActive) 1.06f else 0.98f,
+        animationSpec = if (animationsEnabled) tween(300) else snap(),
+        label = "lyricScale"
+    )
 
     val rowModifier = Modifier
         .fillMaxWidth()

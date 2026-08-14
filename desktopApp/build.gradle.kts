@@ -5,7 +5,7 @@ plugins {
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.kotlin.serialization)
-    id("dev.nucleusframework") version "2.4.0"
+    id("dev.nucleusframework") version "2.4.4"
 
 }
 
@@ -18,7 +18,7 @@ kotlin {
 
 dependencies {
     implementation(project(":shared"))
-    val nucleusVersion = "2.4.0"
+    val nucleusVersion = "2.4.4"
 
 
 
@@ -46,8 +46,6 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodelCompose)
     implementation(libs.androidx.lifecycle.runtimeCompose)
 
-
-//    implementation(libs.compose.native.tray)
 
     implementation(libs.koin.core)
     implementation(libs.koin.compose.viewmodel)
@@ -103,6 +101,9 @@ dependencies {
     implementation(libs.jewel.ui.standalone)
     implementation(libs.jewel.ui.decorated.window)
     implementation(libs.jbr)
+
+    // Widgets Compose dentro de la barra de tareas de Windows (solo desktop/JVM)
+    implementation("uk.kulikov:compose-windows-taskbar:0.1.0")
 
 
 

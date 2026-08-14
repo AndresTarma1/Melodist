@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
 import example.nucleus.ui.components.layout.HorizontalScrollableRow
 import example.nucleus.ui.utils.circleAwareShape
+import example.nucleus.utils.LocalAnimationsEnabled
 
 /**
  * CompositionLocal que provee el acceso diferido (lambda) al valor de traducción del shimmer.
@@ -41,6 +42,15 @@ val LocalShimmerTranslation = staticCompositionLocalOf<(() -> Float)?> { null }
  */
 @Composable
 fun ProvideShimmerTransition(content: @Composable () -> Unit) {
+    val animationsEnabled = LocalAnimationsEnabled.current
+    if (!animationsEnabled) {
+        // Sin animaciones: proveer una traducción estática (sin animación infinita, que requiere duración > 0)
+        val staticProvider = remember { { 0f } }
+        CompositionLocalProvider(LocalShimmerTranslation provides staticProvider) {
+            content()
+        }
+        return
+    }
     val transition = rememberInfiniteTransition(label = "shimmer")
     val translateAnimation = transition.animateFloat(
         initialValue = -1000f,
@@ -75,17 +85,23 @@ fun Modifier.shimmerBackground(
     val finalProvider = if (translationProvider != null) {
         translationProvider
     } else {
-        val transition = rememberInfiniteTransition(label = "shimmerFallback")
-        val anim = transition.animateFloat(
-            initialValue = -1000f,
-            targetValue = 1000f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(1200, easing = LinearEasing),
-                repeatMode = RepeatMode.Restart
-            ),
-            label = "shimmerFallbackTranslation"
-        )
-        remember(anim) { { anim.value } }
+        val animationsEnabled = LocalAnimationsEnabled.current
+        if (!animationsEnabled) {
+            // Sin animaciones: valor estático
+            remember { { 0f } }
+        } else {
+            val transition = rememberInfiniteTransition(label = "shimmerFallback")
+            val anim = transition.animateFloat(
+                initialValue = -1000f,
+                targetValue = 1000f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(1200, easing = LinearEasing),
+                    repeatMode = RepeatMode.Restart
+                ),
+                label = "shimmerFallbackTranslation"
+            )
+            remember(anim) { { anim.value } }
+        }
     }
 
     val shimmerColors = listOf(

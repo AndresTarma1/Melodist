@@ -34,6 +34,7 @@ import example.nucleus.navigation.Route
 import example.nucleus.models.MediaMetadata
 import example.nucleus.ui.components.EqualizerDialog
 import example.nucleus.utils.LocalUserPreferences
+import example.nucleus.utils.LocalAnimationsEnabled
 import example.nucleus.viewmodels.PlayerUiState
 import com.metrolist.innertube.models.MediaInfo
 import example.nucleus.shared.generated.resources.Res
@@ -49,11 +50,14 @@ enum class NowPlayingTab { LYRICS, QUEUE, INFO }
  */
 @Composable
 private fun rememberCoverEnter(): Pair<Animatable<Float, *>, Animatable<Float, *>> {
-    val scale = remember { Animatable(0.55f) }
-    val alpha = remember { Animatable(0f) }
+    val animationsEnabled = LocalAnimationsEnabled.current
+    val scale = remember { Animatable(if (animationsEnabled) 0.55f else 1f) }
+    val alpha = remember { Animatable(if (animationsEnabled) 0f else 1f) }
     LaunchedEffect(Unit) {
-        launch { scale.animateTo(1f, tween(320, easing = FastOutSlowInEasing)) }
-        launch { alpha.animateTo(1f, tween(260, easing = FastOutSlowInEasing)) }
+        if (animationsEnabled) {
+            launch { scale.animateTo(1f, tween(320, easing = FastOutSlowInEasing)) }
+            launch { alpha.animateTo(1f, tween(260, easing = FastOutSlowInEasing)) }
+        }
     }
     return scale to alpha
 }
@@ -339,11 +343,17 @@ private fun NowPlayingTabContent(
     lyricsTextStyle: androidx.compose.ui.text.TextStyle,
     onNavigate: ((Route) -> Unit)?,
 ) {
+    val animationsEnabled = LocalAnimationsEnabled.current
     AnimatedContent(
         targetState = tab,
         transitionSpec = {
-            (fadeIn(tween(220)) + slideInVertically(tween(220)) { it / 8 })
-                .togetherWith(fadeOut(tween(140)))
+            if (animationsEnabled) {
+                (fadeIn(tween(220)) + slideInVertically(tween(220)) { it / 8 })
+                    .togetherWith(fadeOut(tween(140)))
+            } else {
+                androidx.compose.animation.EnterTransition.None
+                    .togetherWith(androidx.compose.animation.ExitTransition.None)
+            }
         },
         label = "now_playing_tab_content"
     ) { targetTab ->

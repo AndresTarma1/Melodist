@@ -64,7 +64,7 @@ kotlin {
             implementation("org.jetbrains.runtime:jbr-api:1.10.1")
             implementation("dev.toastbits:mediasession:0.1.1")
             // Media controls del sistema (SMTC/MPRIS/Now Playing) vía Nucleus.
-            implementation("dev.nucleusframework:nucleus.media-control:2.4.0")
+            implementation("dev.nucleusframework:nucleus.media-control:2.4.3")
 
             // GraalJS (cipher `n`/`s` de player.js) EXCLUIDO en la rama experimental de GraalVM:
             // truffle-runtime es un módulo JPMS incompatible con native-image dentro del uber JAR.

@@ -45,6 +45,8 @@
     <string name="equalizer">Equalizer</string>
     <string name="ten_bands">5 bands</string>
     <string name="section_appearance">Appearance</string>
+    <string name="animations_enabled">Interface animations</string>
+    <string name="animations_enabled_subtitle">Enable transition and motion animations</string>
     <string name="theme">Theme</string>
     <string name="color_palette">Color palette</string>
     <string name="dynamic_colors">Dynamic colors from artwork</string>
@@ -410,7 +412,7 @@
     <string name="app_background_style">App background</string>
     <string name="ui_scale">UI scale</string>
     <string name="font">Font</string>
-    <string name="font_system_default">System default</string>
+    <string name="font_system_default">Roboto (default)</string>
 
     <!-- Render APIs -->
     <string name="render_directx">DirectX</string>

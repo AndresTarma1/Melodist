@@ -1,6 +1,8 @@
 package example.nucleus.ui.screens
 
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -14,11 +16,9 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -40,6 +40,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SearchBar
@@ -60,6 +61,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEvent
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
@@ -77,6 +85,7 @@ import example.nucleus.ui.screens.shared.SectionGridItem
 import example.nucleus.ui.screens.shared.SectionListItem
 import example.nucleus.ui.screens.shared.onYTItemClick
 import example.nucleus.utils.LocalPlayerViewModel
+import example.nucleus.utils.LocalAnimationsEnabled
 import example.nucleus.viewmodels.PlayerViewModel
 import example.nucleus.viewmodels.SearchState
 import example.nucleus.viewmodels.SearchViewModel
@@ -87,8 +96,11 @@ import com.metrolist.innertube.pages.ChartsPage
 import com.metrolist.innertube.pages.ExplorePage
 import com.metrolist.innertube.pages.MoodAndGenres
 import example.nucleus.shared.generated.resources.*
+import example.nucleus.ui.components.CustomLabeledCard
+import example.nucleus.ui.components.HorizontalGridLikeRow
 import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.jewel.foundation.modifier.onHover
+import org.jetbrains.jewel.foundation.modifier.thenIf
 
 // NOTE: `onHover` comes from org.jetbrains.jewel, which targets desktop only.
 // If this file is compiled for Android/iOS in a shared source set, this import
@@ -171,7 +183,8 @@ fun SearchScreen(
     var active by remember { mutableStateOf(false) }
 
     Scaffold(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize(),
         containerColor = Color.Transparent
     ) { paddingValues ->
         Column(
@@ -236,13 +249,20 @@ fun SearchSection(
     onSearch: (String) -> Unit,
     onDeleteHistoryEntry: (String) -> Unit,
     onClearHistory: () -> Unit,
-) {
+)  {
     SearchBar(
         modifier = Modifier
             .fillMaxWidth()
             .background(Color.Transparent)
             .padding(horizontal = if (active) 0.dp else 16.dp)
-            .animateContentSize(),
+            .onPreviewKeyEvent { event ->
+                if (event.type == KeyEventType.KeyDown && event.key == Key.Escape) {
+                    onActiveChange(false)
+                    true
+                } else {
+                    false
+                }
+            },
         inputField = {
             SearchBarDefaults.InputField(
                 query = query,
@@ -483,7 +503,6 @@ fun FilterRow(
     }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ResultsList(
     uiState: SearchState,
@@ -608,7 +627,10 @@ fun ResultsList(
                                     modifier = Modifier.fillMaxWidth().padding(16.dp),
                                     contentAlignment = Alignment.Center,
                                 ) {
-                                    CircularWavyProgressIndicator(stroke = Stroke(5F, cap = StrokeCap.Round))
+                                    LoadingIndicator(
+                                        modifier = Modifier.fillMaxSize(),
+                                        color = MaterialTheme.colorScheme.primary,
+                                    )
                                 }
                             }
                         }
@@ -696,6 +718,7 @@ private fun SearchAlbumGrid(
     }
 }
 
+
 @Composable
 private fun SearchMoodGrid(
     moods: List<MoodAndGenres.Item>,
@@ -706,7 +729,10 @@ private fun SearchMoodGrid(
             .fillMaxWidth()
             .clip(RoundedCornerShape(18.dp))
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 16.dp) // Alineación opcional para el título
+        ) {
             Icon(
                 Icons.AutoMirrored.Filled.TrendingUp,
                 contentDescription = null,
@@ -722,41 +748,24 @@ private fun SearchMoodGrid(
 
         Spacer(Modifier.height(12.dp))
 
-        LazyVerticalGrid(
-            columns = GridCells.Adaptive(120.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = PaddingValues(16.dp),
-            modifier = Modifier.heightIn(max = 500.dp),
-        ) {
-            items(moods.size) { index ->
-                val mood = moods[index]
-                val baseColor = Color(mood.stripeColor)
-
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(baseColor.copy(alpha = 0.15f))
-                        .border(
-                            width = 1.dp,
-                            color = baseColor.copy(alpha = 0.3f),
-                            shape = RoundedCornerShape(16.dp),
-                        )
-                        .clickable { onMoodClick(mood.endpoint.browseId, mood.endpoint.params) }
-                        .padding(vertical = 20.dp, horizontal = 8.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = mood.title,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = baseColor,
-                        textAlign = TextAlign.Center,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
+        // Misma mecánica que Quick Picks del Home: LazyRow con columnas agrupadas +
+        // scrollbar nativo estilizado (HorizontalScrollableRow). Los CustomLabeledCard
+        // miden 260x80dp, así que 4 filas dan la misma altura que antes sin recortes.
+        HorizontalGridLikeRow(
+            items = moods,
+            rows = 4,
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            columnWidth = 260.dp,
+            rowSpacing = 12.dp,
+            columnSpacing = 16.dp,
+            itemKey = { it.title },
+        ) { mood ->
+            CustomLabeledCard(
+                text = mood.title,
+                borderColor = Color(mood.stripeColor),
+                onClick = { onMoodClick(mood.endpoint.browseId, mood.endpoint.params) },
+            )
         }
     }
 }

@@ -2,6 +2,8 @@ package example.nucleus.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -50,6 +52,7 @@ import example.nucleus.ui.themes.LocalChromeSurface
 import example.nucleus.ui.themes.LocalLayoutMode
 import example.nucleus.ui.utils.circleAwareShape
 import example.nucleus.utils.LocalPlayerViewModel
+import example.nucleus.utils.LocalAnimationsEnabled
 import example.nucleus.utils.isWideThumbnail
 import example.nucleus.viewmodels.PlayerProgressState
 import example.nucleus.viewmodels.RepeatMode
@@ -120,10 +123,11 @@ fun MiniPlayer(
                     Row(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        val animationsEnabled = LocalAnimationsEnabled.current
                         AnimatedVisibility(
                             visible = !isOnNowPlaying,
-                            enter = fadeIn(tween(220)) + expandHorizontally(tween(220)),
-                            exit = fadeOut(tween(180)) + shrinkHorizontally(tween(220)),
+                            enter = if (animationsEnabled) fadeIn(tween(220)) + expandHorizontally(tween(220)) else EnterTransition.None,
+                            exit = if (animationsEnabled) fadeOut(tween(180)) + shrinkHorizontally(tween(220)) else ExitTransition.None,
                         ) {
                             var isHovered by remember { mutableStateOf(false) }
                             val overlayAlpha =if (isHovered) 0.38f else 0f
@@ -164,7 +168,7 @@ fun MiniPlayer(
                                             imageVector = if (isOnNowPlaying) Icons.Default.ArrowDropDown else Icons.Default.ArrowDropUp,
                                             modifier = Modifier.size(32.dp),
                                             contentDescription = if (isOnNowPlaying) stringResource(Res.string.mp_collapse) else stringResource(Res.string.mp_expand),
-                                            tint = Color.White
+                                            tint = MaterialTheme.colorScheme.onSurface
                                         )
                                     }
                                 }
@@ -247,7 +251,7 @@ fun MiniPlayer(
                         ) {
                             Icon(
                                 Icons.Rounded.SkipPrevious, stringResource(Res.string.mp_previous),
-                                tint = MaterialTheme.colorScheme.onSurface,
+                                tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(32.dp)
                             )
                         }
@@ -260,14 +264,14 @@ fun MiniPlayer(
                             modifier = Modifier.size(46.dp).pointerHoverIcon(PointerIcon.Hand),
                             shape = circleAwareShape(),
                             colors = IconButtonDefaults.filledIconButtonColors(
-                                containerColor = MaterialTheme.colorScheme.onSurface,
-                                contentColor = MaterialTheme.colorScheme.surface
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
                             )
                         ) {
                             if (isLoading) {
                                 LoadingIndicator(
                                     modifier = Modifier.fillMaxSize(),
-                                    color = MaterialTheme.colorScheme.surface,
+                                    color = MaterialTheme.colorScheme.onPrimary,
                                 )
                             } else {
                                 Icon(
@@ -288,7 +292,7 @@ fun MiniPlayer(
                         ) {
                             Icon(
                                 Icons.Rounded.SkipNext, stringResource(Res.string.mp_next),
-                                tint = MaterialTheme.colorScheme.onSurface,
+                                tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(32.dp)
                             )
                         }

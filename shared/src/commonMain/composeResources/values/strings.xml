@@ -45,6 +45,8 @@
     <string name="equalizer">Ecualizador</string>
     <string name="ten_bands">5 bandas</string>
     <string name="section_appearance">Apariencia</string>
+    <string name="animations_enabled">Animaciones de interfaz</string>
+    <string name="animations_enabled_subtitle">Habilitar animaciones de transición y movimiento</string>
     <string name="theme">Tema</string>
     <string name="navigation_rail">Barra de navegación</string>
     <string name="navigation_rail_style">Estilo de la barra de navegación</string>
@@ -412,7 +414,7 @@
     <string name="app_background_style">Fondo de la app</string>
     <string name="ui_scale">Escala de la interfaz</string>
     <string name="font">Fuente</string>
-    <string name="font_system_default">Predeterminada del sistema</string>
+    <string name="font_system_default">Roboto (predeterminada)</string>
 
     <!-- Render APIs -->
     <string name="render_directx">DirectX</string>

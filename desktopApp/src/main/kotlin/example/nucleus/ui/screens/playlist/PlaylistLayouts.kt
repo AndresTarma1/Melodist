@@ -2,7 +2,9 @@ package example.nucleus.ui.screens.playlist
 
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -36,6 +38,7 @@ import example.nucleus.ui.components.layout.AppVerticalScrollbar
 import example.nucleus.ui.screens.PlaylistActions
 import example.nucleus.ui.screens.PlaylistScreenState
 import example.nucleus.ui.utils.circleAwareShape
+import example.nucleus.utils.LocalAnimationsEnabled
 import example.nucleus.utils.LocalDownloadViewModel
 import com.metrolist.innertube.models.SongItem
 import com.metrolist.innertube.pages.PlaylistPage
@@ -580,7 +583,12 @@ fun PlaylistActionButton(
         ),
         shape = circleAwareShape() // Compatible con OpenGL
     ) {
-        Crossfade(targetState = isLoading, label = "icon_state") { loading ->
+        val animationsEnabled = LocalAnimationsEnabled.current
+        Crossfade(
+            targetState = isLoading,
+            animationSpec = if (animationsEnabled) tween(200) else snap(),
+            label = "icon_state"
+        ) { loading ->
             if (loading) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(20.dp),

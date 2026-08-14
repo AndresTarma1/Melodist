@@ -7,8 +7,10 @@ import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
@@ -56,6 +58,7 @@ import example.nucleus.ui.themes.LocalIsSolidBackground
 import example.nucleus.ui.themes.LocalLayoutMode
 import example.nucleus.utils.LocalPlayerViewModel
 import example.nucleus.utils.LocalSnackbarHostState
+import example.nucleus.utils.LocalAnimationsEnabled
 
 
 data class TabInfo(
@@ -93,6 +96,7 @@ fun NavigationDesktop(rootComponent: RootComponent, userPreferences: UserPrefere
     var isQueueVisible by remember { mutableStateOf(false) }
 
     val fullScreenPlayer by userPreferences.fullScreenPlayer.collectAsState(false)
+    val animationsEnabled = LocalAnimationsEnabled.current
 
     val isOnNowPlaying = activeConfig is ScreenConfig.NowPlaying
 
@@ -119,7 +123,11 @@ fun NavigationDesktop(rootComponent: RootComponent, userPreferences: UserPrefere
                 Column(modifier = Modifier.fillMaxSize()) {
                     Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
 
-                        AnimatedVisibility(visible = !isOnNowPlaying || !fullScreenPlayer) {
+                        AnimatedVisibility(
+                            visible = !isOnNowPlaying || !fullScreenPlayer,
+                            enter = if (animationsEnabled)  fadeIn() + expandHorizontally() else EnterTransition.None,
+                            exit = if (animationsEnabled) fadeOut() + shrinkHorizontally() else ExitTransition.None,
+                        ) {
                             when (navigationRailStyle) {
                                 NavigationRailStyle.DEFAULT -> {
                                     NavigationRailDefault(
@@ -186,7 +194,7 @@ fun NavigationDesktop(rootComponent: RootComponent, userPreferences: UserPrefere
                                     ) {
                                         ChildStack(
                                             stack = rootComponent.childStack,
-                                            animation = stackAnimation(fade()),
+                                            animation = if (animationsEnabled) stackAnimation(fade()) else stackAnimation { _, _, _, _ -> null },
                                         ) { child ->
 
                                             ScreenRouter(
@@ -201,7 +209,9 @@ fun NavigationDesktop(rootComponent: RootComponent, userPreferences: UserPrefere
                                 }
 
                                 AnimatedVisibility(
-                                    visible = isQueueVisible && !isOnNowPlaying
+                                    visible = isQueueVisible && !isOnNowPlaying,
+                                    enter = if (animationsEnabled)  fadeIn() + expandHorizontally() else EnterTransition.None,
+                                    exit = if (animationsEnabled) fadeOut() + shrinkHorizontally() else ExitTransition.None,
                                 ) {
                                     Row(modifier = Modifier.fillMaxHeight()) {
                                         Spacer(Modifier.width(dimens.surfaceGap))
@@ -231,6 +241,8 @@ fun NavigationDesktop(rootComponent: RootComponent, userPreferences: UserPrefere
 
                     AnimatedVisibility(
                         visible = currentSong != null,
+                        enter = if (animationsEnabled) fadeIn() else EnterTransition.None,
+                        exit = if (animationsEnabled) fadeOut() else ExitTransition.None,
                     ) {
                         MiniPlayerHost(
                             playerViewModel = playerViewModel,

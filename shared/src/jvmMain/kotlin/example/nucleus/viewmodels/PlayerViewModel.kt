@@ -32,6 +32,7 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import java.net.HttpURLConnection
 import java.net.URI
+import java.util.Collections
 import java.util.logging.Logger
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -87,6 +88,26 @@ class PlayerViewModel(
 
     /** Fallos consecutivos de resolución/reproducción; el salto automático se detiene al alcanzar [MAX_CONSECUTIVE_FAILURES]. */
     private var consecutiveFailures = 0
+
+    /**
+     * Cache LRU (500) de `videostatsPlaybackUrl` por canción. Se llena al resolver el stream
+     * en-proceso y permite registrar reproducciones de canciones reproducidas desde caché/offline
+     * (que no pasan por la resolución) igual que hace Metrolist.
+     */
+    private val trackingUrlCache = Collections.synchronizedMap(
+        object : LinkedHashMap<String, String>(0, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, String>?) =
+                size > 500
+        }
+    )
+
+    /** Canciones ya reportadas a YouTube (acotado): evita re-reportar el mismo tick. */
+    private val reportedPlaybackIds = Collections.synchronizedMap(
+        object : LinkedHashMap<String, Boolean>(0, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Boolean>?) =
+                size > 100
+        }
+    )
 
     /**
      * Cuando es verdadero, Listen Together está aplicando un comando remoto, por lo que los
@@ -181,6 +202,24 @@ class PlayerViewModel(
                 .distinctUntilChanged()
                 .collect { (pos, dur) ->
                     _progressState.update { it.copy(positionMs = pos, durationMs = dur) }
+                }
+        }
+
+        // Registro de reproducción en YouTube estilo Metrolist: el tick se envía solo cuando la
+        // canción se escuchó al menos [HISTORY_REPORT_MS] (30s), una vez por canción, y con
+        // fallback del player response para las reproducidas desde caché/offline.
+        viewModelScope.launch {
+            _uiState
+                .combine(_progressState) { state, progress -> state to progress }
+                .collect { (state, progress) ->
+                    val song = state.currentSong ?: return@collect
+                    if (YouTube.cookie == null) return@collect
+                    if (progress.positionMs < HISTORY_REPORT_MS) return@collect
+                    if (reportedPlaybackIds.containsKey(song.id)) return@collect
+                    reportedPlaybackIds[song.id] = true
+                    viewModelScope.launch(Dispatchers.IO) {
+                        registerPlaybackFor(song.id)
+                    }
                 }
         }
 
@@ -899,9 +938,10 @@ class PlayerViewModel(
                     return@launch
                 }
 
-                // videostatsPlaybackUrl de la pista resuelta — se usa para registrar la reproducción
-                // en la cuenta después (historial/recomendaciones). Solo la ruta en-proceso lo tiene.
-                var trackingUrl: String? = null
+                // videostatsPlaybackUrl de la pista resuelta — se guarda para registrar la
+                // reproducción en la cuenta después (historial/recomendaciones) cuando se
+                // supere el umbral de escucha (ver collector en init). El cache permite
+                // reportar también las canciones reproducidas desde caché/offline.
                 val played: Boolean = when {
                     cachedFile != null -> {
                         playerService.play(cachedFile.absolutePath)
@@ -929,7 +969,9 @@ class PlayerViewModel(
                             null
                         }
                         val streamUrl = playbackData?.streamUrl
-                        trackingUrl = playbackData?.playbackTracking?.videostatsPlaybackUrl?.baseUrl
+                        playbackData?.playbackTracking?.videostatsPlaybackUrl?.baseUrl
+                            ?.takeIf { it.isNotBlank() }
+                            ?.let { trackingUrlCache[song.id] = it }
                         if (requestId != playRequestId) return@launch
 
                         if (!streamUrl.isNullOrEmpty()) {
@@ -971,16 +1013,6 @@ class PlayerViewModel(
                     )
                 }
 
-                // Registrar la reproducción en la cuenta de YouTube del usuario para que cuente
-                // en el historial y actualice las recomendaciones (fire-and-forget; solo cuando se
-                // está conectado y se conoce el tracking).
-                trackingUrl?.takeIf { it.isNotBlank() && YouTube.cookie != null }?.let { url ->
-                    viewModelScope.launch(Dispatchers.IO) {
-                        runCatching { YouTube.registerPlayback(playbackTracking = url) }
-                            .onFailure { Napier.w("registerPlayback failed for ${song.id}: ${it.message}") }
-                    }
-                }
-
                 // Pre-calentar el caché del stream de la siguiente pista para que saltar a ella sea casi instantáneo.
                 prefetchNext()
             } catch (e: CancellationException) {
@@ -992,8 +1024,32 @@ class PlayerViewModel(
         }
     }
 
+    /**
+     * Registra la reproducción en YouTube (videostatsPlaybackUrl) una vez la canción se escuchó
+     * el umbral mínimo. Usa el URL cacheado al resolver el stream; si falta (reproducción desde
+     * caché/offline o vía yt-dlp), re-fetchea el player response ligero para obtenerlo, igual
+     * que Metrolist.
+     */
+    private suspend fun registerPlaybackFor(songId: String) {
+        val url = trackingUrlCache[songId]
+            ?: YTPlayerutils.playerResponseForMetadata(songId)
+                .getOrNull()
+                ?.playbackTracking
+                ?.videostatsPlaybackUrl
+                ?.baseUrl
+        if (url.isNullOrBlank()) {
+            Napier.w("No playback tracking URL for $songId; skipping YouTube history registration")
+            return
+        }
+        runCatching { YouTube.registerPlayback(playbackTracking = url) }
+            .onFailure { Napier.w("registerPlayback failed for $songId: ${it.message}") }
+    }
+
     companion object {
         private const val MAX_CONSECUTIVE_FAILURES = 5
+
+        /** Mínimo escuchado (ms) antes de registrar la reproducción en YouTube, igual que Metrolist (default 30s). */
+        private const val HISTORY_REPORT_MS = 30_000L
     }
 
     /**

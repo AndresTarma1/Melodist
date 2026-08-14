@@ -51,6 +51,7 @@ import androidx.compose.material.icons.rounded.ArrowCircleDown
 import androidx.compose.material.icons.rounded.PriorityHigh
 import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.LoadingIndicator
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.stringResource
@@ -74,8 +75,9 @@ fun DownloadIndicator(
         when (state) {
             is DownloadState.Queued -> {
                 // Pulso sutil para indicar espera
-                CircularWavyProgressIndicator(
+                LoadingIndicator(
                     modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
             }
             is DownloadState.Downloading -> {

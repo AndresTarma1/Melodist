@@ -150,6 +150,7 @@ class UserPreferencesRepository(private val dataStore: DataStore<Preferences>) {
         val FULL_SCREEN_PLAYER = booleanPreferencesKey("full_screen_player")
         val SELECTED_FONT = stringPreferencesKey("selected_font")
         val PREFERENCES_MIGRATION_VERSION = intPreferencesKey("preferences_migration_version")
+        val ANIMATIONS_ENABLED = booleanPreferencesKey("animations_enabled")
     }
 
 
@@ -166,6 +167,13 @@ class UserPreferencesRepository(private val dataStore: DataStore<Preferences>) {
 
     suspend fun setSelectedFont(name: String) {
         dataStore.edit { it[PreferencesKeys.SELECTED_FONT] = name }
+    }
+
+    /** Habilitar/deshabilitar animaciones de la interfaz. */
+    val animationsEnabled: Flow<Boolean> = dataStore.data.map { it[PreferencesKeys.ANIMATIONS_ENABLED] ?: true }
+
+    suspend fun setAnimationsEnabled(enabled: Boolean) {
+        dataStore.edit { it[PreferencesKeys.ANIMATIONS_ENABLED] = enabled }
     }
 
 

@@ -1,10 +1,16 @@
 package example.nucleus.ui.themes
 
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.platform.SystemFont
+import example.nucleus.shared.generated.resources.Res
+import example.nucleus.shared.generated.resources.roboto_bold
+import example.nucleus.shared.generated.resources.roboto_medium
+import example.nucleus.shared.generated.resources.roboto_regular
 import java.awt.GraphicsEnvironment
+import org.jetbrains.compose.resources.Font
 
 /**
  * Nombres de las familias de fuentes instaladas en el sistema, ordenados alfabéticamente.
@@ -25,3 +31,14 @@ fun systemFontFamily(name: String): FontFamily {
         SystemFont(name, FontWeight.Bold),
     )
 }
+
+/**
+ * Roboto empaquetado con la app (regular/medium/bold). Es la fuente por defecto de la
+ * aplicación; el selector de fuentes solo la reemplaza cuando el usuario elige otra.
+ */
+@Composable
+fun robotoFamily(): FontFamily = FontFamily(
+    Font(Res.font.roboto_regular, FontWeight.Normal),
+    Font(Res.font.roboto_medium, FontWeight.Medium),
+    Font(Res.font.roboto_bold, FontWeight.Bold),
+)
