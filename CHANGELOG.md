@@ -2,7 +2,7 @@
 
 Todas las versiones de PaltaSound. Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
-## [0.7.2] - 2026-08-09
+## [0.8.0] - 2026-08-09
 
 ### Fixes
 

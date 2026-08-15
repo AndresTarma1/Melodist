@@ -155,7 +155,7 @@ nucleus.application {
         enableAotCache = true
         appName = "PaltaSound"
         packageName = "PaltaSound"
-        packageVersion = "0.7.2"
+        packageVersion = "0.8.0"
         vendor = "Tarma"
         homepage = "https://github.com/AndresTarma1/PaltaSound"
         // Nsis (no Exe): el updater selecciona el instalador .exe filtrando por el sufijo
