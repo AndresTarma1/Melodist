@@ -14,6 +14,7 @@ import com.arkivanov.decompose.DefaultComponentContext
 import com.arkivanov.decompose.ExperimentalDecomposeApi
 import com.arkivanov.essenty.lifecycle.LifecycleRegistry
 import dev.nucleusframework.application.NucleusBackend
+import dev.nucleusframework.application.aotTraining
 import dev.nucleusframework.application.nucleusApplication
 import example.nucleus.bootstrap.AppEnvironment
 import example.nucleus.bootstrap.AppStartup
@@ -105,6 +106,11 @@ fun main() = nucleusApplication(backend = NucleusBackend.Tao) {
     val rootComponent = remember {
         RootComponent(DefaultComponentContext(lifecycle))
     }
+
+    // Opt-in del framework (Nucleus 2.4.x): durante el entrenamiento del AOT cache
+    // (nucleus.aot.mode=training) arma un timer que cierra la app a los 15 s para que
+    // generateAotCache complete y genere app.aot. En ejecución normal no hace nada.
+    aotTraining()
 
     App(
         rootComponent = rootComponent,
