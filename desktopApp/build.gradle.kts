@@ -152,7 +152,10 @@ nucleus.application {
 
 
     nativeDistributions {
-        enableAotCache = true
+        // El AOT cache entrena la app arrancándola y esperando que se auto-termine; en Linux CI
+        // (Xvfb) la app nunca sale → generateAotCache falla con exit 137. Se desactiva en Linux;
+        // Windows CI usa GraalVM (sin distribución JVM), así que no lo necesita.
+        enableAotCache = !System.getProperty("os.name").lowercase().contains("linux")
         appName = "PaltaSound"
         packageName = "PaltaSound"
         packageVersion = "0.8.0"
