@@ -24,3 +24,31 @@ INSERT OR REPLACE INTO PlayCount (song, year, month, count) VALUES (?, ?, ?, ?);
 deletePlayCount:
 DELETE FROM PlayCount WHERE song = ?;
 
+-- ── Estadísticas ──
+
+topSongs:
+SELECT Song.*, SUM(PlayCount.count) AS playCount
+FROM PlayCount
+JOIN Song ON Song.id = PlayCount.song
+GROUP BY PlayCount.song
+ORDER BY playCount DESC
+LIMIT ?;
+
+topAlbums:
+SELECT Song.albumName AS albumName, SUM(PlayCount.count) AS playCount
+FROM PlayCount
+JOIN Song ON Song.id = PlayCount.song
+WHERE Song.albumName IS NOT NULL AND Song.albumName != ''
+GROUP BY Song.albumName
+ORDER BY playCount DESC
+LIMIT ?;
+
+topArtists:
+SELECT Artist.*, SUM(PlayCount.count) AS playCount
+FROM PlayCount
+JOIN SongArtistMap ON SongArtistMap.songId = PlayCount.song
+JOIN Artist ON Artist.id = SongArtistMap.artistId
+GROUP BY Artist.id
+ORDER BY playCount DESC
+LIMIT ?;
+

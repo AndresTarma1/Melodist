@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.Refresh
@@ -89,6 +90,7 @@ data class LibraryScreenState(
 data class LibraryActions(
     val onTabSelected: (LibraryTab) -> Unit,
     val onNavigate: (Route) -> Unit,
+    val onOpenStats: () -> Unit,
     val onRemoveAlbum: (String) -> Unit,
     val onRemoveArtist: (String) -> Unit,
     val onRemovePlaylist: (String) -> Unit,
@@ -150,6 +152,7 @@ fun LibraryScreenRoute(
         LibraryActions(
             onTabSelected = viewModel::selectTab,
             onNavigate = onNavigate,
+            onOpenStats = { onNavigate(Route.Stats) },
             onRemoveAlbum = viewModel::removeAlbum,
             onRemoveArtist = viewModel::removeArtist,
             onRemovePlaylist = { id ->
@@ -320,6 +323,17 @@ fun LibraryScreen(
                     )
                 },
                 actions = {
+                    IconButton(
+                        onClick = actions.onOpenStats,
+                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                    ) {
+                        Icon(
+                            Icons.Default.BarChart,
+                            contentDescription = stringResource(Res.string.stats_title),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+
                     IconButton(
                         onClick = actions.onImportCsv,
                         modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),

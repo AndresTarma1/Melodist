@@ -15,17 +15,18 @@ import com.alorma.compose.settings.ui.expressive.SettingsMenuLink
 import com.alorma.compose.settings.ui.expressive.SettingsSwitch
 import example.nucleus.overlay.HotkeyCombo.Companion.DEFAULT
 import example.nucleus.utils.LocalAnimationsEnabled
-import example.nucleus.viewmodels.SettingsViewModel
+import example.nucleus.viewmodels.OverlaySettingsViewModel
 import example.nucleus.shared.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.koinInject
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun OverlaySettingsGroup(
-    viewModel: SettingsViewModel,
-    colors: ListItemColors,
     onOpenCapture: () -> Unit
 ) {
+    val colors = LocalSettingsColors.current
+    val viewModel: OverlaySettingsViewModel = koinInject()
     val overlayHotkeyEnabled by viewModel.overlayHotkeyEnabled.collectAsState()
     val overlayHotkeyLabel by viewModel.overlayHotkeyLabel.collectAsState()
     val defaultHotkeyLabel = remember { DEFAULT.label() }

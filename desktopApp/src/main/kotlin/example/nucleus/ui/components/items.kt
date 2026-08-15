@@ -107,9 +107,10 @@ private fun YTItem.mediaGridPlaceholderType(): PlaceholderType = when (this) {
     else -> PlaceholderType.SONG
 }
 
+@Composable
 private fun YTItem.mediaGridShape(): Shape = when (this) {
     is ArtistItem -> circleAwareShape()
-    else -> RoundedCornerShape(12.dp)
+    else -> MaterialTheme.shapes.medium
 }
 
 @Composable
@@ -298,7 +299,7 @@ fun MediaGridItem(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
+                .clip(MaterialTheme.shapes.medium)
                 .padding(8.dp),
             horizontalAlignment = alignment
         ) {
@@ -335,9 +336,9 @@ fun MediaGridItem(
                             .matchParentSize()
                             .background(
                                 Color.Black.copy(alpha = overlayAlpha),
-                                RoundedCornerShape(12.dp)
+                                MaterialTheme.shapes.medium
                             )
-                            .clip(RoundedCornerShape(12.dp))
+                            .clip(MaterialTheme.shapes.medium)
                     )
 
                     sourceIcon?.let {

@@ -9,6 +9,10 @@ import example.nucleus.data.repository.AudioQuality
 import example.nucleus.data.repository.DarkLevel
 import example.nucleus.data.repository.IslandStyle
 import example.nucleus.data.repository.LayoutMode
+import example.nucleus.data.repository.LoudnessLevel
+import example.nucleus.data.repository.LyricsAnimationStyle
+import example.nucleus.data.repository.MiniPlayerBackgroundStyle
+import example.nucleus.data.repository.MiniPlayerStyle
 import example.nucleus.data.repository.NavigationRailStyle
 import example.nucleus.data.repository.BackgroundStyle
 import example.nucleus.data.repository.ThemeMode
@@ -17,6 +21,8 @@ import example.nucleus.data.repository.RenderApi
 import example.nucleus.data.repository.SeekBarStyle
 import example.nucleus.data.repository.YouTubeRegion
 import example.nucleus.viewmodels.LibrarySortOrder
+import example.nucleus.viewmodels.UpdateCheckState
+import example.nucleus.viewmodels.UpdateStatus
 import example.nucleus.viewmodels.YtmLibraryFilter
 
 @Composable
@@ -24,6 +30,23 @@ fun AudioQuality.displayName(): String = when (this) {
     AudioQuality.LOW -> stringResource(Res.string.audio_quality_low)
     AudioQuality.NORMAL -> stringResource(Res.string.audio_quality_normal)
     AudioQuality.HIGH -> stringResource(Res.string.audio_quality_high)
+}
+
+@Composable
+fun LoudnessLevel.displayName(): String = when (this) {
+    LoudnessLevel.OFF -> stringResource(Res.string.loudness_off)
+    LoudnessLevel.AGGRESSIVE -> stringResource(Res.string.loudness_aggressive)
+    LoudnessLevel.LOUD -> stringResource(Res.string.loudness_loud)
+    LoudnessLevel.BALANCED -> stringResource(Res.string.loudness_balanced)
+    LoudnessLevel.QUIET -> stringResource(Res.string.loudness_quiet)
+}
+
+@Composable
+fun LyricsAnimationStyle.displayName(): String = when (this) {
+    LyricsAnimationStyle.NONE -> stringResource(Res.string.lyrics_animation_none)
+    LyricsAnimationStyle.FADE -> stringResource(Res.string.lyrics_animation_fade)
+    LyricsAnimationStyle.KARAOKE -> stringResource(Res.string.lyrics_animation_karaoke)
+    LyricsAnimationStyle.GLOW -> stringResource(Res.string.lyrics_animation_glow)
 }
 
 @Composable
@@ -49,6 +72,20 @@ fun NavigationRailStyle.displayName(): String = when (this) {
 fun LayoutMode.displayName(): String = when (this) {
     LayoutMode.ISLANDS -> stringResource(Res.string.layout_islands)
     LayoutMode.ATTACHED -> stringResource(Res.string.layout_attached)
+    LayoutMode.SQUARE -> stringResource(Res.string.layout_square)
+}
+
+@Composable
+fun MiniPlayerStyle.displayName(): String = when (this) {
+    MiniPlayerStyle.BAR -> stringResource(Res.string.mini_player_style_bar)
+    MiniPlayerStyle.FLOATING -> stringResource(Res.string.mini_player_style_floating)
+}
+
+@Composable
+fun MiniPlayerBackgroundStyle.displayName(): String = when (this) {
+    MiniPlayerBackgroundStyle.SOLID -> stringResource(Res.string.mini_player_bg_solid)
+    MiniPlayerBackgroundStyle.COVER -> stringResource(Res.string.mini_player_bg_cover)
+    MiniPlayerBackgroundStyle.TRANSLUCENT -> stringResource(Res.string.mini_player_bg_translucent)
 }
 
 @Composable
@@ -138,3 +175,30 @@ fun YouTubeRegion.displayName(): String = when (this) {
     YouTubeRegion.VE -> stringResource(Res.string.region_ve)
     YouTubeRegion.CA -> stringResource(Res.string.region_ca)
 }
+
+/** Subtítulo de la entrada "Buscar actualizaciones" según el estado del updater. */
+@Composable
+fun updateCheckSubtitle(updateStatus: UpdateStatus, checkState: UpdateCheckState): String {
+    val downloading = updateStatus as? UpdateStatus.Downloading
+    return when {
+        updateStatus is UpdateStatus.Ready -> stringResource(Res.string.check_updates_ready)
+        downloading != null -> {
+            val pct = downloading.progress
+            if (pct >= 0f) {
+                "${stringResource(Res.string.check_updates_downloading)} ${(pct * 100).toInt()}%"
+            } else {
+                stringResource(Res.string.check_updates_downloading)
+            }
+        }
+        checkState is UpdateCheckState.Checking -> stringResource(Res.string.check_updates_checking)
+        checkState is UpdateCheckState.UpToDate -> stringResource(Res.string.check_updates_up_to_date)
+        checkState is UpdateCheckState.Failed -> stringResource(Res.string.check_updates_failed)
+        else -> stringResource(Res.string.check_updates_subtitle)
+    }
+}
+
+/** Subtítulo de "Sincronizar ahora": operación en curso o el texto por defecto. */
+@Composable
+fun syncNowSubtitle(isSyncing: Boolean, currentOperation: String): String =
+    if (isSyncing) currentOperation.ifBlank { stringResource(Res.string.sync_now_syncing) }
+    else stringResource(Res.string.sync_now_subtitle)

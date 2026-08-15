@@ -40,6 +40,7 @@ import com.metrolist.innertube.YouTube
 import example.nucleus.ui.components.images.MusicPlayerImage
 import example.nucleus.ui.components.images.PlaceholderType
 import example.nucleus.ui.utils.circleAwareShape
+import example.nucleus.ui.themes.LocalMiniPlayerInset
 import example.nucleus.utils.LocalPlayerViewModel
 import example.nucleus.utils.LocalAnimationsEnabled
 import example.nucleus.viewmodels.AccountState
@@ -248,7 +249,12 @@ private fun LoginSection(
     }
 
     Box(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(
+            start = 20.dp,
+            end = 20.dp,
+            top = 20.dp,
+            bottom = 20.dp + LocalMiniPlayerInset.current
+        ),
         contentAlignment = Alignment.TopCenter
     ) {
         Column(
@@ -1027,7 +1033,12 @@ private fun CookieExpiredSection(
     var showCookie by remember { mutableStateOf(false) }
 
     Box(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(
+            start = 20.dp,
+            end = 20.dp,
+            top = 20.dp,
+            bottom = 20.dp + LocalMiniPlayerInset.current
+        ),
         contentAlignment = Alignment.TopCenter
     ) {
         Column(

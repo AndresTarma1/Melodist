@@ -51,6 +51,11 @@ sealed class Route {
         override val icon = Icons.Rounded.Lyrics
     }
 
+    object Stats : Route() {
+        override val label = null
+        override val icon = null
+    }
+
     data class Playlist(val playlistId: String) : Route() {
         override val label = null
         override val icon = null

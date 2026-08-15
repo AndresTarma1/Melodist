@@ -25,11 +25,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.unit.dp
 import com.arkivanov.decompose.ExperimentalDecomposeApi
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 
 // Ahora (ojo: paquete "experimental", no se pueden mezclar con los anteriores)
 import com.arkivanov.decompose.extensions.compose.experimental.stack.ChildStack
@@ -38,12 +42,15 @@ import com.arkivanov.decompose.extensions.compose.experimental.stack.animation.s
 
 import com.arkivanov.decompose.extensions.compose.subscribeAsState
 import example.nucleus.data.repository.LayoutMode
+import example.nucleus.data.repository.MiniPlayerBackgroundStyle
+import example.nucleus.data.repository.MiniPlayerStyle
 import example.nucleus.data.repository.NavigationRailStyle
 import example.nucleus.data.repository.UserPreferencesRepository
 import example.nucleus.ui.components.MiniPlayer
 import example.nucleus.ui.components.dialogs.SnackBar
 import example.nucleus.ui.components.player.PlaybackQueuePanel
 import example.nucleus.ui.screens.library.CsvImportProgressOverlay
+import example.nucleus.ui.screens.library.StatsScreen
 import example.nucleus.viewmodels.LibraryPlaylistsViewModel
 import example.nucleus.viewmodels.PlayerProgressState
 import example.nucleus.viewmodels.PlayerViewModel
@@ -53,9 +60,13 @@ import example.nucleus.ui.screens.album.AlbumScreenRoute
 import example.nucleus.ui.screens.home.HomeScreenRoute
 import example.nucleus.ui.screens.library.LibraryScreenRoute
 import example.nucleus.ui.themes.LocalDimens
+import example.nucleus.ui.themes.AppShapes
+import example.nucleus.ui.themes.expressiveFadeTween
+import example.nucleus.ui.themes.expressiveSpring
 import example.nucleus.ui.themes.LocalChromeSurface
 import example.nucleus.ui.themes.LocalIsSolidBackground
 import example.nucleus.ui.themes.LocalLayoutMode
+import example.nucleus.ui.themes.LocalMiniPlayerInset
 import example.nucleus.utils.LocalPlayerViewModel
 import example.nucleus.utils.LocalSnackbarHostState
 import example.nucleus.utils.LocalAnimationsEnabled
@@ -91,6 +102,8 @@ fun NavigationDesktop(rootComponent: RootComponent, userPreferences: UserPrefere
     val csvImportState by playlistsViewModel.csvImportState.collectAsState()
 
     val navigationRailStyle by userPreferences.navigationRailStyle.collectAsState(NavigationRailStyle.DEFAULT)
+    val miniPlayerStyle by userPreferences.miniPlayerStyle.collectAsState(MiniPlayerStyle.BAR)
+    val miniPlayerBackgroundStyle by userPreferences.miniPlayerBackgroundStyle.collectAsState(MiniPlayerBackgroundStyle.TRANSLUCENT)
 
     val playerState by playerViewModel.uiState.collectAsState()
     var isQueueVisible by remember { mutableStateOf(false) }
@@ -102,6 +115,11 @@ fun NavigationDesktop(rootComponent: RootComponent, userPreferences: UserPrefere
 
     val currentSong = playerState.currentSong
     val queueWidth = 420.dp
+    val floatingMiniPlayer = miniPlayerStyle == MiniPlayerStyle.FLOATING && currentSong != null
+
+    val dimens = LocalDimens.current
+    val floatingBottomInset =
+        if (floatingMiniPlayer) dimens.miniPlayerHeight + dimens.miniPlayerFloatingMargin * 2 else 0.dp
 
     // Nos permite entender o mostrar los errores de reproducción en un Snackbar, sin bloquear la UI principal.
     LaunchedEffect(playerViewModel) {
@@ -111,8 +129,33 @@ fun NavigationDesktop(rootComponent: RootComponent, userPreferences: UserPrefere
     }
 
 
-    SharedTransitionLayout(modifier = Modifier.fillMaxSize()) {
-        val sharedTransitionScope = this
+    CompositionLocalProvider(LocalMiniPlayerInset provides floatingBottomInset) {
+        SharedTransitionLayout(modifier = Modifier.fillMaxSize()) {
+            val sharedTransitionScope = this
+            val hazeState = rememberHazeState()
+            val miniPlayerSlot: @Composable (Modifier) -> Unit = { m ->
+                MiniPlayerHost(
+                    playerViewModel = playerViewModel,
+                    isOnNowPlaying = isOnNowPlaying,
+                    onNowPlaying = {
+                        if (isOnNowPlaying) {
+                            rootComponent.onBack()
+                        } else {
+                            isQueueVisible = false
+                            rootComponent.navigateTo(ScreenConfig.NowPlaying)
+                        }
+                    },
+                    onToggleQueue = {
+                        isQueueVisible = !isQueueVisible
+                    },
+                    isQueueVisible = isQueueVisible && !isOnNowPlaying,
+                    modifier = m,
+                    sharedTransitionScope = sharedTransitionScope,
+                    floating = floatingMiniPlayer,
+                    backgroundStyle = miniPlayerBackgroundStyle,
+                    hazeState = hazeState,
+                )
+            }
         Surface(
             modifier = Modifier.fillMaxSize(),
             color = Color.Transparent,
@@ -125,8 +168,8 @@ fun NavigationDesktop(rootComponent: RootComponent, userPreferences: UserPrefere
 
                         AnimatedVisibility(
                             visible = !isOnNowPlaying || !fullScreenPlayer,
-                            enter = if (animationsEnabled)  fadeIn() + expandHorizontally() else EnterTransition.None,
-                            exit = if (animationsEnabled) fadeOut() + shrinkHorizontally() else ExitTransition.None,
+                            enter = if (animationsEnabled) fadeIn(expressiveFadeTween()) + expandHorizontally(expressiveSpring()) else EnterTransition.None,
+                            exit = if (animationsEnabled) fadeOut(expressiveFadeTween()) + shrinkHorizontally() else ExitTransition.None,
                         ) {
                             when (navigationRailStyle) {
                                 NavigationRailStyle.DEFAULT -> {
@@ -149,11 +192,14 @@ fun NavigationDesktop(rootComponent: RootComponent, userPreferences: UserPrefere
 
 
                         val islands = LocalLayoutMode.current == LayoutMode.ISLANDS
-                        val dimens = LocalDimens.current
-                        // Screens keep a distinct rounded frame even in Attached mode;
-                        // the surrounding chrome remains edge-to-edge.
-                        val contentCorner = if (islands) dimens.surfaceCorner else 16.dp
-                        val contentShape = RoundedCornerShape(contentCorner)
+                        val square = LocalLayoutMode.current == LayoutMode.SQUARE
+                        // Formas M3E del armazón: el marco de contenido usa la escala expresiva;
+                        // en Square se suavizan las esquinas (small) manteniendo los bordes separadores.
+                        val contentShape: Shape = when {
+                            islands -> RoundedCornerShape(dimens.surfaceCorner)
+                            square -> AppShapes.small
+                            else -> AppShapes.xLarge
+                        }
                         val bottomPadding = if (currentSong != null) 0.dp else dimens.windowPadding
 
                         Column(
@@ -171,50 +217,91 @@ fun NavigationDesktop(rootComponent: RootComponent, userPreferences: UserPrefere
                                     modifier = Modifier
                                         .weight(1F)
                                         .fillMaxHeight()
-                                        .background(LocalChromeSurface.current, contentShape)
-                                        .clip(contentShape)
-                                        .then(
-                                            if (islands) Modifier.border(
-                                                0.5.dp,
-                                                MaterialTheme.colorScheme.outlineVariant,
-                                                contentShape
-                                            )
-                                            else Modifier
-                                        )
                                 ) {
-                                    Surface(
-                                        modifier = Modifier.fillMaxSize(),
-                                        shape = contentShape,
-                                        color = if (LocalIsSolidBackground.current) {
-                                            MaterialTheme.colorScheme.background
-                                        } else {
-                                            Color.Transparent
-                                        },
-                                        contentColor = MaterialTheme.colorScheme.onBackground,
-                                    ) {
-                                        ChildStack(
-                                            stack = rootComponent.childStack,
-                                            animation = if (animationsEnabled) stackAnimation(fade()) else stackAnimation { _, _, _, _ -> null },
-                                        ) { child ->
-
-                                            ScreenRouter(
-                                                instance = child.instance,
-                                                rootComponent = rootComponent,
-                                                sharedAnimatedTransitionScope = this@SharedTransitionLayout,
-                                                animatedVisibilityScope = this,
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(LocalChromeSurface.current, contentShape)
+                                            .clip(contentShape)
+                                            .then(
+                                                if (islands) Modifier.border(
+                                                    0.5.dp,
+                                                    MaterialTheme.colorScheme.outlineVariant,
+                                                    contentShape
+                                                )
+                                                else Modifier
                                             )
+                                            // El contenido de las rutas es la fuente del desenfoque
+                                            // de fondo del mini reproductor flotante (Haze). Solo se
+                                            // captura cuando la tarjeta flotante lo necesita: capturar
+                                            // una capa cada frame tiene coste (GPU), así que en modo
+                                            // barra u otros fondos se omite.
+                                            .then(
+                                                if (floatingMiniPlayer && miniPlayerBackgroundStyle == MiniPlayerBackgroundStyle.TRANSLUCENT) {
+                                                    Modifier.hazeSource(hazeState)
+                                                } else Modifier
+                                            )
+                                    ) {
+                                        Surface(
+                                            modifier = Modifier.fillMaxSize(),
+                                            shape = contentShape,
+                                            color = if (LocalIsSolidBackground.current) {
+                                                MaterialTheme.colorScheme.background
+                                            } else {
+                                                Color.Transparent
+                                            },
+                                            contentColor = MaterialTheme.colorScheme.onBackground,
+                                        ) {
+                                            // Las rutas se renderizan a pantalla completa: su contenido pasa por
+                                            // debajo de la tarjeta flotante y cada screen suma LocalMiniPlayerInset
+                                            // a su contentPadding para que el scroll nunca quede oculto.
+                                            ChildStack(
+                                                stack = rootComponent.childStack,
+                                                animation = if (animationsEnabled) stackAnimation(fade()) else stackAnimation { _, _, _, _ -> null },
+                                            ) { child ->
 
+                                                ScreenRouter(
+                                                    instance = child.instance,
+                                                    rootComponent = rootComponent,
+                                                    sharedAnimatedTransitionScope = this@SharedTransitionLayout,
+                                                    animatedVisibilityScope = this,
+                                                )
+
+                                            }
+                                        }
+                                    }
+
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .align(Alignment.BottomCenter)
+                                    ) {
+                                        AnimatedVisibility(
+                                            visible = floatingMiniPlayer,
+                                            enter = if (animationsEnabled) fadeIn(expressiveFadeTween()) + slideInVertically(animationSpec = expressiveSpring(), initialOffsetY = { it }) else EnterTransition.None,
+                                            exit = if (animationsEnabled) fadeOut(expressiveFadeTween()) + slideOutVertically(animationSpec = expressiveSpring(), targetOffsetY = { it }) else ExitTransition.None,
+                                        ) {
+                                            miniPlayerSlot(Modifier.fillMaxWidth())
                                         }
                                     }
                                 }
 
                                 AnimatedVisibility(
                                     visible = isQueueVisible && !isOnNowPlaying,
-                                    enter = if (animationsEnabled)  fadeIn() + expandHorizontally() else EnterTransition.None,
-                                    exit = if (animationsEnabled) fadeOut() + shrinkHorizontally() else ExitTransition.None,
+                                    enter = if (animationsEnabled) fadeIn(expressiveFadeTween()) + expandHorizontally(expressiveSpring()) else EnterTransition.None,
+                                    exit = if (animationsEnabled) fadeOut(expressiveFadeTween()) + shrinkHorizontally() else ExitTransition.None,
                                 ) {
                                     Row(modifier = Modifier.fillMaxHeight()) {
-                                        Spacer(Modifier.width(dimens.surfaceGap))
+                                        if (square) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .width(dimens.chromeBorderWidth)
+                                                    .fillMaxHeight()
+                                                    .background(MaterialTheme.colorScheme.outlineVariant)
+                                            )
+                                        } else {
+                                            Spacer(Modifier.width(dimens.surfaceGap))
+                                        }
 
                                         PlaybackQueuePanel(
                                             state = playerState,
@@ -239,34 +326,20 @@ fun NavigationDesktop(rootComponent: RootComponent, userPreferences: UserPrefere
                         }
                     }
 
-                    AnimatedVisibility(
-                        visible = currentSong != null,
-                        enter = if (animationsEnabled) fadeIn() else EnterTransition.None,
-                        exit = if (animationsEnabled) fadeOut() else ExitTransition.None,
-                    ) {
-                        MiniPlayerHost(
-                            playerViewModel = playerViewModel,
-                            isOnNowPlaying = isOnNowPlaying,
-                            onNowPlaying = {
-                                if (isOnNowPlaying) {
-                                    rootComponent.onBack()
-                                } else {
-                                    isQueueVisible = false
-                                    rootComponent.navigateTo(ScreenConfig.NowPlaying)
-                                }
-                            },
-                            onToggleQueue = {
-                                isQueueVisible = !isQueueVisible
-                            },
-                            isQueueVisible = isQueueVisible && !isOnNowPlaying,
-                            modifier = Modifier.fillMaxWidth(),
-                            sharedTransitionScope = sharedTransitionScope,
-                        )
+                    if (!floatingMiniPlayer) {
+                        AnimatedVisibility(
+                            visible = currentSong != null,
+                            enter = if (animationsEnabled) fadeIn() else EnterTransition.None,
+                            exit = if (animationsEnabled) fadeOut() else ExitTransition.None,
+                        ) {
+                            miniPlayerSlot(Modifier.fillMaxWidth())
+                        }
                     }
                 }
 
                 SnackBar(
                     currentSong = currentSong,
+                    floatingMiniPlayer = floatingMiniPlayer,
                     snackbarHostState = snackbarHostState,
                 )
 
@@ -277,6 +350,7 @@ fun NavigationDesktop(rootComponent: RootComponent, userPreferences: UserPrefere
                 )
             }
         }
+    }
     }
 }
 
@@ -289,6 +363,9 @@ private fun MiniPlayerHost(
     isQueueVisible: Boolean,
     modifier: Modifier = Modifier,
     sharedTransitionScope: SharedTransitionScope? = null,
+    floating: Boolean = false,
+    backgroundStyle: MiniPlayerBackgroundStyle = MiniPlayerBackgroundStyle.TRANSLUCENT,
+    hazeState: HazeState? = null,
 ) {
     val progressState: PlayerProgressState by playerViewModel.progressState.collectAsState()
     MiniPlayer(
@@ -299,6 +376,9 @@ private fun MiniPlayerHost(
         isQueueVisible = isQueueVisible,
         modifier = modifier,
         sharedTransitionScope = sharedTransitionScope,
+        floating = floating,
+        backgroundStyle = backgroundStyle,
+        hazeState = hazeState,
     )
 }
 
@@ -311,6 +391,7 @@ fun Route.toConfig(): ScreenConfig = when (this) {
     Route.Settings -> ScreenConfig.Settings
     Route.ListenTogether -> ScreenConfig.ListenTogether
     Route.NowPlaying -> ScreenConfig.NowPlaying
+    Route.Stats -> ScreenConfig.Stats
     is Route.Album -> ScreenConfig.Album(browseId)
     is Route.Playlist -> ScreenConfig.Playlist(playlistId)
     is Route.Artist -> ScreenConfig.Artist(artistId)
@@ -379,7 +460,13 @@ fun ScreenRouter(
         }
 
         is RootComponent.Child.Settings -> {
-            SettingsScreen(viewModel = instance.component.viewModel)
+            SettingsScreen()
+        }
+
+        is RootComponent.Child.Stats -> {
+            StatsScreen(
+                onBack = { rootComponent.onBack() },
+            )
         }
 
         is RootComponent.Child.ListenTogether -> {
@@ -412,3 +499,4 @@ fun ScreenRouter(
 fun createNavigator(rootComponent: RootComponent): (Route) -> Unit = { route ->
     rootComponent.navigateTo(route.toConfig())
 }
+

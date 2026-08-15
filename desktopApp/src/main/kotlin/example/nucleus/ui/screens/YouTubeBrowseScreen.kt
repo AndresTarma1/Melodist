@@ -27,6 +27,7 @@ import example.nucleus.ui.components.SectionSkeleton
 import example.nucleus.ui.components.layout.AppVerticalScrollbar
 import example.nucleus.ui.components.layout.HorizontalScrollableRow
 import example.nucleus.ui.screens.shared.SectionGridItem
+import example.nucleus.ui.themes.LocalMiniPlayerInset
 import example.nucleus.utils.LocalPlayerViewModel
 import example.nucleus.viewmodels.YouTubeBrowseState
 import example.nucleus.viewmodels.YouTubeBrowseManagerViewModel
@@ -75,14 +76,6 @@ fun YouTubeBrowseScreen(
                         style = MaterialTheme.typography.displaySmall.copy(fontSize = 28.sp),
                         maxLines = 1,
                     )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.back_label),
-                        )
-                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.Transparent
@@ -140,7 +133,7 @@ private fun BrowseContent(
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 80.dp),
+            contentPadding = PaddingValues(bottom = maxOf(80.dp, LocalMiniPlayerInset.current)),
         ) {
             result.items.forEach { section ->
                 item {

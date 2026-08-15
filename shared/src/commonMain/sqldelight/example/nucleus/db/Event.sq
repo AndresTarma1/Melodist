@@ -24,8 +24,8 @@ recentEvents:
 SELECT * FROM Event ORDER BY timestamp DESC LIMIT ?;
 
 totalPlayTimeInRange:
-SELECT SUM(playTime) FROM Event WHERE timestamp >= ? AND timestamp <= ?;
+SELECT COALESCE(SUM(playTime), 0) AS totalPlayTime FROM Event WHERE timestamp >= ? AND timestamp <= ?;
 
 uniqueSongCountInRange:
-SELECT COUNT(DISTINCT songId) FROM Event WHERE timestamp >= ? AND timestamp <= ?;
+SELECT COUNT(DISTINCT songId) AS songCount FROM Event WHERE timestamp >= ? AND timestamp <= ?;
 

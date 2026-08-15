@@ -23,6 +23,7 @@ import example.nucleus.navigation.Route
 import example.nucleus.ui.components.ItemContentSource
 import example.nucleus.ui.components.MediaGridItem
 import example.nucleus.ui.components.layout.AppVerticalScrollbar
+import example.nucleus.ui.themes.LocalMiniPlayerInset
 import com.metrolist.innertube.models.ArtistItem
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyGridState
@@ -58,7 +59,12 @@ fun ArtistsTab(
         LazyVerticalGrid(
             state = gridState,
             columns = GridCells.Adaptive(minSize = 150.dp),
-            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 80.dp),
+            contentPadding = PaddingValues(
+                start = 20.dp,
+                end = 20.dp,
+                top = 8.dp,
+                bottom = maxOf(80.dp, LocalMiniPlayerInset.current)
+            ),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {

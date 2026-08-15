@@ -30,7 +30,8 @@ class RootComponent(
             is ScreenConfig.Search -> Child.Search(SearchComponent(componentContext, get()))
             is ScreenConfig.Library -> Child.Library(LibraryComponent(componentContext, get()))
             is ScreenConfig.Account -> Child.Account(AccountComponent(componentContext, get()))
-            is ScreenConfig.Settings -> Child.Settings(SettingsComponent(componentContext, get()))
+            is ScreenConfig.Settings -> Child.Settings(SettingsComponent(componentContext))
+            is ScreenConfig.Stats -> Child.Stats
             is ScreenConfig.ListenTogether -> Child.ListenTogether
             is ScreenConfig.NowPlaying -> Child.NowPlaying(NowPlayingScreenRoot(componentContext, get()))
             is ScreenConfig.Album -> Child.Album(AlbumComponent(componentContext, config.browseId, get()))
@@ -54,6 +55,33 @@ class RootComponent(
         navigation.replaceAll(config)
     }
 
+    /** ¿Hay historial al que volver? (la pila tiene más de una entrada). */
+    fun canGoBack(): Boolean = childStack.value.items.size > 1
+
+    /**
+     * "Recargar página" estilo web.
+     *  - Pestañas (Home/Search/Library): sus ViewModels son singletons y cargan en su `init`,
+     *    así que se llama directamente a su método de recarga.
+     *  - Pantallas de detalle: se saca la pantalla activa de la pila y se vuelve a meter para
+     *    que su componente se recree y recargue sus datos (init de los componentes).
+     */
+    fun refresh() {
+        when (val config = childStack.value.active.configuration) {
+            is ScreenConfig.Home -> get<HomeViewModel>().forceReload()
+            is ScreenConfig.Search -> get<SearchViewModel>().refresh()
+            is ScreenConfig.Library -> get<LibraryViewModel>().refreshYtmLibrary()
+            else -> {
+                navigation.navigate { stack ->
+                    val dropped = stack.dropLast(1)
+                    if (dropped.isEmpty()) stack else dropped
+                }
+                navigation.navigate { stack ->
+                    if (stack.lastOrNull() == config) stack else stack + config
+                }
+            }
+        }
+    }
+
 
     sealed class Child {
         data class Home(val component: HomeComponent) : Child()
@@ -61,6 +89,7 @@ class RootComponent(
         data class Library(val component: LibraryComponent) : Child()
         data class Account(val component: AccountComponent) : Child()
         data class Settings(val component: SettingsComponent) : Child()
+        data object Stats : Child()
         data object ListenTogether : Child()
         data class NowPlaying(val component: NowPlayingScreenRoot) : Child()
         data class Album(val component: AlbumComponent) : Child()
@@ -80,10 +109,7 @@ class SearchComponent(
     val viewModel: SearchViewModel
 ) : ComponentContext by componentContext
 
-class SettingsComponent(
-    componentContext: ComponentContext,
-    val viewModel: SettingsViewModel
-) : ComponentContext by componentContext
+class SettingsComponent(componentContext: ComponentContext) : ComponentContext by componentContext
 
 class LibraryComponent(
     componentContext: ComponentContext,

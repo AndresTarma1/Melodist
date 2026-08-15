@@ -11,6 +11,7 @@ import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.TextButton
@@ -33,6 +34,7 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowState
+import com.arkivanov.decompose.extensions.compose.subscribeAsState
 import com.metrolist.innertube.YouTube
 import com.metrolist.innertube.models.AccountInfo
 import com.metrolist.innertube.models.YouTubeLocale
@@ -55,6 +57,7 @@ import example.nucleus.data.repository.AppLocale
 import example.nucleus.data.repository.BackgroundStyle
 import example.nucleus.data.repository.CrashReport
 import example.nucleus.data.repository.CrashReportRepository
+import example.nucleus.data.repository.LayoutMode
 import example.nucleus.data.repository.ThemeMode
 import example.nucleus.data.repository.UserPreferencesRepository
 import example.nucleus.data.repository.YouTubeRegion
@@ -100,6 +103,7 @@ import org.koin.compose.koinInject
 import java.util.Locale
 import kotlin.time.Duration.Companion.milliseconds
 import example.nucleus.ui.themes.LocalChromeSurface
+import example.nucleus.ui.themes.LocalLayoutMode
 
 @Composable
 fun NucleusApplicationScope.App(
@@ -240,13 +244,18 @@ fun NucleusApplicationScope.App(
             ) {
                 // Widget de medios dentro de la barra de tareas de Windows (antes de la bandeja).
                 // Se compone en su propia ventana pero hereda estos CompositionLocals y el tema.
-                TaskBarMediaWidget(
-                    playerViewModel = playerViewModel,
-                    userPreferences = userPreferences,
-                    animationsEnabled = animationsEnabled,
-                    onExit = { handleExit() },
-                    onShowWindow = { isVisible = true },
-                )
+                // Opcional: se activa desde Ajustes → Aplicación.
+                val taskbarWidgetEnabled by remember(userPreferences) { userPreferences.taskbarWidgetEnabled }
+                    .collectAsState(true)
+                if (taskbarWidgetEnabled) {
+                    TaskBarMediaWidget(
+                        playerViewModel = playerViewModel,
+                        userPreferences = userPreferences,
+                        animationsEnabled = animationsEnabled,
+                        onExit = { handleExit() },
+                        onShowWindow = { isVisible = true },
+                    )
+                }
 
                 val titleBarStyle = TitleBarStyle(
                     colors = TitleBarColors(
@@ -312,7 +321,14 @@ fun NucleusApplicationScope.App(
                             ) {
                                 Column {
 
-                                    TitleBar(modifier = Modifier.macOSLargeCornerRadius(), style = titleBarStyle) {
+                                    val isSquareLayout = LocalLayoutMode.current == LayoutMode.SQUARE
+                                    val navStack by rootComponent.childStack.subscribeAsState()
+                                    val canGoBack = navStack.items.size > 1
+
+                                    TitleBar(
+                                        modifier = if (isSquareLayout) Modifier else Modifier.macOSLargeCornerRadius(),
+                                        style = titleBarStyle
+                                    ) {
 
                                         DesktopTitleBar(
                                             currentSong = currentSong?.title,
@@ -322,6 +338,9 @@ fun NucleusApplicationScope.App(
                                             ytmSyncEnabled = ytmSyncEnabled,
                                             isSyncing = syncState.overallStatus is example.nucleus.utils.SyncStatus.Syncing,
                                             isOfflineMode = offlineMode,
+                                            canGoBack = canGoBack,
+                                            onBack = { if (canGoBack) rootComponent.onBack() },
+                                            onRefresh = { rootComponent.refresh() },
                                             onToggleOfflineMode = { enabled ->
                                                 scope.launch { userPreferences.setOfflineModeEnabled(enabled) }
                                             },
@@ -331,6 +350,12 @@ fun NucleusApplicationScope.App(
                                             onSyncNow = { syncUtils.performFullSync() },
                                         )
 
+                                    }
+                                    if (isSquareLayout) {
+                                        HorizontalDivider(
+                                            color = MaterialTheme.colorScheme.outlineVariant,
+                                            thickness = 1.dp
+                                        )
                                     }
                                     CompositionLocalProvider(
                                         LocalDensity provides Density(

@@ -11,31 +11,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.alorma.compose.settings.ui.SettingsGroup
 import com.alorma.compose.settings.ui.expressive.SettingsMenuLink
-import example.nucleus.data.repository.CrashReportRepository
-import example.nucleus.viewmodels.ApplicationViewModel
-import example.nucleus.viewmodels.UpdateCheckState
-import example.nucleus.viewmodels.UpdateStatus
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import example.nucleus.shared.generated.resources.Res
 import example.nucleus.shared.generated.resources.*
+import example.nucleus.ui.screens.shared.updateCheckSubtitle
 import example.nucleus.viewmodels.AppViewModel
+import example.nucleus.viewmodels.UpdateCheckState
+import example.nucleus.viewmodels.UpdateStatus
 import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.koinInject
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun SupportSettingsGroup(
-    appViewModel: AppViewModel,
-    colors: ListItemColors
-) {
+fun SupportSettingsGroup() {
+    val colors = LocalSettingsColors.current
+    val appViewModel: AppViewModel = koinInject()
     val updateCheckState by appViewModel.checkState.collectAsState()
     val updateStatus by appViewModel.updateStatus.collectAsState()
-    var pendingCrashReports by remember { mutableStateOf(0) }
-    LaunchedEffect(Unit) {
-        pendingCrashReports = withContext(Dispatchers.IO) {
-            CrashReportRepository.getUnsentReports().size
-        }
-    }
+    val pendingCrashReports by appViewModel.pendingCrashReports.collectAsState()
+    LaunchedEffect(Unit) { appViewModel.refreshCrashReports() }
 
     SettingsGroup(
         title = { Text(stringResource(Res.string.section_support)) },
@@ -48,20 +41,7 @@ fun SupportSettingsGroup(
             shapes = ListItemDefaults.segmentedShapes(index = 0, count = 3),
             title = { Text(stringResource(Res.string.check_updates)) },
             subtitle = {
-                Text(
-                    when {
-                        ready -> stringResource(Res.string.check_updates_ready)
-                        downloading != null -> {
-                            val pct = downloading.progress
-                            if (pct >= 0f) "${stringResource(Res.string.check_updates_downloading)} ${(pct * 100).toInt()}%"
-                            else stringResource(Res.string.check_updates_downloading)
-                        }
-                        updateCheckState is UpdateCheckState.Checking -> stringResource(Res.string.check_updates_checking)
-                        updateCheckState is UpdateCheckState.UpToDate -> stringResource(Res.string.check_updates_up_to_date)
-                        updateCheckState is UpdateCheckState.Failed -> stringResource(Res.string.check_updates_failed)
-                        else -> stringResource(Res.string.check_updates_subtitle)
-                    }
-                )
+                Text(updateCheckSubtitle(updateStatus, updateCheckState))
             },
             colors = colors,
             action = {
@@ -90,8 +70,7 @@ fun SupportSettingsGroup(
             icon = Icons.Rounded.BugReport,
             btnLabel = stringResource(Res.string.btn_report),
             segmentedShape = ListItemDefaults.segmentedShapes(index = 1, count = 3),
-            onClick = { openReportBugPage() },
-            colors = colors
+            onClick = { openReportBugPage() }
         )
         SettingsMenuLink(
             icon = {
@@ -122,26 +101,14 @@ fun SupportSettingsGroup(
             colors = colors,
             action = {
                 if (pendingCrashReports > 0) {
-                    FilledTonalButton(onClick = {
-                        val reports = CrashReportRepository.getUnsentReports()
-                        reports.forEach { (_, report) ->
-                            CrashReportRepository.openCrashAsGitHubIssue(report)
-                        }
-                        CrashReportRepository.markAllAsSent()
-                        pendingCrashReports = 0
-                    }) {
+                    FilledTonalButton(onClick = { appViewModel.sendCrashReports() }) {
                         Text(stringResource(Res.string.crash_send))
                     }
                 }
             },
             onClick = {
-                val reports = CrashReportRepository.getUnsentReports()
-                if (reports.isNotEmpty()) {
-                    reports.forEach { (_, report) ->
-                        CrashReportRepository.openCrashAsGitHubIssue(report)
-                    }
-                    CrashReportRepository.markAllAsSent()
-                    pendingCrashReports = 0
+                if (pendingCrashReports > 0) {
+                    appViewModel.sendCrashReports()
                 }
             }
         )

@@ -7,6 +7,7 @@ import dev.nucleusframework.updater.NucleusUpdater
 import dev.nucleusframework.updater.UpdateInfo
 import dev.nucleusframework.updater.UpdateResult
 import dev.nucleusframework.updater.provider.GitHubProvider
+import example.nucleus.data.repository.CrashReportRepository
 import io.github.aakira.napier.Napier
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -78,6 +79,9 @@ class AppViewModel : ViewModel() {
 
     private val _checkState = MutableStateFlow<UpdateCheckState>(UpdateCheckState.Idle)
     val checkState: StateFlow<UpdateCheckState> = _checkState.asStateFlow()
+
+    private val _pendingCrashReports = MutableStateFlow(0)
+    val pendingCrashReports: StateFlow<Int> = _pendingCrashReports.asStateFlow()
 
     private var downloadJob: Job? = null
 
@@ -193,6 +197,23 @@ class AppViewModel : ViewModel() {
     /** Reiniciar la retroalimentación transitoria de Configuración (actualizado/fallido) a inactivo. */
     fun clearCheckFeedback() {
         _checkState.value = UpdateCheckState.Idle
+    }
+
+    /** Re-lee cuántos reportes de crash hay pendientes por enviar (IO en segundo plano). */
+    fun refreshCrashReports() {
+        viewModelScope.launch {
+            _pendingCrashReports.value = withContext(Dispatchers.IO) {
+                CrashReportRepository.getUnsentReports().size
+            }
+        }
+    }
+
+    /** Abre los reportes pendientes como issues de GitHub y los marca como enviados. */
+    fun sendCrashReports() {
+        val reports = CrashReportRepository.getUnsentReports()
+        reports.forEach { (_, report) -> CrashReportRepository.openCrashAsGitHubIssue(report) }
+        CrashReportRepository.markAllAsSent()
+        refreshCrashReports()
     }
 
     private fun toAppUpdateInfo(info: UpdateInfo): AppUpdateInfo {

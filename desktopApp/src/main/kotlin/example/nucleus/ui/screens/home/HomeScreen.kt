@@ -6,7 +6,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
@@ -29,6 +28,7 @@ import example.nucleus.ui.components.SectionSkeleton
 import example.nucleus.ui.components.layout.AppVerticalScrollbar
 import example.nucleus.ui.components.layout.HorizontalScrollableRow
 import example.nucleus.ui.helpers.rememberSongDownloadState
+import example.nucleus.ui.themes.LocalMiniPlayerInset
 import example.nucleus.utils.LocalDownloadViewModel
 import example.nucleus.utils.LocalPlayerViewModel
 import example.nucleus.viewmodels.HomeState
@@ -89,23 +89,13 @@ fun HomeScreen(
                 onScrollNearEnd = { onEvent(HomeUiEvent.LoadMore) },
                 onNavigate = onNavigate,
                 playerViewModel = playerViewModel,
-                contentPadding = PaddingValues(top = 16.dp),
+                contentPadding = PaddingValues(top = 16.dp, bottom = LocalMiniPlayerInset.current),
             )
 
             is HomeState.Error -> HomeScreenError(
                 message = uiState.message,
                 isOffline = uiState.isOffline,
                 onRetry = { onEvent(HomeUiEvent.Retry) },
-            )
-        }
-
-        IconButton(
-            onClick = { onEvent(HomeUiEvent.Retry) },
-            modifier = Modifier.align(Alignment.TopEnd).padding(8.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.Refresh,
-                contentDescription = stringResource(Res.string.refresh)
             )
         }
     }
@@ -241,9 +231,7 @@ private fun ChipFilterRow(
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                         )
                     },
-                    shape = RoundedCornerShape(20.dp),
                     modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-                    border = null,
                     leadingIcon = {
                         if (isSelected) {
                             Icon(

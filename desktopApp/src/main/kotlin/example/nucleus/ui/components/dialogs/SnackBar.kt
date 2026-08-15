@@ -27,22 +27,31 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import example.nucleus.models.MediaMetadata
+import example.nucleus.ui.themes.AppShapes
+import example.nucleus.ui.themes.LocalDimens
 
 @Composable
 fun BoxScope.SnackBar(
     currentSong: MediaMetadata?,
-    snackbarHostState: androidx.compose.material3.SnackbarHostState
+    snackbarHostState: androidx.compose.material3.SnackbarHostState,
+    floatingMiniPlayer: Boolean = false,
 ){
+    val dimens = LocalDimens.current
+    val bottomPadding = when {
+        currentSong == null -> 24.dp
+        floatingMiniPlayer -> dimens.miniPlayerHeight + dimens.miniPlayerFloatingMargin * 2
+        else -> 96.dp
+    }
     SnackbarHost(
         hostState = snackbarHostState,
         modifier = Modifier
             .align(Alignment.BottomCenter)
-            .padding(bottom = if (currentSong != null) 96.dp else 24.dp)
+            .padding(bottom = bottomPadding)
             .padding(horizontal = 24.dp)
             .widthIn(max = 480.dp) // Evita que en pantallas gigantes se estire de lado a lado
     ) { snackbarData ->
         Card(
-            shape = RoundedCornerShape(24.dp), // Estilo píldora moderna
+            shape = AppShapes.xLarge, // Pill M3 Expressive
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.inverseSurface, // Contraste con el fondo
             ),

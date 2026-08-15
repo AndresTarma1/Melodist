@@ -19,6 +19,7 @@ class MpvAudioPlayer {
     // Ajustes de audio solicitados antes de que exista el handle nativo (init diferido/perezoso
     // de mpv) — se almacenan aquí y se reaplican en init() para no perder nada.
     private var lastEqualizer: List<Float>? = null
+    private var lastLoudnessLufs: Int = -1
     private var lastGapless: Boolean? = null
     private var lastSpeed: Float? = null
     private val _isPlaying = MutableStateFlow(false)
@@ -107,6 +108,7 @@ class MpvAudioPlayer {
             }
             // Reaplicar ajustes solicitados antes de que existiera el handle (init diferido/perezoso).
             lastEqualizer?.let { bands -> setEqualizer(bands) }
+            if (lastLoudnessLufs > 0) setLoudness(lastLoudnessLufs)
             lastGapless?.let { enabled -> setGaplessAudio(enabled) }
             lastSpeed?.let { speed -> setSpeed(speed) }
         } catch (e: Exception) {
@@ -270,18 +272,39 @@ class MpvAudioPlayer {
     fun setEqualizer(bands: List<Float>) {
         if (bands.size != 5) return
         lastEqualizer = bands
-        handle?.let { mpv ->
-            val freqs = listOf(60, 250, 1000, 4000, 12000)
-            val entries = bands.mapIndexed { index, gain ->
-                "entry(${freqs[index]},$gain)"
-            }.joinToString(";")
+        applyAudioChain()
+    }
 
-            if (bands.all { it == 0f }) {
-                MpvLib.mpv_set_property_string(mpv, "af", "")
-            } else {
-                val filter = "lavfi=[firequalizer=gain='cubic_interpolate(f)':gain_entry='$entries']"
-                MpvLib.mpv_set_property_string(mpv, "af", filter)
+    /** Nivel LUFS objetivo (-1 = desactivado) para el filtro loudnorm. */
+    fun setLoudness(lufs: Int) {
+        lastLoudnessLufs = lufs
+        applyAudioChain()
+    }
+
+    /**
+     * Compone la cadena `af` de mpv con el ecualizador (firequalizer) y la normalización
+     * (loudnorm). Un filtro no debe pisar al otro: ambos viven en la misma lista separada
+     * por comas, con loudnorm primero y el ecualizador después.
+     */
+    private fun applyAudioChain() {
+        handle?.let { mpv ->
+            val filters = mutableListOf<String>()
+
+            val lufs = lastLoudnessLufs
+            if (lufs > 0) {
+                filters += "lavfi=[loudnorm=I=$lufs:TP=-1.5:LRA=11]"
             }
+
+            val bands = lastEqualizer
+            if (bands != null && bands.any { it != 0f }) {
+                val freqs = listOf(60, 250, 1000, 4000, 12000)
+                val entries = bands.mapIndexed { index, gain ->
+                    "entry(${freqs[index]},$gain)"
+                }.joinToString(";")
+                filters += "lavfi=[firequalizer=gain='cubic_interpolate(f)':gain_entry='$entries']"
+            }
+
+            MpvLib.mpv_set_property_string(mpv, "af", filters.joinToString(","))
         }
     }
 

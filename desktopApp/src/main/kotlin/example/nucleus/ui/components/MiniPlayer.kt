@@ -15,8 +15,10 @@ import androidx.compose.foundation.border
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.automirrored.rounded.VolumeDown
@@ -32,6 +34,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
@@ -41,13 +46,20 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.blur.blurEffect
+import dev.chrisbanes.haze.blur.materials.HazeMaterials
+import dev.chrisbanes.haze.hazeEffect
 import example.nucleus.data.repository.LayoutMode
+import example.nucleus.data.repository.MiniPlayerBackgroundStyle
 import example.nucleus.data.repository.SeekBarStyle
 import example.nucleus.player.PlaybackState
 import example.nucleus.ui.components.images.MusicPlayerImage
 import example.nucleus.ui.components.images.PlaceholderType
+import example.nucleus.ui.components.artwork.LocalArtworkColors
 import example.nucleus.ui.components.player.heroCoverElement
 import example.nucleus.ui.themes.LocalDimens
+import example.nucleus.ui.themes.AppShapes
 import example.nucleus.ui.themes.LocalChromeSurface
 import example.nucleus.ui.themes.LocalLayoutMode
 import example.nucleus.ui.utils.circleAwareShape
@@ -70,6 +82,9 @@ fun MiniPlayer(
     onToggleQueue: () -> Unit,
     isQueueVisible: Boolean,
     bgTransparent: Boolean = false,
+    floating: Boolean = false,
+    backgroundStyle: MiniPlayerBackgroundStyle = MiniPlayerBackgroundStyle.TRANSLUCENT,
+    hazeState: HazeState? = null,
     modifier: Modifier = Modifier,
     sharedTransitionScope: SharedTransitionScope? = null,
 ) {
@@ -92,20 +107,10 @@ fun MiniPlayer(
     val dimens = LocalDimens.current
     val chromeSurface = LocalChromeSurface.current
     val islands = LocalLayoutMode.current == LayoutMode.ISLANDS
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .then(
-                if (islands) Modifier
-                .padding(horizontal = dimens.surfaceGap, vertical = dimens.surfaceGap)
-                .border(0.5.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(dimens.surfaceCorner))
-                else Modifier
-            )
-            .height(88.dp),
-        color = chromeSurface,
-        shape = RoundedCornerShape(if (islands) dimens.surfaceCorner else 0.dp),
-        tonalElevation = 1.dp,
-    ) {
+    val square = LocalLayoutMode.current == LayoutMode.SQUARE
+    val surfaceShape = if (islands) RoundedCornerShape(dimens.surfaceCorner) else RectangleShape
+
+    val playerContent: @Composable () -> Unit = {
         Box(modifier = Modifier.fillMaxSize()) {
             Row(
                 modifier = Modifier
@@ -443,6 +448,125 @@ fun MiniPlayer(
 
                 }
             }
+        }
+    }
+
+    if (floating) {
+        // Tarjeta flotante: el fondo varía según MiniPlayerBackgroundStyle.
+        //  - SOLID: surface opaco del tema.
+        //  - COVER: carátula desenfocada + gradiente de sus colores.
+        //  - TRANSLUCENT: velo REALMENTE translúcido — deja ver el contenido
+        //    de la screen de la ruta que pasa por debajo de la tarjeta.
+        val floatingShape = AppShapes.xLarge
+        val artworkColors = LocalArtworkColors.current
+        Box(
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .padding(bottom = dimens.miniPlayerFloatingMargin)
+                .height(dimens.miniPlayerHeight)
+                .clip(floatingShape)
+                // Consume los taps sobre la tarjeta: el mini reproductor es independiente
+                // y los clics no deben atravesarlo hacia la screen que está detrás.
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = {}
+                )
+                .then(
+                    when (backgroundStyle) {
+                        // Vidrio esmerilado REAL: Haze desenfoca el contenido de la ruta
+                        // que pasa por detrás de la tarjeta (hazeSource en Navigation).
+                        // API explícita 2.x (igual que el sample oficial de Haze).
+                        MiniPlayerBackgroundStyle.TRANSLUCENT -> if (hazeState != null) {
+                            val style = HazeMaterials.ultraThin(
+                                containerColor = MaterialTheme.colorScheme.surface,
+                            )
+                            Modifier.hazeEffect(state = hazeState) {
+                                // En desktop la invalidación por pre-draw está desactivada por
+                                // defecto; sin esto el efecto queda "stuck" (tarjeta transparente
+                                // sin blur) al recrearse tras cambiar de estilo de fondo.
+                                forceInvalidateOnPreDraw = true
+                                blurEffect {
+                                    blurEnabled = true
+                                    this.style = style
+                                }
+                            }
+                        } else {
+                            Modifier.background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.80f),
+                                    )
+                                )
+                            )
+                        }
+                        else -> Modifier.background(MaterialTheme.colorScheme.surface)
+                    }
+                )
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, floatingShape)
+        ) {
+            if (backgroundStyle == MiniPlayerBackgroundStyle.COVER) {
+                MusicPlayerImage(
+                    url = song.thumbnailUrl,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .matchParentSize()
+                        .blur(42.dp),
+                    shape = RectangleShape,
+                    contentScale = ContentScale.Crop,
+                    placeholderType = PlaceholderType.SONG,
+                    iconSize = 24.dp,
+                )
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    artworkColors.vibrant.copy(alpha = 0.72f),
+                                    artworkColors.muted.copy(alpha = 0.58f),
+                                )
+                            )
+                        )
+                )
+            }
+            playerContent()
+        }
+    } else if (square) {
+        Column(modifier = modifier.fillMaxWidth().height(dimens.miniPlayerHeight)) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(dimens.chromeBorderWidth)
+                    .background(MaterialTheme.colorScheme.outlineVariant)
+            )
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = chromeSurface,
+                shape = RectangleShape,
+                tonalElevation = 1.dp,
+            ) {
+                playerContent()
+            }
+        }
+    } else {
+        Surface(
+            modifier = modifier
+                .fillMaxWidth()
+                .then(
+                    if (islands) Modifier
+                        .padding(horizontal = dimens.surfaceGap, vertical = dimens.surfaceGap)
+                        .border(dimens.chromeBorderWidth, MaterialTheme.colorScheme.outlineVariant, surfaceShape)
+                    else Modifier
+                )
+                .height(dimens.miniPlayerHeight),
+            color = chromeSurface,
+            shape = surfaceShape,
+            tonalElevation = 1.dp,
+        ) {
+            playerContent()
         }
     }
 }

@@ -2,6 +2,7 @@ package example.nucleus
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.basicMarquee
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -13,9 +14,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.CloudSync
 import androidx.compose.material.icons.rounded.Sync
@@ -38,6 +43,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
@@ -66,6 +73,36 @@ import org.jetbrains.skiko.FPSCounter
 import dev.nucleusframework.window.TitleBarScope
 
 @Composable
+private fun TitleBarNavButton(
+    icon: ImageVector,
+    contentDescription: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .size(30.dp)
+            .clip(RoundedCornerShape(7.dp))
+            .then(
+                if (enabled) Modifier
+                    .clickable(onClick = onClick)
+                    .pointerHoverIcon(PointerIcon.Hand)
+                else Modifier
+            )
+            .padding(6.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            modifier = Modifier.size(18.dp),
+            tint = if (enabled) MaterialTheme.colorScheme.onSurface
+            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
+        )
+    }
+}
+
+@Composable
 fun TitleBarScope.DesktopTitleBar(
     currentSong: String?,
     isPlaying: Boolean,
@@ -74,15 +111,31 @@ fun TitleBarScope.DesktopTitleBar(
     ytmSyncEnabled: Boolean,
     isSyncing: Boolean,
     isOfflineMode: Boolean,
+    canGoBack: Boolean,
+    onBack: () -> Unit,
+    onRefresh: () -> Unit,
     onToggleOfflineMode: (Boolean) -> Unit,
     onToggleSync: (Boolean) -> Unit,
     onSyncNow: () -> Unit,
 ) {
     Row(
-        modifier = Modifier.align(Alignment.Start).padding(start = 12.dp),
+        modifier = Modifier.align(Alignment.Start).padding(start = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
+        TitleBarNavButton(
+            icon = Icons.AutoMirrored.Filled.ArrowBack,
+            contentDescription = stringResource(Res.string.back),
+            enabled = canGoBack,
+            onClick = onBack,
+        )
+        TitleBarNavButton(
+            icon = Icons.Filled.Refresh,
+            contentDescription = stringResource(Res.string.refresh),
+            enabled = true,
+            onClick = onRefresh,
+        )
+        Spacer(Modifier.width(6.dp))
         Text(
             text = stringResource(Res.string.app_name),
             fontWeight = FontWeight.SemiBold,

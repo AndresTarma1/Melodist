@@ -64,10 +64,10 @@ fun QueueItem(
     var showMenu by remember { mutableStateOf(false) }
     Surface(
         color = currentBg,
-        shape = RoundedCornerShape(10.dp),
+        shape = MaterialTheme.shapes.medium,
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
+            .clip(MaterialTheme.shapes.medium)
             .then(dragModifier)
             .clickable(onClick = onClick)
             .onPointerEvent(PointerEventType.Press) { event ->

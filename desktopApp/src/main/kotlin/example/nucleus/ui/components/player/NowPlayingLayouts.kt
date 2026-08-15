@@ -33,6 +33,9 @@ import androidx.compose.ui.unit.dp
 import example.nucleus.navigation.Route
 import example.nucleus.models.MediaMetadata
 import example.nucleus.ui.components.EqualizerDialog
+import example.nucleus.ui.themes.expressiveFadeTween
+import example.nucleus.ui.themes.expressiveSpring
+import example.nucleus.ui.themes.LocalMiniPlayerInset
 import example.nucleus.utils.LocalUserPreferences
 import example.nucleus.utils.LocalAnimationsEnabled
 import example.nucleus.viewmodels.PlayerUiState
@@ -348,7 +351,7 @@ private fun NowPlayingTabContent(
         targetState = tab,
         transitionSpec = {
             if (animationsEnabled) {
-                (fadeIn(tween(220)) + slideInVertically(tween(220)) { it / 8 })
+                (fadeIn(expressiveFadeTween()) + slideInVertically(animationSpec = expressiveSpring()) { it / 8 })
                     .togetherWith(fadeOut(tween(140)))
             } else {
                 androidx.compose.animation.EnterTransition.None
@@ -365,8 +368,10 @@ private fun NowPlayingTabContent(
                 modifier = Modifier.fillMaxSize(),
                 containerColor = Color.Transparent,
                 showCloseButton = false,
+                bottomInset = LocalMiniPlayerInset.current,
             )
             NowPlayingTab.INFO -> SongInfoContent(song = song, state = state, mediaInfo = mediaInfo, onNavigate = onNavigate)
         }
     }
 }
+

@@ -32,6 +32,7 @@ import example.nucleus.ui.components.MediaGridItem
 import example.nucleus.ui.components.images.PlaceholderType
 import example.nucleus.ui.components.layout.AppVerticalScrollbar
 import example.nucleus.ui.screens.library.LibraryScreenState
+import example.nucleus.ui.themes.LocalMiniPlayerInset
 import example.nucleus.utils.LocalDownloadViewModel
 import example.nucleus.viewmodels.YtmLibraryState
 import example.nucleus.viewmodels.PlayerViewModel
@@ -286,7 +287,12 @@ fun LibraryMixedTab(
             LazyVerticalGrid(
                 state = gridState,
                 columns = GridCells.Adaptive(minSize = 200.dp),
-                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 80.dp),
+                contentPadding = PaddingValues(
+                    start = 20.dp,
+                    end = 20.dp,
+                    top = 8.dp,
+                    bottom = maxOf(80.dp, LocalMiniPlayerInset.current)
+                ),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {

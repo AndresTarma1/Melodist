@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import example.nucleus.ui.components.layout.AppVerticalScrollbar
+import example.nucleus.ui.themes.LocalMiniPlayerInset
 import example.nucleus.utils.LocalPlayerViewModel
 import example.nucleus.shared.generated.resources.Res
 import example.nucleus.shared.generated.resources.*
@@ -110,7 +111,11 @@ fun LyricsContent(
                     modifier = Modifier
                         .fillMaxSize()
                         .verticalScroll(scrollState)
-                        .padding(horizontal = 18.dp)
+                        .padding(
+                            start = 18.dp,
+                            end = 18.dp,
+                            bottom = LocalMiniPlayerInset.current
+                        )
                         .fadingEdges(fadeHeight)
                 ) {
                     Spacer(Modifier.height(18.dp))

@@ -26,6 +26,7 @@ import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import example.nucleus.ui.components.song.AddToPlaylistDialog
 import example.nucleus.utils.LocalDownloadViewModel
@@ -54,6 +55,7 @@ fun PlaybackQueuePanel(
     modifier: Modifier = Modifier,
     containerColor: Color = Color.Transparent,
     showCloseButton: Boolean = true,
+    bottomInset: Dp = 0.dp,
 ) {
     val playerViewModel = LocalPlayerViewModel.current
     val downloadViewModel = LocalDownloadViewModel.current
@@ -122,7 +124,12 @@ fun PlaybackQueuePanel(
                     LazyColumn(
                         state = listState,
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp),
+                        contentPadding = PaddingValues(
+                            start = 12.dp,
+                            end = 12.dp,
+                            top = 12.dp,
+                            bottom = 12.dp + bottomInset
+                        ),
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         itemsIndexed(

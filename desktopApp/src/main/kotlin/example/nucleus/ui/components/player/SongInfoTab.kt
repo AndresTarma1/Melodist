@@ -31,6 +31,7 @@ import example.nucleus.ui.components.formatPlayerTimeValue
 import example.nucleus.viewmodels.PlayerUiState
 import example.nucleus.viewmodels.QueueSource
 import example.nucleus.ui.components.dialogs.ArtistsModal
+import example.nucleus.ui.themes.LocalMiniPlayerInset
 import com.metrolist.innertube.models.MediaInfo
 import example.nucleus.shared.generated.resources.Res
 import example.nucleus.shared.generated.resources.*
@@ -61,7 +62,12 @@ fun SongInfoContent(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(scrollState)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(
+                start = 16.dp,
+                end = 16.dp,
+                top = 12.dp,
+                bottom = 12.dp + LocalMiniPlayerInset.current
+            ),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         ArtistAlbumHeader(
@@ -137,7 +143,7 @@ internal fun ArtistAlbumHeader(
 ) {
     Surface(
         onClick = onClick,
-        shape = RoundedCornerShape(12.dp),
+        shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
         modifier = Modifier.fillMaxWidth().pointerHoverIcon(PointerIcon.Hand)
     ) {
@@ -255,7 +261,7 @@ internal fun InfoRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
+            .clip(MaterialTheme.shapes.small)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick).pointerHoverIcon(PointerIcon.Hand) else Modifier)
             .padding(horizontal = 8.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,

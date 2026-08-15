@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Radio
 import androidx.compose.material.icons.filled.RemoveCircleOutline
 import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.DropdownMenuGroup
@@ -158,7 +159,7 @@ fun SongContextMenuContent(
 
     Column(modifier = Modifier.width(260.dp)) {
         // Grupo 1: Radio / Like / Download
-        DropdownMenuGroup(shapes = MenuDefaults.groupShape(0, if (showQueueActions) 3 else 2)) {
+        DropdownMenuGroup(shapes = MenuDefaults.groupShape(0, if (showQueueActions) 4 else 3)) {
             GroupMenuItem(
                 text = stringResource(Res.string.context_start_radio),
                 icon = Icons.Default.Radio,
@@ -259,7 +260,7 @@ fun CollectionContextMenuContent(
 
     Column(modifier = Modifier.width(260.dp)) {
         Surface(
-            shape = RoundedCornerShape(14.dp),
+            shape = MaterialTheme.shapes.medium,
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = 0.dp,
         ) {

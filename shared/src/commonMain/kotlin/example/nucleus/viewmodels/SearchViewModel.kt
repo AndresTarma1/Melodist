@@ -57,6 +57,15 @@ class SearchViewModel(
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     init {
+        loadExploreData()
+    }
+
+    /** Recarga el contenido de exploración (charts, explore, estados de ánimo). */
+    fun refresh() {
+        loadExploreData()
+    }
+
+    private fun loadExploreData() {
         viewModelScope.launch {
             YouTube.getChartsPage()
                 .onSuccess { _charts.value = it }

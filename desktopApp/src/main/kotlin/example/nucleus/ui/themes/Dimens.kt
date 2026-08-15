@@ -33,6 +33,14 @@ data class Dimens(
     val itemCorner: Dp,
     /** Drop-shadow elevation that lifts islands off the background. 0 in attached mode (flat). */
     val surfaceElevation: Dp,
+    /** Width of the chrome borders separating top-level regions (rail, content, queue, miniplayer). */
+    val chromeBorderWidth: Dp,
+
+    // Mini player
+    /** Height of the mini player surface (bar or floating card). */
+    val miniPlayerHeight: Dp = 88.dp,
+    /** Outer margin of the floating mini player card (bottom inset and gap above content). */
+    val miniPlayerFloatingMargin: Dp = 8.dp,
 )
 
 fun dimensFor(
@@ -46,6 +54,7 @@ fun dimensFor(
         surfacePadding = 14.dp,
         itemCorner = 10.dp,
         surfaceElevation = 10.dp,
+        chromeBorderWidth = 0.5.dp,
     )
     LayoutMode.ATTACHED -> Dimens(
         surfaceCorner = 0.dp,
@@ -54,8 +63,25 @@ fun dimensFor(
         surfacePadding = 12.dp,
         itemCorner = 8.dp,
         surfaceElevation = 0.dp,
+        chromeBorderWidth = 0.dp,
+    )
+    LayoutMode.SQUARE -> Dimens(
+        surfaceCorner = 0.dp,
+        surfaceGap = 0.dp,
+        windowPadding = 0.dp,
+        surfacePadding = 12.dp,
+        itemCorner = 8.dp,
+        surfaceElevation = 0.dp,
+        chromeBorderWidth = 1.dp,
     )
 }
 
 val LocalDimens = staticCompositionLocalOf { dimensFor(LayoutMode.ATTACHED) }
 val LocalLayoutMode = staticCompositionLocalOf { LayoutMode.ATTACHED }
+
+/**
+ * Espacio inferior que el mini reproductor flotante ocupa sobre las screens (0 cuando el
+ * mini reproductor es una barra pegada). Las screens lo suman al `contentPadding` de sus
+ * listas para que el contenido pueda pasar por debajo de la tarjeta sin quedar oculto.
+ */
+val LocalMiniPlayerInset = staticCompositionLocalOf { 0.dp }

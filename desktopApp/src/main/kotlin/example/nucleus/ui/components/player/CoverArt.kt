@@ -77,7 +77,7 @@ fun SongHeader(
                 QueueSource.Custom -> stringResource(Res.string.custom_queue)
             }
             Surface(
-                shape = RoundedCornerShape(12.dp),
+                shape = MaterialTheme.shapes.medium,
                 color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.55f),
                 modifier = Modifier
                     .padding(bottom = 12.dp)
@@ -123,7 +123,7 @@ fun SongHeader(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = if (hasId) Modifier
-                        .clip(RoundedCornerShape(6.dp))
+                        .clip(MaterialTheme.shapes.extraSmall)
                         .clickable {
                             onCollapse?.invoke()
                             onNavigate?.invoke(Route.Artist(artist.id!!))

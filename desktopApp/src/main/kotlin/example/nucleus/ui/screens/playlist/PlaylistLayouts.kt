@@ -38,6 +38,7 @@ import example.nucleus.ui.components.layout.AppVerticalScrollbar
 import example.nucleus.ui.screens.PlaylistActions
 import example.nucleus.ui.screens.PlaylistScreenState
 import example.nucleus.ui.utils.circleAwareShape
+import example.nucleus.ui.themes.LocalMiniPlayerInset
 import example.nucleus.utils.LocalAnimationsEnabled
 import example.nucleus.utils.LocalDownloadViewModel
 import com.metrolist.innertube.models.SongItem
@@ -339,7 +340,10 @@ private fun PlaylistSongList(
                 .fillMaxSize()
                 .padding(end = 16.dp),
             contentPadding = PaddingValues(
-                bottom = if (selectedSongIds.isNotEmpty()) 72.dp else 0.dp
+                bottom = maxOf(
+                    if (selectedSongIds.isNotEmpty()) 72.dp else 0.dp,
+                    LocalMiniPlayerInset.current
+                )
             )
         ) {
             itemsIndexed(

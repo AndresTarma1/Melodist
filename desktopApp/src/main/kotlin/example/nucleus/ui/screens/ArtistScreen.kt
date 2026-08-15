@@ -41,6 +41,7 @@ import example.nucleus.ui.components.layout.HorizontalScrollableRow
 import example.nucleus.ui.screens.shared.SectionGridItem
 import example.nucleus.ui.screens.shared.SectionListItem
 import example.nucleus.ui.utils.circleAwareShape
+import example.nucleus.ui.themes.LocalMiniPlayerInset
 import example.nucleus.utils.LocalPlayerViewModel
 import example.nucleus.utils.LocalAnimationsEnabled
 import example.nucleus.viewmodels.ArtistState
@@ -134,22 +135,6 @@ fun ArtistScreen(
                 Text(uiState.message, color = MaterialTheme.colorScheme.error)
             }
         }
-
-        // Botón atrás flotante
-        IconButton(
-            onClick = onBack,
-            modifier = Modifier
-                .padding(12.dp)
-                .align(Alignment.TopStart)
-                .size(36.dp)
-                .clip(circleAwareShape())
-        ) {
-            Icon(
-                Icons.AutoMirrored.Filled.ArrowBack, stringResource(Res.string.back),
-                tint = Color.White,
-                modifier = Modifier.size(20.dp)
-            )
-        }
     }
 }
 
@@ -171,7 +156,8 @@ private fun ArtistScreenContent(
 
         LazyColumn(
             state = lazyListState,
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = LocalMiniPlayerInset.current),
         ) {
             item(key = "banner") {
                 ArtistBanner(

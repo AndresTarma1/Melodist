@@ -29,18 +29,49 @@ import example.nucleus.ui.themes.systemFontNames
 import example.nucleus.shared.generated.resources.*
 import example.nucleus.viewmodels.AppViewModel
 import org.jetbrains.compose.resources.stringResource
-import java.awt.Desktop
-import java.net.URI
-import java.net.URLEncoder
 
-internal fun openReportBugPage() {
-    val os = "${System.getProperty("os.name")} ${System.getProperty("os.version")}"
-    val body = "**Versión:** ${AppViewModel.CURRENT_VERSION}\n**Sistema operativo:** $os\n\nDescribe el problema:\n"
-    val url = "https://github.com/AndresTarma1/PaltaSound/issues/new" +
-        "?title=${URLEncoder.encode("[Bug] ", "UTF-8")}" +
-        "&body=${URLEncoder.encode(body, "UTF-8")}"
-    runCatching { Desktop.getDesktop().browse(URI(url)) }
+/** Paleta de colores compartida por todas las secciones de Ajustes. */
+val LocalSettingsColors = staticCompositionLocalOf<ListItemColors> {
+    error("LocalSettingsColors no proporcionado")
 }
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+fun rememberSettingsListItemColors(): ListItemColors = ListItemDefaults.segmentedColors(
+    // Estado base (sin seleccionar)
+    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+    contentColor = MaterialTheme.colorScheme.onSurface,
+    leadingContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    trailingContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    overlineContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    supportingContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+
+    // Estado seleccionado — contenedor SÓLIDO (sin alpha), no un tinte débil.
+    // El salto de "surfaceContainerLow" a "primaryContainer" ya es visible por sí solo.
+    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
+    selectedContentColor = MaterialTheme.colorScheme.onSurface,
+    selectedLeadingContentColor = MaterialTheme.colorScheme.primary,
+    selectedTrailingContentColor = MaterialTheme.colorScheme.primary,
+    selectedOverlineContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+    selectedSupportingContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+
+    // Estado "dragged" — usa un color DISTINTO al seleccionado (tertiary),
+    // para que arrastrar y estar seleccionado no se confundan visualmente.
+    draggedContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
+    draggedContentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+    draggedLeadingContentColor = MaterialTheme.colorScheme.tertiary,
+    draggedTrailingContentColor = MaterialTheme.colorScheme.tertiary,
+    draggedOverlineContentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+    draggedSupportingContentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+
+    // Estado deshabilitado — sigue el estándar de Material (38% de opacidad sobre onSurface)
+    disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+    disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+    disabledLeadingContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+    disabledTrailingContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+    disabledOverlineContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+    disabledSupportingContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+)
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -48,7 +79,6 @@ internal fun <T> DropdownSelector(
     label: String,
     icon: ImageVector,
     currentValue: String,
-    colors: ListItemColors,
     expanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
     options: List<Pair<T, String>>,
@@ -57,6 +87,7 @@ internal fun <T> DropdownSelector(
     onSelect: (T) -> Unit,
     paletteItem: Boolean = false,
 ) {
+    val colors = LocalSettingsColors.current
     Box {
         SettingsMenuLink(
             icon = { Icon(icon, null) },
@@ -71,7 +102,7 @@ internal fun <T> DropdownSelector(
                         expanded = expanded,
                         onDismissRequest = { onExpandedChange(false) },
                         offset = DpOffset(x = 16.dp, y = 0.dp),
-                        containerColor = MaterialTheme.colorScheme.surface,
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
                         tonalElevation = 0.dp,
                         shadowElevation = 8.dp,
                     ) {
@@ -113,9 +144,9 @@ internal fun <T> DropdownSelector(
 internal fun SystemFontSelector(
     selectedFont: String,
     onSelect: (String) -> Unit,
-    colors: ListItemColors,
     segmentedShape: ListItemShapes = ListItemDefaults.shapes(),
 ) {
+    val colors = LocalSettingsColors.current
     val systemFonts = remember { systemFontNames() }
     val currentLabel = selectedFont.ifBlank {
         stringResource(Res.string.font_system_default)
@@ -136,7 +167,7 @@ internal fun SystemFontSelector(
                         expanded = expanded,
                         onDismissRequest = { expanded = false },
                         offset = DpOffset(x = 16.dp, y = 0.dp),
-                        containerColor = MaterialTheme.colorScheme.surface,
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
                         tonalElevation = 0.dp,
                         shadowElevation = 8.dp,
                     ) {
@@ -193,8 +224,8 @@ internal fun ActionRow(
     segmentedShape: ListItemShapes = ListItemDefaults.shapes(),
     isDestructive: Boolean = false,
     onClick: () -> Unit,
-    colors: ListItemColors,
 ) {
+    val colors = LocalSettingsColors.current
     SettingsMenuLink(
         icon = { Icon(icon, null, tint = if (isDestructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface) },
         title = { Text(label) },
@@ -339,7 +370,7 @@ internal fun ResponsiveSettingsDialog(
                 modifier = Modifier
                     .width(dialogWidth)
                     .heightIn(max = maxDialogHeight),
-                shape = RoundedCornerShape(16.dp),
+                shape = MaterialTheme.shapes.extraLarge,
                 color = MaterialTheme.colorScheme.surfaceContainer,
                 tonalElevation = 0.dp,
             ) {

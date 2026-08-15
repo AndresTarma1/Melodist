@@ -33,6 +33,13 @@ class PlayerService
 
     private var initAttempted = false
 
+    /** ¿Hay un medio cargado en mpv? Falso tras arrancar o tras [stop] — un toggle de play en
+     *  ese estado no haría nada, hay que resolver y reproducir la pista primero. */
+    @Volatile
+    private var hasMedia = false
+
+    fun hasLoadedMedia(): Boolean = hasMedia
+
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private var tickJob: Job? = null
 
@@ -109,6 +116,7 @@ class PlayerService
             prevPlayingPos = 0L
             _position.value = 0L
             _duration.value = 0L
+            hasMedia = true
             // openUri es no bloqueante (lanza su propio job de IO) y prepara el resultado de
             // carga sincrónicamente, por lo que un awaitPlaybackStarted() posterior observa ESTA
             // carga, no un resultado obsoleto de la pista anterior.
@@ -155,6 +163,7 @@ class PlayerService
         isTransitioning = false
         endNotified = false
         prevPlayingPos = 0L
+        hasMedia = false
         _playbackState.value = PlaybackState.IDLE
         _position.value = 0L
         _duration.value = 0L
@@ -194,6 +203,12 @@ class PlayerService
         if (isMpvDisabled) return
         // Enviar valores a mpv
         mpvPlayer.setEqualizer(bands)
+    }
+
+    /** Normalización de volumen LUFS (-1 = desactivado). */
+    fun setLoudness(lufs: Int) {
+        if (isMpvDisabled) return
+        mpvPlayer.setLoudness(lufs)
     }
 
     fun setCrossfadeEnabled(enabled: Boolean) {

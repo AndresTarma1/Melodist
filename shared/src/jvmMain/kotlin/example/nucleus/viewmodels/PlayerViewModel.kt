@@ -156,13 +156,78 @@ class PlayerViewModel(
         }
     }
 
+    private val queueJson = kotlinx.serialization.json.Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+    }
+
+    /** Restaura la cola guardada (si la hay) y persiste los cambios de la cola. */
+    private fun setupQueuePersistence() {
+        viewModelScope.launch {
+            if (!userPreferences.queuePersistenceEnabled.first()) return@launch
+            val savedJson = userPreferences.savedQueueJson.first()
+            if (savedJson.isNullOrBlank()) return@launch
+            val session = runCatching {
+                queueJson.decodeFromString<QueueSession>(savedJson)
+            }.getOrNull() ?: return@launch
+            if (session.items.isEmpty()) return@launch
+            val shuffle = userPreferences.savedQueueShuffle.first()
+            val repeat = runCatching {
+                RepeatMode.valueOf(userPreferences.savedQueueRepeat.first())
+            }.getOrDefault(RepeatMode.OFF)
+            Napier.i("Restaurando cola guardada (${session.items.size} canciones, shuffle=$shuffle, repeat=$repeat)")
+            _uiState.update {
+                it.copy(
+                    currentSong = session.currentSong(),
+                    queue = session.queueItems(),
+                    currentIndex = session.currentIndex,
+                    queueSource = session.source,
+                    isShuffled = shuffle,
+                    repeatMode = repeat,
+                    queueSession = session,
+                )
+            }
+        }
+
+        viewModelScope.launch {
+            _uiState
+                .collectLatest { state ->
+                    if (!userPreferences.queuePersistenceEnabled.first()) {
+                        // Persistencia desactivada: limpiar cualquier cola guardada.
+                        userPreferences.saveQueue(null)
+                        return@collectLatest
+                    }
+                    if (state.queue.isEmpty()) {
+                        userPreferences.saveQueue(null)
+                        return@collectLatest
+                    }
+                    delay(1000) // debounce: solo guardar cuando la cola se estabiliza
+                    runCatching {
+                        userPreferences.saveQueue(
+                            queueJson.encodeToString(state.queueSession)
+                        )
+                        userPreferences.saveQueueShuffle(state.isShuffled)
+                        userPreferences.saveQueueRepeat(state.repeatMode.name)
+                    }.onFailure { Napier.w("Fallo al persistir la cola: ${it.message}") }
+                }
+        }
+    }
+
     init {
         // Seek desde los media controls del sistema (SMTC/MPRIS) hacia el reproductor.
         mediaSession.setSeekHandler { target -> seekTo(target) }
 
+        setupQueuePersistence()
+
         viewModelScope.launch {
             userPreferences.equalizerBands.collect { bands ->
                 playerService.setEqualizer(bands)
+            }
+        }
+
+        viewModelScope.launch {
+            userPreferences.loudnessLevel.collect { level ->
+                playerService.setLoudness(level.lufs)
             }
         }
 
@@ -219,6 +284,26 @@ class PlayerViewModel(
                     reportedPlaybackIds[song.id] = true
                     viewModelScope.launch(Dispatchers.IO) {
                         registerPlaybackFor(song.id)
+                    }
+                }
+        }
+
+        // Estadísticas locales: registra playTime real + PlayCount cuando cambia la canción
+        // (incluido el final de la cola / stop, donde currentSong pasa a null).
+        viewModelScope.launch {
+            var statSongId: String? = null
+            var statStartPos = 0L
+            _uiState
+                .map { it.currentSong?.id }
+                .distinctUntilChanged()
+                .collect { songId ->
+                    if (songId != statSongId) {
+                        statSongId?.let { id ->
+                            val endPos = _progressState.value.positionMs
+                            recordPlaybackStats(id, statStartPos, endPos)
+                        }
+                        statSongId = songId
+                        statStartPos = _progressState.value.positionMs
                     }
                 }
         }
@@ -545,6 +630,13 @@ class PlayerViewModel(
         val state = _uiState.value
         if (state.currentSong == null || state.queue.isEmpty() || state.currentIndex !in state.queue.indices) {
             mediaSession.resetToIdle()
+            return
+        }
+        // Tras restaurar la cola persistente, mpv aún no tiene medio cargado: un toggle
+        // (resume sin pista) no haría nada y la canción quedaría en 0:00. Hay que resolver
+        // y reproducir la pista actual en su lugar.
+        if (!playerService.hasLoadedMedia()) {
+            resolveAndPlay(state.currentSong)
             return
         }
         playerService.togglePlayPause()
@@ -1003,14 +1095,9 @@ class PlayerViewModel(
                     return@launch
                 }
 
-                // Guardar canción en caché y registrar reproducción
+                // Guardar canción en caché (el playTime real lo registra recordPlaybackStats)
                 withContext(Dispatchers.IO) {
                     cacheSongMetadata(song)
-                    databaseDao.insertEvent(
-                        songId = song.id,
-                        timestamp = java.time.LocalDateTime.now(),
-                        playTime = 0L,
-                    )
                 }
 
                 // Pre-calentar el caché del stream de la siguiente pista para que saltar a ella sea casi instantáneo.
@@ -1043,6 +1130,24 @@ class PlayerViewModel(
         }
         runCatching { YouTube.registerPlayback(playbackTracking = url) }
             .onFailure { Napier.w("registerPlayback failed for $songId: ${it.message}") }
+    }
+
+    /**
+     * Estadísticas locales (estilo Metrolist): registra el tiempo escuchado real de una canción
+     * (>= [HISTORY_REPORT_MS] para evitar ruido), acumula totalPlayTime en Song e incrementa el
+     * PlayCount del mes actual.
+     */
+    private suspend fun recordPlaybackStats(songId: String, startPosMs: Long, endPosMs: Long) {
+        val playedMs = (endPosMs - startPosMs).coerceAtLeast(0L)
+        if (playedMs < HISTORY_REPORT_MS) return
+        val now = java.time.LocalDateTime.now()
+        withContext(Dispatchers.IO) {
+            runCatching {
+                databaseDao.insertEvent(songId, now, playedMs)
+                databaseDao.updateSongTotalPlayTime(playedMs, songId)
+                databaseDao.incrementPlayCount(songId, now.year, now.monthValue)
+            }.onFailure { Napier.w("Failed to record stats for $songId: ${it.message}") }
+        }
     }
 
     companion object {

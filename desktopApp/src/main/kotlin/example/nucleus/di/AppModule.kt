@@ -26,7 +26,14 @@ import example.nucleus.viewmodels.LibraryViewModel
 import example.nucleus.viewmodels.PlayerViewModel
 import example.nucleus.viewmodels.PlaylistManagerViewModel
 import example.nucleus.viewmodels.SearchViewModel
-import example.nucleus.viewmodels.SettingsViewModel
+import example.nucleus.viewmodels.AdvancedSettingsViewModel
+import example.nucleus.viewmodels.ApplicationSettingsViewModel
+import example.nucleus.viewmodels.AppearanceSettingsViewModel
+import example.nucleus.viewmodels.AudioSettingsViewModel
+import example.nucleus.viewmodels.MiniPlayerSettingsViewModel
+import example.nucleus.viewmodels.NowPlayingSettingsViewModel
+import example.nucleus.viewmodels.OverlaySettingsViewModel
+import example.nucleus.viewmodels.SyncSettingsViewModel
 import example.nucleus.viewmodels.JvmSettingsViewModel
 import example.nucleus.viewmodels.PlayerCoordinator
 import example.nucleus.viewmodels.PlayerCoordinatorImpl
@@ -108,6 +115,14 @@ val appModule = module {
     factory { AlbumManagerViewModel(get(), get()) }
     factory { PlaylistManagerViewModel(get(), get(), get(), get()) }
     factory { ArtistManagerViewModel(get(), get(), get()) }
-    single { SettingsViewModel(get(), get()) }
+    // ViewModels de Ajustes — uno por dominio, inyectados en su propia sección
+    single { AudioSettingsViewModel(get()) }
+    single { AppearanceSettingsViewModel(get()) }
+    single { MiniPlayerSettingsViewModel(get()) }
+    single { NowPlayingSettingsViewModel(get()) }
+    single { ApplicationSettingsViewModel(get()) }
+    single { AdvancedSettingsViewModel(get()) }
+    single { SyncSettingsViewModel(get(), get()) }
+    single { OverlaySettingsViewModel(get()) }
     single { JvmSettingsViewModel(get()) }
 }

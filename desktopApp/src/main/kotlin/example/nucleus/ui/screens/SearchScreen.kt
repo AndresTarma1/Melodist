@@ -84,6 +84,7 @@ import example.nucleus.ui.components.SongSkeleton
 import example.nucleus.ui.screens.shared.SectionGridItem
 import example.nucleus.ui.screens.shared.SectionListItem
 import example.nucleus.ui.screens.shared.onYTItemClick
+import example.nucleus.ui.themes.LocalMiniPlayerInset
 import example.nucleus.utils.LocalPlayerViewModel
 import example.nucleus.utils.LocalAnimationsEnabled
 import example.nucleus.viewmodels.PlayerViewModel
@@ -299,7 +300,12 @@ fun SearchSection(
     ) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(16.dp),
+            contentPadding = PaddingValues(
+                start = 16.dp,
+                end = 16.dp,
+                top = 16.dp,
+                bottom = 16.dp + LocalMiniPlayerInset.current
+            ),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             if (query.isEmpty()) {
@@ -662,6 +668,7 @@ private fun SearchChartsContent(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(16.dp),
+        contentPadding = PaddingValues(bottom = LocalMiniPlayerInset.current),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
 

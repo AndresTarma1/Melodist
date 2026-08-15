@@ -36,9 +36,19 @@ enum class DarkLevel {
     DIM, BLACK
 }
 
-/** Estilo de diseño general. ISLANDS = tarjetas redondeadas y espaciadas (actual). ATTACHED = de borde a borde, compacto. */
+/** Estilo de diseño general. ISLANDS = tarjetas redondeadas y espaciadas (actual). ATTACHED = de borde a borde, compacto. SQUARE = armazón cuadrado con bordes separadores entre regiones. */
 enum class LayoutMode {
-    ISLANDS, ATTACHED
+    ISLANDS, ATTACHED, SQUARE
+}
+
+/** Estilo visual del mini reproductor. BAR = barra pegada al borde inferior (por defecto). FLOATING = tarjeta flotante sobre el contenido. */
+enum class MiniPlayerStyle {
+    BAR, FLOATING
+}
+
+/** Fondo de la tarjeta del mini reproductor flotante. SOLID = color sólido del chrome. COVER = carátula desenfocada con gradiente de sus colores. TRANSLUCENT = semitransparente. */
+enum class MiniPlayerBackgroundStyle {
+    SOLID, COVER, TRANSLUCENT
 }
 
 /** Estilos del navigationRail **/
@@ -66,6 +76,16 @@ enum class IslandStyle(val cornerDp: Int, val gapDp: Int) {
  */
 enum class SeekBarStyle {
     WAVY, LINEAR, MATERIAL, MINIMAL
+}
+
+/** Normalización de volumen (LUFS) vía filtro loudnorm de mpv, como Metrolist. */
+enum class LoudnessLevel(val lufs: Int) {
+    OFF(-1), AGGRESSIVE(-7), LOUD(-11), BALANCED(-14), QUIET(-19)
+}
+
+/** Estilo de animación de la línea activa en las letras sincronizadas. */
+enum class LyricsAnimationStyle {
+    NONE, FADE, KARAOKE, GLOW
 }
 
 enum class AppLocale(val tag: String?) {
@@ -146,11 +166,23 @@ class UserPreferencesRepository(private val dataStore: DataStore<Preferences>) {
 
         val VOLUMEN = intPreferencesKey("volumen")
         val NAVIGATION_RAIL_STYLE = stringPreferencesKey("navigation_rail_style")
+        val MINI_PLAYER_STYLE = stringPreferencesKey("mini_player_style")
+        val MINI_PLAYER_BG_STYLE = stringPreferencesKey("mini_player_bg_style")
         val NOW_PLAYING_BACKGROUND = stringPreferencesKey("now_playing_background")
         val FULL_SCREEN_PLAYER = booleanPreferencesKey("full_screen_player")
         val SELECTED_FONT = stringPreferencesKey("selected_font")
         val PREFERENCES_MIGRATION_VERSION = intPreferencesKey("preferences_migration_version")
         val ANIMATIONS_ENABLED = booleanPreferencesKey("animations_enabled")
+        val TASKBAR_WIDGET_ENABLED = booleanPreferencesKey("taskbar_widget_enabled")
+        val LOUDNESS_LEVEL = stringPreferencesKey("loudness_level")
+        val SAVED_QUEUE = stringPreferencesKey("saved_queue")
+        val SAVED_QUEUE_SHUFFLE = booleanPreferencesKey("saved_queue_shuffle")
+        val SAVED_QUEUE_REPEAT = stringPreferencesKey("saved_queue_repeat")
+        val QUEUE_PERSISTENCE_ENABLED = booleanPreferencesKey("queue_persistence_enabled")
+        val LYRICS_TEXT_SIZE = floatPreferencesKey("lyrics_text_size")
+        val LYRICS_LINE_SPACING = floatPreferencesKey("lyrics_line_spacing")
+        val LYRICS_ANIMATION_STYLE = stringPreferencesKey("lyrics_animation_style")
+        val LYRICS_ROMANIZE = booleanPreferencesKey("lyrics_romanize")
     }
 
 
@@ -174,6 +206,88 @@ class UserPreferencesRepository(private val dataStore: DataStore<Preferences>) {
 
     suspend fun setAnimationsEnabled(enabled: Boolean) {
         dataStore.edit { it[PreferencesKeys.ANIMATIONS_ENABLED] = enabled }
+    }
+
+    /** Widget del reproductor en la barra de tareas de Windows (SMTC). */
+    val taskbarWidgetEnabled: Flow<Boolean> = dataStore.data.map { it[PreferencesKeys.TASKBAR_WIDGET_ENABLED] ?: true }
+
+    suspend fun setTaskbarWidgetEnabled(enabled: Boolean) {
+        dataStore.edit { it[PreferencesKeys.TASKBAR_WIDGET_ENABLED] = enabled }
+    }
+
+    /** Nivel de normalización de volumen (LUFS). OFF = desactivado. */
+    val loudnessLevel: Flow<LoudnessLevel> = dataStore.data.map { pref ->
+        try {
+            LoudnessLevel.valueOf(pref[PreferencesKeys.LOUDNESS_LEVEL] ?: LoudnessLevel.OFF.name)
+        } catch (_: Exception) { LoudnessLevel.OFF }
+    }
+
+    suspend fun setLoudnessLevel(level: LoudnessLevel) {
+        dataStore.edit { it[PreferencesKeys.LOUDNESS_LEVEL] = level.name }
+    }
+
+    // ── Cola persistente (JSON serializado de QueueSession + shuffle/repeat) ──
+
+    val savedQueueJson: Flow<String?> = dataStore.data.map { it[PreferencesKeys.SAVED_QUEUE] }
+
+    suspend fun saveQueue(json: String?) {
+        dataStore.edit {
+            if (json == null) it.remove(PreferencesKeys.SAVED_QUEUE)
+            else it[PreferencesKeys.SAVED_QUEUE] = json
+        }
+    }
+
+    val savedQueueShuffle: Flow<Boolean> = dataStore.data.map { it[PreferencesKeys.SAVED_QUEUE_SHUFFLE] ?: false }
+
+    suspend fun saveQueueShuffle(enabled: Boolean) {
+        dataStore.edit { it[PreferencesKeys.SAVED_QUEUE_SHUFFLE] = enabled }
+    }
+
+    val savedQueueRepeat: Flow<String> = dataStore.data.map { it[PreferencesKeys.SAVED_QUEUE_REPEAT] ?: "OFF" }
+
+    suspend fun saveQueueRepeat(mode: String) {
+        dataStore.edit { it[PreferencesKeys.SAVED_QUEUE_REPEAT] = mode }
+    }
+
+    /** ¿Persistir la cola de reproducción entre sesiones? (por defecto sí). */
+    val queuePersistenceEnabled: Flow<Boolean> = dataStore.data.map { it[PreferencesKeys.QUEUE_PERSISTENCE_ENABLED] ?: true }
+
+    suspend fun setQueuePersistenceEnabled(enabled: Boolean) {
+        dataStore.edit { it[PreferencesKeys.QUEUE_PERSISTENCE_ENABLED] = enabled }
+    }
+
+    // ── Letras ──
+
+    /** Tamaño (sp) de la línea activa de letras sincronizadas. */
+    val lyricsTextSize: Flow<Float> = dataStore.data.map { it[PreferencesKeys.LYRICS_TEXT_SIZE] ?: 40f }
+
+    suspend fun setLyricsTextSize(size: Float) {
+        dataStore.edit { it[PreferencesKeys.LYRICS_TEXT_SIZE] = size.coerceIn(20f, 64f) }
+    }
+
+    /** Espaciado de línea (sp) de las letras sincronizadas. */
+    val lyricsLineSpacing: Flow<Float> = dataStore.data.map { it[PreferencesKeys.LYRICS_LINE_SPACING] ?: 54f }
+
+    suspend fun setLyricsLineSpacing(spacing: Float) {
+        dataStore.edit { it[PreferencesKeys.LYRICS_LINE_SPACING] = spacing.coerceIn(30f, 80f) }
+    }
+
+    /** Estilo de animación de la línea activa. */
+    val lyricsAnimationStyle: Flow<LyricsAnimationStyle> = dataStore.data.map { pref ->
+        try {
+            LyricsAnimationStyle.valueOf(pref[PreferencesKeys.LYRICS_ANIMATION_STYLE] ?: LyricsAnimationStyle.KARAOKE.name)
+        } catch (_: Exception) { LyricsAnimationStyle.KARAOKE }
+    }
+
+    suspend fun setLyricsAnimationStyle(style: LyricsAnimationStyle) {
+        dataStore.edit { it[PreferencesKeys.LYRICS_ANIMATION_STYLE] = style.name }
+    }
+
+    /** Romanizar letras en scripts no latinos (JA/KO/RU, estilo Metrolist). */
+    val lyricsRomanize: Flow<Boolean> = dataStore.data.map { it[PreferencesKeys.LYRICS_ROMANIZE] ?: false }
+
+    suspend fun setLyricsRomanize(enabled: Boolean) {
+        dataStore.edit { it[PreferencesKeys.LYRICS_ROMANIZE] = enabled }
     }
 
 
@@ -313,7 +427,7 @@ class UserPreferencesRepository(private val dataStore: DataStore<Preferences>) {
         // Islands are temporarily disabled; keep this guard even if another caller
         // tries to select it programmatically.
         if (mode == LayoutMode.ISLANDS) return
-        dataStore.edit { it[PreferencesKeys.LAYOUT_MODE] = LayoutMode.ATTACHED.name }
+        dataStore.edit { it[PreferencesKeys.LAYOUT_MODE] = mode.name }
     }
 
     /**
@@ -337,6 +451,24 @@ class UserPreferencesRepository(private val dataStore: DataStore<Preferences>) {
 
     suspend fun setIslandStyle(style: IslandStyle) {
         dataStore.edit { it[PreferencesKeys.ISLAND_STYLE] = style.name }
+    }
+
+    val miniPlayerStyle: Flow<MiniPlayerStyle> = dataStore.data.map { pref ->
+        try { MiniPlayerStyle.valueOf(pref[PreferencesKeys.MINI_PLAYER_STYLE] ?: MiniPlayerStyle.BAR.name) }
+        catch (_: Exception) { MiniPlayerStyle.BAR }
+    }
+
+    suspend fun setMiniPlayerStyle(style: MiniPlayerStyle) {
+        dataStore.edit { it[PreferencesKeys.MINI_PLAYER_STYLE] = style.name }
+    }
+
+    val miniPlayerBackgroundStyle: Flow<MiniPlayerBackgroundStyle> = dataStore.data.map { pref ->
+        try { MiniPlayerBackgroundStyle.valueOf(pref[PreferencesKeys.MINI_PLAYER_BG_STYLE] ?: MiniPlayerBackgroundStyle.TRANSLUCENT.name) }
+        catch (_: Exception) { MiniPlayerBackgroundStyle.TRANSLUCENT }
+    }
+
+    suspend fun setMiniPlayerBackgroundStyle(style: MiniPlayerBackgroundStyle) {
+        dataStore.edit { it[PreferencesKeys.MINI_PLAYER_BG_STYLE] = style.name }
     }
 
     suspend fun setNowPlayingBackground(backgroundStyle: BackgroundStyle) {

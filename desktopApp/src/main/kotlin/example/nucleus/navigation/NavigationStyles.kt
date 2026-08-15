@@ -1,6 +1,9 @@
 package example.nucleus.navigation
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -20,6 +23,7 @@ import androidx.compose.material3.WideNavigationRailValue
 import androidx.compose.material3.rememberWideNavigationRailState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerIcon
@@ -31,7 +35,10 @@ import kotlinx.coroutines.launch
 import example.nucleus.shared.generated.resources.Res
 import example.nucleus.shared.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
+import example.nucleus.data.repository.LayoutMode
 import example.nucleus.ui.themes.LocalChromeSurface
+import example.nucleus.ui.themes.LocalDimens
+import example.nucleus.ui.themes.LocalLayoutMode
 
 @Composable
 fun NavigationRailDefault(
@@ -39,6 +46,9 @@ fun NavigationRailDefault(
     changeQueueVisible: (Boolean) -> Unit,
     rootComponent: RootComponent,
 ){
+    val square = LocalLayoutMode.current == LayoutMode.SQUARE
+    val dimens = LocalDimens.current
+    Box(modifier = Modifier.fillMaxHeight()) {
     NavigationRail(
         modifier = Modifier.width(90.dp),
         containerColor = LocalChromeSurface.current,
@@ -96,6 +106,16 @@ fun NavigationRailDefault(
 
 
     }
+    if (square) {
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .fillMaxHeight()
+                .width(dimens.chromeBorderWidth)
+                .background(MaterialTheme.colorScheme.outlineVariant)
+        )
+    }
+    }
 }
 
 @Composable
@@ -104,11 +124,14 @@ fun WideNavigationRail(
     changeQueueVisible: (Boolean) -> Unit,
     rootComponent: RootComponent,
 ) {
+    val square = LocalLayoutMode.current == LayoutMode.SQUARE
+    val dimens = LocalDimens.current
     val state = rememberWideNavigationRailState()
     val scope = rememberCoroutineScope()
     val isExpanded = state.targetValue == WideNavigationRailValue.Expanded
     val headerDescription = if (isExpanded) "Collapse rail" else "Expand rail"
 
+    Box(modifier = Modifier.fillMaxHeight()) {
     WideNavigationRail(
         state = state,
         colors =  WideNavigationRailDefaults.colors(
@@ -176,5 +199,15 @@ fun WideNavigationRail(
                     },
                 )
         }
+    }
+    if (square) {
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .fillMaxHeight()
+                .width(dimens.chromeBorderWidth)
+                .background(MaterialTheme.colorScheme.outlineVariant)
+        )
+    }
     }
 }

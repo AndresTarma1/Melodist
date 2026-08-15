@@ -178,16 +178,5 @@ fun PlaylistScreen(
                 }
             }
         }
-
-        IconButton(
-            onClick = actions.onBack,
-            modifier = Modifier.padding(8.dp).align(Alignment.TopStart)
-        ) {
-            Icon(
-                Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = stringResource(Res.string.back),
-                tint = MaterialTheme.colorScheme.onSurface
-            )
-        }
     }
 }

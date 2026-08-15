@@ -42,6 +42,7 @@ import example.nucleus.ui.utils.circleAwareShape
 import example.nucleus.ui.screens.playlist.MultiSongSelectionBar
 import example.nucleus.ui.screens.playlist.SongListItem
 import example.nucleus.ui.screens.shared.calculateTotalDuration
+import example.nucleus.ui.themes.LocalMiniPlayerInset
 import example.nucleus.utils.LocalDownloadViewModel
 import example.nucleus.utils.LocalPlayerViewModel
 import com.metrolist.innertube.models.SongItem
@@ -266,6 +267,7 @@ internal fun AlbumCompactLayout(
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             state = lazyColumnState,
+            contentPadding = PaddingValues(bottom = LocalMiniPlayerInset.current),
         ) {
             if (showStickHeader) {
                 stickyHeader {
@@ -393,6 +395,7 @@ private fun AlbumSongList(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(end = 16.dp),
+            contentPadding = PaddingValues(bottom = LocalMiniPlayerInset.current),
         ) {
             itemsIndexed(songs, key = { _, song -> song.id }) { index, song ->
                 SongListItem(

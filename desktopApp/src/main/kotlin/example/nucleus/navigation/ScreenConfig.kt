@@ -20,6 +20,9 @@ sealed class ScreenConfig {
     data object Settings : ScreenConfig()
 
     @Serializable
+    data object Stats : ScreenConfig()
+
+    @Serializable
     data object ListenTogether : ScreenConfig()
 
     @Serializable

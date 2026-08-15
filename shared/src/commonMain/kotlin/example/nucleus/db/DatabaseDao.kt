@@ -17,6 +17,9 @@ import example.nucleus.db.entities.PlaylistEntity
 import example.nucleus.db.entities.SearchHistoryEntry
 import example.nucleus.db.entities.SongEntity
 import example.nucleus.db.entities.SongWithRelations
+import example.nucleus.db.entities.TopAlbumEntry
+import example.nucleus.db.entities.TopArtistEntry
+import example.nucleus.db.entities.TopSongEntry
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.Flow
@@ -148,6 +151,58 @@ class DatabaseDao(private val database: MusicPlayerDatabase) {
     }
 
     suspend fun insertFormat(format: FormatEntity) = formats.insertFormat(format)
+
+    // ── Estadísticas ──
+
+    suspend fun incrementPlayCount(songId: String, year: Int, month: Int) = withContext(Dispatchers.IO) {
+        val y = year.toLong()
+        val m = month.toLong()
+        val existing = database.playCountQueries.playCountByMonth(songId, y, m).executeAsOneOrNull() ?: 0L
+        database.playCountQueries.insertPlayCount(songId, y, m, existing + 1L)
+    }
+
+    suspend fun updateSongTotalPlayTime(playedMs: Long, songId: String) = withContext(Dispatchers.IO) {
+        database.songQueries.updateSongTotalPlayTime(playedMs, songId)
+    }
+
+    suspend fun totalPlayTimeInRange(fromMs: Long, toMs: Long): Long = withContext(Dispatchers.IO) {
+        database.eventQueries.totalPlayTimeInRange(fromMs, toMs).executeAsOne()
+    }
+
+    suspend fun uniqueSongCountInRange(fromMs: Long, toMs: Long): Long = withContext(Dispatchers.IO) {
+        database.eventQueries.uniqueSongCountInRange(fromMs, toMs).executeAsOne()
+    }
+
+    suspend fun topSongs(limit: Long): List<TopSongEntry> = withContext(Dispatchers.IO) {
+        database.playCountQueries.topSongs(limit).executeAsList().map { r ->
+            TopSongEntry(
+                id = r.component1(),
+                title = r.component2(),
+                thumbnailUrl = r.component4(),
+                playCount = r.component25() ?: 0L,
+            )
+        }
+    }
+
+    suspend fun topAlbums(limit: Long): List<TopAlbumEntry> = withContext(Dispatchers.IO) {
+        database.playCountQueries.topAlbums(limit).executeAsList().map { r ->
+            TopAlbumEntry(
+                albumName = r.component1(),
+                playCount = r.component2() ?: 0L,
+            )
+        }
+    }
+
+    suspend fun topArtists(limit: Long): List<TopArtistEntry> = withContext(Dispatchers.IO) {
+        database.playCountQueries.topArtists(limit).executeAsList().map { r ->
+            TopArtistEntry(
+                id = r.component1(),
+                name = r.component2(),
+                thumbnailUrl = r.component3(),
+                playCount = r.component8() ?: 0L,
+            )
+        }
+    }
 
     fun <T> transaction(block: () -> T): T {
         var result: T? = null

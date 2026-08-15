@@ -8,17 +8,17 @@ import com.alorma.compose.settings.ui.SettingsGroup
 import com.alorma.compose.settings.ui.expressive.SettingsSwitch
 import example.nucleus.data.repository.*
 import example.nucleus.ui.screens.shared.displayName
-import example.nucleus.viewmodels.SettingsViewModel
+import example.nucleus.viewmodels.AppearanceSettingsViewModel
 import example.nucleus.shared.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.koinInject
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun AppearanceSettingsGroup(
-    viewModel: SettingsViewModel,
-    colors: ListItemColors
-) {
+fun AppearanceSettingsGroup() {
+    val colors = LocalSettingsColors.current
+    val viewModel: AppearanceSettingsViewModel = koinInject()
     val themeMode by viewModel.themeMode.collectAsState()
     val darkLevel by viewModel.darkLevel.collectAsState()
     val layoutMode by viewModel.layoutMode.collectAsState()
@@ -61,7 +61,6 @@ fun AppearanceSettingsGroup(
             options = ThemeMode.entries.map { it to it.displayName() },
             isSelected = { it == themeMode },
             onSelect = { viewModel.setThemeMode(it); showThemeDropdown = false },
-            colors = colors
         )
         DropdownSelector(
             label = stringResource(Res.string.settings_dark_level),
@@ -73,7 +72,6 @@ fun AppearanceSettingsGroup(
             options = DarkLevel.entries.map { it to it.displayName() },
             isSelected = { it == darkLevel },
             onSelect = { viewModel.setDarkLevel(it); showDarkLevelDropdown = false },
-            colors = colors,
         )
         DropdownSelector(
             label = stringResource(Res.string.settings_layout),
@@ -82,10 +80,10 @@ fun AppearanceSettingsGroup(
             expanded = showLayoutDropdown,
             segmentedShape = ListItemDefaults.segmentedShapes(index = 3, count = 10),
             onExpandedChange = { showLayoutDropdown = it },
-            options = listOf(LayoutMode.ATTACHED to LayoutMode.ATTACHED.displayName()),
+            options = listOf(LayoutMode.ATTACHED, LayoutMode.SQUARE)
+                .map { it to it.displayName() },
             isSelected = { it == layoutMode },
             onSelect = { viewModel.setLayoutMode(it); showLayoutDropdown = false },
-            colors = colors,
         )
         DropdownSelector(
             label = stringResource(Res.string.navigation_rail_style),
@@ -97,7 +95,6 @@ fun AppearanceSettingsGroup(
             options = NavigationRailStyle.entries.map { it to it.displayName() },
             isSelected = { it == navigationRailStyle },
             onSelect = { viewModel.setNavigationRailStyle(it); showNavigationRailStyle = false },
-            colors = colors,
         )
         DropdownSelector(
             label = stringResource(Res.string.color_palette),
@@ -109,7 +106,6 @@ fun AppearanceSettingsGroup(
             options = ThemePalette.entries.map { it to it.displayName() },
             isSelected = { it == themePalette },
             onSelect = { viewModel.setThemePalette(it); showPaletteDropdown = false },
-            colors = colors,
             paletteItem = true,
         )
         SettingsSwitch(
@@ -130,9 +126,7 @@ fun AppearanceSettingsGroup(
             options = BackgroundStyle.entries.map { it to it.displayName() },
             isSelected = { it == appBackgroundStyle },
             onSelect = { viewModel.setAppBackgroundStyle(it); showAppBackgroundDropdown = false },
-            colors = colors,
         )
-        val scalePresets = listOf(0.75f, 0.80f, 0.90f, 1.00f, 1.10f, 1.20f, 1.30f, 1.50f)
         val closestScale = scalePresets.minByOrNull { kotlin.math.abs(it - uiScale) } ?: 1.00f
         DropdownSelector(
             label = stringResource(Res.string.ui_scale),
@@ -144,13 +138,14 @@ fun AppearanceSettingsGroup(
             options = scalePresets.map { it to "${(it * 100).roundToInt()}%" },
             isSelected = { it == closestScale },
             onSelect = { viewModel.setUiScale(it); showUiScaleDropdown = false },
-            colors = colors,
         )
         SystemFontSelector(
             selectedFont = selectedFont,
             onSelect = { viewModel.setSelectedFont(it) },
-            colors = colors,
             segmentedShape = ListItemDefaults.segmentedShapes(index = 9, count = 10),
         )
     }
 }
+
+/** Presets de escala de UI disponibles en el selector. */
+private val scalePresets = listOf(0.75f, 0.80f, 0.90f, 1.00f, 1.10f, 1.20f, 1.30f, 1.50f)

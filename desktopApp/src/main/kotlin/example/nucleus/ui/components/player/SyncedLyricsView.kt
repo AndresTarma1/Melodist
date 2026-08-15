@@ -20,19 +20,26 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.unit.sp
+import example.nucleus.data.repository.LyricsAnimationStyle
 import example.nucleus.lyrics.LyricLine
+import example.nucleus.lyrics.Romanizer
+import example.nucleus.ui.themes.LocalMiniPlayerInset
 import example.nucleus.utils.LocalAnimationsEnabled
+import example.nucleus.utils.LocalUserPreferences
 
 /**
  * Letras sincronizadas al estilo karaoke: la línea activa se resalta (con relleno por palabra
@@ -48,6 +55,12 @@ fun SyncedLyricsView(
     modifier: Modifier = Modifier,
     textAlign: Boolean = false, // false = centrado, true = alineado al inicio
 ) {
+    val userPreferences = LocalUserPreferences.current
+    val textSize by userPreferences.lyricsTextSize.collectAsState(40f)
+    val lineSpacing by userPreferences.lyricsLineSpacing.collectAsState(54f)
+    val animationStyle by userPreferences.lyricsAnimationStyle.collectAsState(LyricsAnimationStyle.KARAOKE)
+    val romanizeEnabled by userPreferences.lyricsRomanize.collectAsState(false)
+
     val listState = rememberLazyListState()
 
     // Última línea cuyo tiempo de inicio es <= posición actual. Se recalcula en cada tick (barato
@@ -73,7 +86,7 @@ fun SyncedLyricsView(
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(top = 24.dp, bottom = maxHeight * 0.74f),
+                contentPadding = PaddingValues(top = 24.dp, bottom = maxHeight * 0.74f + LocalMiniPlayerInset.current),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 itemsIndexed(lines, key = { i, _ -> i }) { i, line ->
@@ -83,6 +96,10 @@ fun SyncedLyricsView(
                         isActive = i == activeIndex,
                         isPast = i < activeIndex,
                         startAligned = textAlign,
+                        activeTextSize = textSize,
+                        lineSpacing = lineSpacing,
+                        animationStyle = animationStyle,
+                        romanize = romanizeEnabled,
                         onClick = { onSeek(line.timeMs) },
                     )
                 }
@@ -98,30 +115,43 @@ private fun LyricLineRow(
     isActive: Boolean,
     isPast: Boolean,
     startAligned: Boolean,
+    activeTextSize: Float,
+    lineSpacing: Float,
+    animationStyle: LyricsAnimationStyle,
+    romanize: Boolean,
     onClick: () -> Unit,
 ) {
     val activeColor = MaterialTheme.colorScheme.onSurface
     val sungColor = MaterialTheme.colorScheme.primary
     val idleColor = MaterialTheme.colorScheme.onSurface.copy(alpha = if (isPast) 0.24f else 0.42f)
     val animationsEnabled = LocalAnimationsEnabled.current
+
+    val useScale = animationStyle == LyricsAnimationStyle.KARAOKE
+    val useAlpha = animationStyle != LyricsAnimationStyle.NONE
+
     val rowAlpha by animateFloatAsState(
-        targetValue = if (isActive) 1f else if (isPast) 0.72f else 0.9f,
+        targetValue = when {
+            !useAlpha -> 1f
+            isActive -> 1f
+            isPast -> 0.72f
+            else -> 0.9f
+        },
         animationSpec = if (animationsEnabled) tween(300) else snap(),
         label = "lyricAlpha"
     )
 
     val scale by animateFloatAsState(
-        targetValue = if (isActive) 1.06f else 0.98f,
+        targetValue = if (!useScale) 1f else if (isActive) 1.06f else 0.98f,
         animationSpec = if (animationsEnabled) tween(300) else snap(),
         label = "lyricScale"
     )
 
-    val rowModifier = Modifier
+    val baseModifier = Modifier
         .fillMaxWidth()
-        .clip(RoundedCornerShape(14.dp))
+        .clip(MaterialTheme.shapes.medium)
         .background(
             color = Color.Transparent,
-            shape = RoundedCornerShape(14.dp),
+            shape = MaterialTheme.shapes.medium,
         )
         .clickable(
             interactionSource = remember { MutableInteractionSource() },
@@ -136,12 +166,30 @@ private fun LyricLineRow(
         }
         .padding(horizontal = 14.dp, vertical = 8.dp)
 
+    // Glow: sombra con el color primario sobre la línea activa.
+    val rowModifier = if (isActive && animationStyle == LyricsAnimationStyle.GLOW) {
+        baseModifier.shadow(
+            elevation = 10.dp,
+            shape = MaterialTheme.shapes.medium,
+            clip = false,
+            ambientColor = sungColor.copy(alpha = 0.45f),
+            spotColor = sungColor.copy(alpha = 0.45f),
+        )
+    } else {
+        baseModifier
+    }
+
     val style = MaterialTheme.typography.headlineMedium.copy(
-        fontSize = if (isActive) 40.sp else 34.sp,
-        lineHeight = if (isActive) 54.sp else 46.sp,
+        fontSize = if (isActive) activeTextSize.sp else (activeTextSize - 6f).sp,
+        lineHeight = lineSpacing.sp,
         fontWeight = if (isActive) FontWeight.Bold else FontWeight.SemiBold,
     )
     val arrangement = if (startAligned) Arrangement.Start else Arrangement.Center
+
+    // Romanización (JA/KO/RU) de la línea, calculada una sola vez por línea.
+    val romanized = remember(line.text, romanize) {
+        if (romanize) Romanizer.romanize(line.text) else null
+    }
 
     if (line.text.isBlank()) {
         // Línea vacía tipo espaciador (por ejemplo, espacio instrumental)
@@ -180,7 +228,23 @@ private fun LyricLineRow(
             style = style,
             color = if (isActive) activeColor else idleColor,
             modifier = rowModifier,
-            textAlign = if (startAligned) androidx.compose.ui.text.style.TextAlign.Start else androidx.compose.ui.text.style.TextAlign.Center,
+            textAlign = if (startAligned) TextAlign.Start else TextAlign.Center,
+        )
+    }
+
+    if (romanized != null) {
+        Text(
+            text = romanized,
+            style = MaterialTheme.typography.bodyMedium.copy(
+                fontSize = (activeTextSize - 22f).coerceAtLeast(11f).sp,
+                lineHeight = (lineSpacing - 22f).coerceAtLeast(14f).sp,
+                fontWeight = FontWeight.Medium,
+            ),
+            color = if (isActive) sungColor.copy(alpha = 0.8f) else idleColor.copy(alpha = 0.6f),
+            textAlign = if (startAligned) TextAlign.Start else TextAlign.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp),
         )
     }
 }

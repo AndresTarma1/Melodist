@@ -97,6 +97,7 @@ reorderable = { module = "sh.calvin.reorderable:reorderable", version.ref = "reo
 # Heze
 heze = { module = "dev.chrisbanes.haze:haze", version.ref = "heze"}
 heze-blur = { module = "dev.chrisbanes.haze:haze-blur", version.ref = "heze"}
+heze-blur-materials = { module = "dev.chrisbanes.haze:haze-blur-materials", version.ref = "heze"}
 
 #Design
 compose-native-tray = {module= "io.github.kdroidfilter:composenativetray", version.ref= "composeNativeTray"}

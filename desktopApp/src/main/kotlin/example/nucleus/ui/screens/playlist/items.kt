@@ -66,6 +66,7 @@ import example.nucleus.utils.LocalPlayerViewModel
 import example.nucleus.ui.helpers.rememberSongDownloadState
 import example.nucleus.ui.helpers.rememberSongLikedState
 import example.nucleus.ui.screens.shared.formatDuration
+import example.nucleus.ui.themes.AppShapes
 import example.nucleus.utils.LocalSnackbarHostState
 import example.nucleus.utils.LocalSnackbarScope
 import com.metrolist.innertube.models.SongItem
@@ -94,7 +95,7 @@ inline fun ListItem(
             modifier
                 .height(ListItemHeight)
                 .padding(horizontal = 8.dp)
-                .clip(RoundedCornerShape(8.dp))
+                .clip(MaterialTheme.shapes.small)
                 .background(
                     color = // selected active
                         if (isSelected == true) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
@@ -104,7 +105,7 @@ inline fun ListItem(
             modifier // inactive selected
                 .height(ListItemHeight)
                 .padding(horizontal = 8.dp)
-                .clip(RoundedCornerShape(8.dp))
+                .clip(MaterialTheme.shapes.small)
                 .background(color = MaterialTheme.colorScheme.inversePrimary.copy(alpha = 0.4f))
         } else {
             modifier // default
@@ -188,7 +189,7 @@ internal fun MultiSongSelectionBar(
     Surface(
         tonalElevation = 0.dp,
         shadowElevation = 8.dp,
-        shape = RoundedCornerShape(18.dp),
+        shape = AppShapes.xLarge,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         modifier = modifier.padding(16.dp)
     ) {
@@ -300,7 +301,7 @@ internal fun SongListItem(
         BoxForContainerContextMenuItem(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(8.dp)),
+                .clip(MaterialTheme.shapes.small),
             onHoverChange = { isHovered = it },
             onMenuAction = {
                 showContextMenu = true

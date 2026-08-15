@@ -3219,7 +3219,9 @@ object YouTube {
 
     suspend fun related(endpoint: BrowseEndpoint): Result<RelatedPage> =
         runCatching {
-            val response = innerTube.browse(WEB_REMIX, endpoint.browseId).body<BrowseResponse>()
+            // El endpoint de la pestaña Related necesita sus params (continuación del tab),
+            // no solo el browseId — sin ellos el browse devuelve vacío.
+            val response = innerTube.browse(WEB_REMIX, endpoint.browseId, endpoint.params).body<BrowseResponse>()
             val songs = mutableListOf<SongItem>()
             val albums = mutableListOf<AlbumItem>()
             val artists = mutableListOf<ArtistItem>()

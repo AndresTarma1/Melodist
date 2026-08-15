@@ -58,6 +58,7 @@ import example.nucleus.listentogether.ConnectionState
 import example.nucleus.listentogether.ListenTogetherEvent
 import example.nucleus.listentogether.ListenTogetherManager
 import example.nucleus.listentogether.RoomRole
+import example.nucleus.ui.themes.LocalMiniPlayerInset
 import example.nucleus.utils.LocalSnackbarHostState
 import example.nucleus.utils.LocalSnackbarScope
 import example.nucleus.utils.LocalUserPreferences
@@ -123,7 +124,12 @@ fun ListenTogetherScreen() {
             modifier = Modifier
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 24.dp),
+                .padding(
+                    start = 24.dp,
+                    end = 24.dp,
+                    top = 24.dp,
+                    bottom = 24.dp + LocalMiniPlayerInset.current
+                ),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // Encabezado

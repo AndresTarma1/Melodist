@@ -1,15 +1,18 @@
 package example.nucleus.ui.themes
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.unit.dp
 import example.nucleus.data.repository.DarkLevel
 import example.nucleus.data.repository.BackgroundStyle
 import example.nucleus.data.repository.IslandStyle
@@ -23,6 +26,29 @@ import com.materialkolor.rememberDynamicMaterialThemeState
 
 val LocalChromeSurface = staticCompositionLocalOf { Color.Transparent }
 val LocalIsSolidBackground = staticCompositionLocalOf { true }
+
+/**
+ * Escala de formas Material 3 Expressive: superficies más suaves que el M3 clásico
+ * (xLarge en 20dp en vez de 24) y extraLarge para diálogos y tarjetas hero.
+ * Se usa directamente como [AppShapes] porque el `Shapes` de esta versión de
+ * material3 aún no expone `xLarge`.
+ */
+object AppShapes {
+    val extraSmall: RoundedCornerShape = RoundedCornerShape(4.dp)
+    val small: RoundedCornerShape = RoundedCornerShape(8.dp)
+    val medium: RoundedCornerShape = RoundedCornerShape(12.dp)
+    val large: RoundedCornerShape = RoundedCornerShape(16.dp)
+    val xLarge: RoundedCornerShape = RoundedCornerShape(20.dp)
+    val extraLarge: RoundedCornerShape = RoundedCornerShape(28.dp)
+}
+
+private val MaterialShapes = Shapes(
+    extraSmall = AppShapes.extraSmall,
+    small = AppShapes.small,
+    medium = AppShapes.medium,
+    large = AppShapes.large,
+    extraLarge = AppShapes.extraLarge,
+)
 
 @Composable
 fun AppTheme(
@@ -81,6 +107,7 @@ fun AppTheme(
 
     MaterialTheme(
         colorScheme = colorScheme,
+        shapes = MaterialShapes,
         typography = remember(fontFamily) {
             Typography().withFontFamily(fontFamily)
         },

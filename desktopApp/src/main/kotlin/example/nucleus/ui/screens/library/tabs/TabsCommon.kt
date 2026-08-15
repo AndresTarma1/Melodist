@@ -109,7 +109,7 @@ internal fun LibraryGridSkeleton(count: Int = 4, isCircle: Boolean = false) {
     }
     val alpha = animAlpha?.value ?: 0.42f
     val color = MaterialTheme.colorScheme.onSurface.copy(alpha = alpha * 0.15f)
-    val shape = if (isCircle) circleAwareShape() else RoundedCornerShape(12.dp)
+    val shape = if (isCircle) circleAwareShape() else MaterialTheme.shapes.medium
 
     LazyVerticalGrid(
         columns = GridCells.Adaptive(minSize = 160.dp),
@@ -126,9 +126,9 @@ internal fun LibraryGridSkeleton(count: Int = 4, isCircle: Boolean = false) {
                         .background(color, shape)
                 )
                 Spacer(Modifier.height(8.dp))
-                Box(Modifier.fillMaxWidth(0.7f).height(13.dp).background(color, RoundedCornerShape(6.dp)))
+                Box(Modifier.fillMaxWidth(0.7f).height(13.dp).background(color, MaterialTheme.shapes.small))
                 Spacer(Modifier.height(4.dp))
-                Box(Modifier.fillMaxWidth(0.45f).height(10.dp).background(color, RoundedCornerShape(5.dp)))
+                Box(Modifier.fillMaxWidth(0.45f).height(10.dp).background(color, MaterialTheme.shapes.extraSmall))
             }
         }
     }

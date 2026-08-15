@@ -3,6 +3,7 @@ package example.nucleus.ui.screens.shared
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -119,7 +120,7 @@ fun SongGridItem(
     YouTubeGridItem(
         item = item,
         onClick = onClick,
-        imageShape = RoundedCornerShape(10.dp),
+        imageShape = MaterialTheme.shapes.small,
         alignment = Alignment.Start,
         titleAlign = TextAlign.Start,
         placeholderType = PlaceholderType.SONG,
@@ -175,7 +176,7 @@ fun AlbumGridItem(
     YouTubeGridItem(
         item = item,
         onClick = onClick,
-        imageShape = RoundedCornerShape(10.dp),
+        imageShape = MaterialTheme.shapes.small,
         alignment = Alignment.Start,
         titleAlign = TextAlign.Start,
         placeholderType = PlaceholderType.ALBUM,
@@ -223,7 +224,7 @@ fun PlaylistGridItem(
     YouTubeGridItem(
         item = item,
         onClick = onClick,
-        imageShape = RoundedCornerShape(10.dp),
+        imageShape = MaterialTheme.shapes.small,
         alignment = Alignment.Start,
         titleAlign = TextAlign.Start,
         placeholderType = PlaceholderType.PLAYLIST,

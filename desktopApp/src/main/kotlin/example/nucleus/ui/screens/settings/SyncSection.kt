@@ -13,16 +13,18 @@ import com.alorma.compose.settings.ui.expressive.SettingsSwitch
 import example.nucleus.data.account.AccountManager
 import example.nucleus.shared.generated.resources.Res
 import example.nucleus.shared.generated.resources.*
-import example.nucleus.viewmodels.SettingsViewModel
+import example.nucleus.ui.screens.shared.syncNowSubtitle
+import example.nucleus.viewmodels.SyncSettingsViewModel
 import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.koinInject
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun SyncSettingsGroup(
-    viewModel: SettingsViewModel,
-    colors: ListItemColors,
     onShowYtmSyncWarning: () -> Unit
 ) {
+    val colors = LocalSettingsColors.current
+    val viewModel: SyncSettingsViewModel = koinInject()
     val offlineModeEnabled by viewModel.offlineModeEnabled.collectAsState()
     val ytmSyncEnabled by viewModel.ytmSyncEnabled.collectAsState()
     val syncState by viewModel.syncState.collectAsState()
@@ -61,10 +63,7 @@ fun SyncSettingsGroup(
                 shapes = ListItemDefaults.segmentedShapes(index = 2, count = 3),
                 title = { Text(stringResource(Res.string.sync_now)) },
                 subtitle = {
-                    Text(
-                        if (isSyncing) syncState.currentOperation.ifBlank { stringResource(Res.string.sync_now_syncing) }
-                        else stringResource(Res.string.sync_now_subtitle)
-                    )
+                    Text(syncNowSubtitle(isSyncing, syncState.currentOperation))
                 },
                 colors = colors,
                 action = {
