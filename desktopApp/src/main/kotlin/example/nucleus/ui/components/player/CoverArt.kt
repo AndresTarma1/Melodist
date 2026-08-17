@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package example.nucleus.ui.components.player
 
 import androidx.compose.foundation.basicMarquee
@@ -23,6 +25,9 @@ import example.nucleus.models.MediaMetadata
 import example.nucleus.navigation.Route
 import example.nucleus.ui.components.images.MusicPlayerImage
 import example.nucleus.ui.components.images.PlaceholderType
+import example.nucleus.ui.themes.AppShapes
+import example.nucleus.ui.themes.nowPlayingTitle
+import example.nucleus.ui.themes.songTitle
 import example.nucleus.utils.LocalPlayerViewModel
 import example.nucleus.viewmodels.PlayerUiState
 import example.nucleus.viewmodels.QueueSource
@@ -37,17 +42,21 @@ fun CoverArt(
     title: String,
     modifier: Modifier = Modifier,
 ) {
-
-    Card(
+    Surface(
         modifier = modifier.aspectRatio(1f),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        shape = AppShapes.extraLarge,
+        tonalElevation = 3.dp,
+        shadowElevation = 10.dp,
+        color = MaterialTheme.colorScheme.surfaceContainerHighest,
     ) {
         MusicPlayerImage(
             url = url,
             contentDescription = title,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .clip(AppShapes.extraLarge),
             placeholderType = PlaceholderType.SONG,
-            contentScale = ContentScale.Crop
+            contentScale = ContentScale.Crop,
         )
     }
 }
@@ -77,66 +86,76 @@ fun SongHeader(
                 QueueSource.Custom -> stringResource(Res.string.custom_queue)
             }
             Surface(
-                shape = MaterialTheme.shapes.medium,
-                color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.55f),
-                modifier = Modifier
-                    .padding(bottom = 12.dp)
-                    .fillMaxWidth(if (compact) 0.2f else 0.5f) // acota el ancho real
+                shape = AppShapes.large,
+                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.55f),
+                modifier = Modifier.padding(bottom = if (compact) 10.dp else 14.dp),
             ) {
                 Text(
                     text = label,
                     textAlign = TextAlign.Center,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
                     maxLines = 1,
                     modifier = Modifier
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
-                        .basicMarquee()
+                        .padding(horizontal = 14.dp, vertical = 7.dp)
+                        .widthIn(max = if (compact) 220.dp else 320.dp)
+                        .basicMarquee(),
                 )
             }
         }
 
         Text(
             text = song.title,
-            style = if (compact) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineMedium,
+            style = if (compact) MaterialTheme.typography.songTitle else MaterialTheme.typography.nowPlayingTitle,
             color = MaterialTheme.colorScheme.onSurface,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1,
+            maxLines = if (compact) 1 else 2,
             overflow = TextOverflow.Ellipsis,
             textAlign = textAlign,
-            modifier = Modifier.fillMaxWidth().basicMarquee()
+            modifier = Modifier.fillMaxWidth().basicMarquee(),
         )
 
-        Spacer(Modifier.height(if (compact) 4.dp else 6.dp))
+        Spacer(Modifier.height(if (compact) 6.dp else 10.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = if (textAlign == TextAlign.Start) Arrangement.Start else Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             song.artists.forEachIndexed { i, artist ->
                 val hasId = artist.id != null
                 Text(
                     text = artist.name,
-                    style = if (compact) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.bodyLarge,
+                    style = if (compact) {
+                        MaterialTheme.typography.bodyMedium
+                    } else {
+                        MaterialTheme.typography.titleMedium
+                    },
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = if (hasId) Modifier
-                        .clip(MaterialTheme.shapes.extraSmall)
-                        .clickable {
-                            onCollapse?.invoke()
-                            onNavigate?.invoke(Route.Artist(artist.id!!))
-                        }
-                        .pointerHoverIcon(PointerIcon.Hand)
-                        .padding(horizontal = 2.dp)
-                    else Modifier.padding(horizontal = 2.dp)
+                    modifier = if (hasId) {
+                        Modifier
+                            .clip(AppShapes.small)
+                            .clickable {
+                                onCollapse?.invoke()
+                                onNavigate?.invoke(Route.Artist(artist.id!!))
+                            }
+                            .pointerHoverIcon(PointerIcon.Hand)
+                            .padding(horizontal = 4.dp, vertical = 2.dp)
+                    } else {
+                        Modifier.padding(horizontal = 4.dp)
+                    },
                 )
                 if (i < song.artists.size - 1) {
                     Text(
-                        text = ", ",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text = " · ",
+                        style = if (compact) {
+                            MaterialTheme.typography.bodyMedium
+                        } else {
+                            MaterialTheme.typography.titleMedium
+                        },
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        modifier = Modifier.padding(horizontal = 2.dp),
                     )
                 }
             }

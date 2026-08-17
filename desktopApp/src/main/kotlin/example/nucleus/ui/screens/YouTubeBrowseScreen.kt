@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package example.nucleus.ui.screens
 
 import androidx.compose.foundation.focusable
@@ -53,7 +55,7 @@ fun YouTubeBrowseScreenRoute(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun YouTubeBrowseScreen(
     uiState: YouTubeBrowseState,
@@ -72,8 +74,7 @@ fun YouTubeBrowseScreen(
                 title = {
                     Text(
                         text = title.ifEmpty { stringResource(Res.string.title_fallback) },
-                        fontWeight = FontWeight.Black,
-                        style = MaterialTheme.typography.displaySmall.copy(fontSize = 28.sp),
+                        style = MaterialTheme.typography.displaySmallEmphasized,
                         maxLines = 1,
                     )
                 },
@@ -182,8 +183,7 @@ private fun BrowseSection(
         section.title?.let { title ->
             Text(
                 text = title,
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Black,
+                style = MaterialTheme.typography.headlineMediumEmphasized,
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
             )
         }

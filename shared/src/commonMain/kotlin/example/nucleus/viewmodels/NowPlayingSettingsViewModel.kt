@@ -42,6 +42,9 @@ class NowPlayingSettingsViewModel(
     val lyricsRomanize: StateFlow<Boolean> = preferencesRepository.lyricsRomanize
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
+    val lyricsOffsetMs: StateFlow<Int> = preferencesRepository.lyricsOffsetMs
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
     val queuePersistenceEnabled: StateFlow<Boolean> = preferencesRepository.queuePersistenceEnabled
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
@@ -75,6 +78,10 @@ class NowPlayingSettingsViewModel(
 
     fun setLyricsRomanize(enabled: Boolean) {
         viewModelScope.launch { preferencesRepository.setLyricsRomanize(enabled) }
+    }
+
+    fun setLyricsOffsetMs(offsetMs: Int) {
+        viewModelScope.launch { preferencesRepository.setLyricsOffsetMs(offsetMs) }
     }
 
     fun setQueuePersistenceEnabled(enabled: Boolean) {

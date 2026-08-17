@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package example.nucleus.ui.screens
 
 import androidx.compose.animation.animateContentSize
@@ -379,8 +381,7 @@ fun SearchSection(
 private fun SectionHeader(title: String) {
     Text(
         text = title.uppercase(),
-        style = MaterialTheme.typography.labelMedium.copy(
-            fontWeight = FontWeight.Bold,
+        style = MaterialTheme.typography.labelLargeEmphasized.copy(
             letterSpacing = 1.2.sp,
         ),
         color = MaterialTheme.colorScheme.primary,

@@ -1,8 +1,6 @@
 package example.nucleus.ui.components
 
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.snap
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -28,6 +26,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import example.nucleus.ui.themes.rememberInteractionSpring
 import example.nucleus.utils.LocalAnimationsEnabled
 import kotlin.math.roundToInt
 
@@ -48,7 +47,8 @@ fun SlimSlider(
     var isDragging by remember { mutableStateOf(false) }
     val thumbDiameter by animateDpAsState(
         targetValue = if (isDragging) draggedThumbSize else thumbSize,
-        animationSpec = if (LocalAnimationsEnabled.current) tween(120) else snap(),
+        animationSpec = rememberInteractionSpring(),
+        label = "slimThumb",
     )
     val fraction = value.coerceIn(0f, 1f)
 
@@ -123,7 +123,8 @@ fun SlimVerticalSlider(
     var isDragging by remember { mutableStateOf(false) }
     val thumbDiameter by animateDpAsState(
         targetValue = if (isDragging) 12.dp else 8.dp,
-        animationSpec = if (LocalAnimationsEnabled.current) tween(120) else snap(),
+        animationSpec = rememberInteractionSpring(),
+        label = "slimVerticalThumb",
     )
 
     // Mantener siempre actualizados el callback y el rango

@@ -289,7 +289,7 @@ internal fun PlaylistCompactLayout(
                     onRemoveFromPlaylist = actions.onRemoveSongFromPlaylist,
                     modifier = Modifier.animateItem(
                         placementSpec = spring(
-                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            dampingRatio = Spring.DampingRatioNoBouncy,
                             stiffness = Spring.StiffnessMediumLow
                         )
                     )
@@ -366,7 +366,7 @@ private fun PlaylistSongList(
                     onRemoveFromPlaylist = actions.onRemoveSongFromPlaylist,
                     modifier = Modifier.animateItem(
                         placementSpec = spring(
-                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            dampingRatio = Spring.DampingRatioNoBouncy,
                             stiffness = Spring.StiffnessMediumLow
                         )
                     )

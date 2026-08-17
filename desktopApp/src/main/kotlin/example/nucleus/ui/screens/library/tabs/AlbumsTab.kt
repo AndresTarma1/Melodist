@@ -94,7 +94,7 @@ fun AlbumsTab(
                     source = source,
                     modifier = Modifier.animateItem(
                         placementSpec = spring(
-                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            dampingRatio = Spring.DampingRatioNoBouncy,
                             stiffness = Spring.StiffnessMediumLow
                         )
                     )

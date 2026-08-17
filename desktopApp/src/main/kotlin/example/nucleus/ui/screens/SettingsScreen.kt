@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.dp
 import example.nucleus.ui.components.layout.AppVerticalScrollbar
 import example.nucleus.ui.screens.settings.*
 import example.nucleus.ui.themes.LocalMiniPlayerInset
+import example.nucleus.ui.themes.screenTitle
 import example.nucleus.shared.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
 
@@ -40,7 +41,7 @@ fun SettingsScreen() {
                     Column(modifier = Modifier.padding(bottom = 16.dp)) {
                         Text(
                             text = stringResource(Res.string.settings_title),
-                            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                            style = MaterialTheme.typography.screenTitle,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(

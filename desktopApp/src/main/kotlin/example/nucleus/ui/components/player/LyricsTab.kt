@@ -9,7 +9,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
@@ -21,12 +20,13 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import example.nucleus.shared.generated.resources.Res
+import example.nucleus.shared.generated.resources.lyrics_loading
+import example.nucleus.shared.generated.resources.lyrics_not_found
 import example.nucleus.ui.components.layout.AppVerticalScrollbar
 import example.nucleus.ui.themes.LocalMiniPlayerInset
 import example.nucleus.utils.LocalPlayerViewModel
-import example.nucleus.shared.generated.resources.Res
-import example.nucleus.shared.generated.resources.*
-import org.jetbrains.compose.resources.stringResource
+import example.nucleus.utils.LocalUserPreferences
 import org.jetbrains.compose.resources.stringResource
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -37,8 +37,12 @@ fun LyricsContent(
     style: TextStyle
 ) {
     val playerViewModel = LocalPlayerViewModel.current
+    val userPreferences = LocalUserPreferences.current
     val synced by playerViewModel.syncedLyrics.collectAsState()
     val progress by playerViewModel.progressState.collectAsState()
+    val loading by playerViewModel.lyricsLoading.collectAsState()
+    // Offset solo desde Settings (Now Playing); sin chrome flotante aquí.
+    val lyricsOffsetMs by userPreferences.lyricsOffsetMs.collectAsState(0)
     val syncedLines = synced
 
     val baseSize = if (style.fontSize == TextUnit.Unspecified) 20.sp else style.fontSize
@@ -50,17 +54,22 @@ fun LyricsContent(
         letterSpacing = 0.12.sp
     )
 
+    // Positivo en prefs = letras más tarde → restamos offset a la posición del audio.
+    val adjustedPositionMs = (progress.positionMs - lyricsOffsetMs).coerceAtLeast(0L)
+
     when {
         !syncedLines.isNullOrEmpty() -> {
             SyncedLyricsView(
                 lines = syncedLines,
-                positionMs = progress.positionMs,
-                onSeek = { playerViewModel.seekTo(it) },
+                positionMs = adjustedPositionMs,
+                onSeek = { lineTimeMs ->
+                    playerViewModel.seekTo((lineTimeMs + lyricsOffsetMs).coerceAtLeast(0L))
+                },
                 modifier = Modifier.fillMaxSize(),
                 textAlign = textAlign == TextAlign.Start,
             )
         }
-        lyrics == null -> {
+        loading || lyrics == null -> {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -72,7 +81,7 @@ fun LyricsContent(
                 Spacer(Modifier.height(16.dp))
                 Text(
                     stringResource(Res.string.lyrics_loading),
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleMediumEmphasized,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.82f),
                     textAlign = TextAlign.Center
                 )
@@ -95,8 +104,7 @@ fun LyricsContent(
                 Spacer(Modifier.height(20.dp))
                 Text(
                     stringResource(Res.string.lyrics_not_found),
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.headlineSmallEmphasized,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
                 )
@@ -142,11 +150,11 @@ fun LyricsContent(
     }
 }
 
-internal fun Modifier.fadingEdges(fadeHeight: Dp): Modifier = this
-    .alpha(0.99f)
-    .drawWithContent {
+private fun Modifier.fadingEdges(fadeHeight: Dp): Modifier = this.then(
+    Modifier.drawWithContent {
         drawContent()
         val fadePx = fadeHeight.toPx()
+        if (fadePx <= 0f || size.height <= 0f) return@drawWithContent
         drawRect(
             brush = Brush.verticalGradient(
                 colors = listOf(Color.Transparent, Color.Black),
@@ -164,3 +172,4 @@ internal fun Modifier.fadingEdges(fadeHeight: Dp): Modifier = this
             blendMode = BlendMode.DstIn
         )
     }
+)

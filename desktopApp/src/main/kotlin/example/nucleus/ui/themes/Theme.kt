@@ -1,17 +1,15 @@
 package example.nucleus.ui.themes
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ColorScheme
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
-import androidx.compose.material3.Typography
 import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import example.nucleus.data.repository.DarkLevel
 import example.nucleus.data.repository.BackgroundStyle
@@ -64,6 +62,7 @@ fun AppTheme(
     val layoutMode by userPreferences.layoutMode.collectAsState(LayoutMode.ATTACHED)
     val islandStyle by userPreferences.islandStyle.collectAsState(IslandStyle.COMFORTABLE)
     val selectedFont by userPreferences.selectedFont.collectAsState("")
+    val animationsEnabled by userPreferences.animationsEnabled.collectAsState(true)
 
     val isDarkTheme = when (themeMode) {
         ThemeMode.DARK -> true
@@ -71,7 +70,7 @@ fun AppTheme(
         else -> isSystemInDarkTheme()
     }
 
-    val seeds = remember(artworkColors, dynamicEnabled, palette) {
+    val targetSeeds = remember(artworkColors, dynamicEnabled, palette) {
         val basePrimary = if (dynamicEnabled && artworkColors != null && artworkColors != ArtworkColors.Default) {
             artworkColors.vibrant
         } else {
@@ -84,6 +83,24 @@ fun AppTheme(
         }
         basePrimary to baseSecondary
     }
+
+    // Crossfade seed colors when artwork / palette changes (bloom) — snap if reduce-motion.
+    val seedSpec = if (animationsEnabled) {
+        expressiveTween<Color>(durationMillis = expressiveColorDuration)
+    } else {
+        snap()
+    }
+    val animatedPrimary by animateColorAsState(
+        targetValue = targetSeeds.first,
+        animationSpec = seedSpec,
+        label = "themePrimarySeed",
+    )
+    val animatedSecondary by animateColorAsState(
+        targetValue = targetSeeds.second,
+        animationSpec = seedSpec,
+        label = "themeSecondarySeed",
+    )
+    val seeds = animatedPrimary to animatedSecondary
 
     val dynamicThemeState = rememberDynamicMaterialThemeState(
         isDark = isDarkTheme,
@@ -108,9 +125,7 @@ fun AppTheme(
     MaterialTheme(
         colorScheme = colorScheme,
         shapes = MaterialShapes,
-        typography = remember(fontFamily) {
-            Typography().withFontFamily(fontFamily)
-        },
+        typography = remember(fontFamily) { paltaTypography(fontFamily) },
     ) {
         CompositionLocalProvider(
             LocalDimens provides dimensFor(layoutMode, islandStyle),
@@ -124,44 +139,6 @@ fun AppTheme(
             content = content,
         )
     }
-}
-
-/** Aplica [family] a todos los estilos de la tipografía (incluyendo las variantes emphasized). */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
-private fun Typography.withFontFamily(family: FontFamily): Typography {
-    fun TextStyle.withFamily(): TextStyle = copy(fontFamily = family)
-    return copy(
-        displayLarge = displayLarge.withFamily(),
-        displayMedium = displayMedium.withFamily(),
-        displaySmall = displaySmall.withFamily(),
-        headlineLarge = headlineLarge.withFamily(),
-        headlineMedium = headlineMedium.withFamily(),
-        headlineSmall = headlineSmall.withFamily(),
-        titleLarge = titleLarge.withFamily(),
-        titleMedium = titleMedium.withFamily(),
-        titleSmall = titleSmall.withFamily(),
-        bodyLarge = bodyLarge.withFamily(),
-        bodyMedium = bodyMedium.withFamily(),
-        bodySmall = bodySmall.withFamily(),
-        labelLarge = labelLarge.withFamily(),
-        labelMedium = labelMedium.withFamily(),
-        labelSmall = labelSmall.withFamily(),
-        displayLargeEmphasized = displayLargeEmphasized.withFamily(),
-        displayMediumEmphasized = displayMediumEmphasized.withFamily(),
-        displaySmallEmphasized = displaySmallEmphasized.withFamily(),
-        headlineLargeEmphasized = headlineLargeEmphasized.withFamily(),
-        headlineMediumEmphasized = headlineMediumEmphasized.withFamily(),
-        headlineSmallEmphasized = headlineSmallEmphasized.withFamily(),
-        titleLargeEmphasized = titleLargeEmphasized.withFamily(),
-        titleMediumEmphasized = titleMediumEmphasized.withFamily(),
-        titleSmallEmphasized = titleSmallEmphasized.withFamily(),
-        bodyLargeEmphasized = bodyLargeEmphasized.withFamily(),
-        bodyMediumEmphasized = bodyMediumEmphasized.withFamily(),
-        bodySmallEmphasized = bodySmallEmphasized.withFamily(),
-        labelLargeEmphasized = labelLargeEmphasized.withFamily(),
-        labelMediumEmphasized = labelMediumEmphasized.withFamily(),
-        labelSmallEmphasized = labelSmallEmphasized.withFamily(),
-    )
 }
 
 /** Re-derives the dark scheme's surfaces for the chosen [level], tinting them with [accent]. */

@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package example.nucleus.ui.screens
 
 import androidx.compose.animation.*
@@ -42,6 +44,10 @@ import example.nucleus.ui.screens.shared.SectionGridItem
 import example.nucleus.ui.screens.shared.SectionListItem
 import example.nucleus.ui.utils.circleAwareShape
 import example.nucleus.ui.themes.LocalMiniPlayerInset
+import example.nucleus.ui.themes.ctaLabel
+import example.nucleus.ui.themes.expressiveFadeDuration
+import example.nucleus.ui.themes.expressiveFadeTween
+import example.nucleus.ui.themes.expressiveTween
 import example.nucleus.utils.LocalPlayerViewModel
 import example.nucleus.utils.LocalAnimationsEnabled
 import example.nucleus.viewmodels.ArtistState
@@ -180,9 +186,7 @@ private fun ArtistScreenContent(
 
                     Text(
                         text = section.title,
-                        style = MaterialTheme.typography.headlineSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                        ),
+                        style = MaterialTheme.typography.headlineSmallEmphasized,
                         modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
                     )
 
@@ -273,7 +277,7 @@ fun ArtistBanner(
         modifier = modifier
             .fillMaxWidth()
             .height(520.dp) // Permite que el contenedor crezca si es necesario
-            .animateContentSize(if (LocalAnimationsEnabled.current) tween(220) else snap()) // Suaviza el cambio de tamaño al expandir el texto
+            .animateContentSize(if (LocalAnimationsEnabled.current) expressiveTween(expressiveFadeDuration) else snap()) // Suaviza el cambio de tamaño al expandir el texto
     ) {
         MusicPlayerImage(
             url = urlImage,
@@ -311,10 +315,7 @@ fun ArtistBanner(
         ) {
             Text(
                 text = artistPage.artist.title,
-                style = MaterialTheme.typography.displayLarge.copy(
-                    fontWeight = FontWeight.ExtraBold,
-                    letterSpacing = (-1).sp
-                ),
+                style = MaterialTheme.typography.displayLargeEmphasized,
                 color = Color.White,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -339,7 +340,7 @@ fun ArtistBanner(
                             targetState = descExpanded,
                             transitionSpec = {
                                 if (animationsEnabled) {
-                                    fadeIn(tween(200)) togetherWith fadeOut(tween(150))
+                                    fadeIn(expressiveFadeTween()) togetherWith fadeOut(expressiveTween(150))
                                 } else {
                                     EnterTransition.None togetherWith ExitTransition.None
                                 }
@@ -363,7 +364,7 @@ fun ArtistBanner(
                             ) {
                                 Text(
                                     text = if (descExpanded) stringResource(Res.string.less) else stringResource(Res.string.more),
-                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                                    style = MaterialTheme.typography.labelMediumEmphasized,
                                     color = Color.White.copy(alpha = 0.9f)
                                 )
                             }
@@ -393,7 +394,7 @@ fun ArtistBanner(
                 ) {
                     Icon(Icons.Rounded.Shuffle, null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text(stringResource(Res.string.shuffle), fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(Res.string.shuffle), style = MaterialTheme.typography.ctaLabel)
                 }
 
                 Button(
@@ -411,7 +412,7 @@ fun ArtistBanner(
                 ) {
                     Icon(Icons.Rounded.Radio, null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text(stringResource(Res.string.radio_text), fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(Res.string.radio_text), style = MaterialTheme.typography.ctaLabel)
                 }
 
                 val subscribedText = stringResource(Res.string.subscribed)

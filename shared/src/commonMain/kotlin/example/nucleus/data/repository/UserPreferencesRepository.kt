@@ -183,6 +183,7 @@ class UserPreferencesRepository(private val dataStore: DataStore<Preferences>) {
         val LYRICS_LINE_SPACING = floatPreferencesKey("lyrics_line_spacing")
         val LYRICS_ANIMATION_STYLE = stringPreferencesKey("lyrics_animation_style")
         val LYRICS_ROMANIZE = booleanPreferencesKey("lyrics_romanize")
+        val LYRICS_OFFSET_MS = intPreferencesKey("lyrics_offset_ms")
     }
 
 
@@ -288,6 +289,16 @@ class UserPreferencesRepository(private val dataStore: DataStore<Preferences>) {
 
     suspend fun setLyricsRomanize(enabled: Boolean) {
         dataStore.edit { it[PreferencesKeys.LYRICS_ROMANIZE] = enabled }
+    }
+
+    /**
+     * Offset global de sincronización de letras en milisegundos.
+     * Positivo = letras más tarde respecto al audio; negativo = más temprano.
+     */
+    val lyricsOffsetMs: Flow<Int> = dataStore.data.map { it[PreferencesKeys.LYRICS_OFFSET_MS] ?: 0 }
+
+    suspend fun setLyricsOffsetMs(offsetMs: Int) {
+        dataStore.edit { it[PreferencesKeys.LYRICS_OFFSET_MS] = offsetMs.coerceIn(-10_000, 10_000) }
     }
 
 

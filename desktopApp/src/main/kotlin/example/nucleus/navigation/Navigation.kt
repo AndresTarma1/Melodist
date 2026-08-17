@@ -62,7 +62,7 @@ import example.nucleus.ui.screens.library.LibraryScreenRoute
 import example.nucleus.ui.themes.LocalDimens
 import example.nucleus.ui.themes.AppShapes
 import example.nucleus.ui.themes.expressiveFadeTween
-import example.nucleus.ui.themes.expressiveSpring
+import example.nucleus.ui.themes.expressiveLayoutTween
 import example.nucleus.ui.themes.LocalChromeSurface
 import example.nucleus.ui.themes.LocalIsSolidBackground
 import example.nucleus.ui.themes.LocalLayoutMode
@@ -168,8 +168,8 @@ fun NavigationDesktop(rootComponent: RootComponent, userPreferences: UserPrefere
 
                         AnimatedVisibility(
                             visible = !isOnNowPlaying || !fullScreenPlayer,
-                            enter = if (animationsEnabled) fadeIn(expressiveFadeTween()) + expandHorizontally(expressiveSpring()) else EnterTransition.None,
-                            exit = if (animationsEnabled) fadeOut(expressiveFadeTween()) + shrinkHorizontally() else ExitTransition.None,
+                            enter = if (animationsEnabled) fadeIn(expressiveFadeTween()) + expandHorizontally(expressiveLayoutTween()) else EnterTransition.None,
+                            exit = if (animationsEnabled) fadeOut(expressiveFadeTween()) + shrinkHorizontally(expressiveLayoutTween()) else ExitTransition.None,
                         ) {
                             when (navigationRailStyle) {
                                 NavigationRailStyle.DEFAULT -> {
@@ -278,8 +278,8 @@ fun NavigationDesktop(rootComponent: RootComponent, userPreferences: UserPrefere
                                     ) {
                                         AnimatedVisibility(
                                             visible = floatingMiniPlayer,
-                                            enter = if (animationsEnabled) fadeIn(expressiveFadeTween()) + slideInVertically(animationSpec = expressiveSpring(), initialOffsetY = { it }) else EnterTransition.None,
-                                            exit = if (animationsEnabled) fadeOut(expressiveFadeTween()) + slideOutVertically(animationSpec = expressiveSpring(), targetOffsetY = { it }) else ExitTransition.None,
+                                            enter = if (animationsEnabled) fadeIn(expressiveFadeTween()) + slideInVertically(animationSpec = expressiveLayoutTween(), initialOffsetY = { it / 4 }) else EnterTransition.None,
+                                            exit = if (animationsEnabled) fadeOut(expressiveFadeTween()) + slideOutVertically(animationSpec = expressiveLayoutTween(), targetOffsetY = { it / 4 }) else ExitTransition.None,
                                         ) {
                                             miniPlayerSlot(Modifier.fillMaxWidth())
                                         }
@@ -288,8 +288,8 @@ fun NavigationDesktop(rootComponent: RootComponent, userPreferences: UserPrefere
 
                                 AnimatedVisibility(
                                     visible = isQueueVisible && !isOnNowPlaying,
-                                    enter = if (animationsEnabled) fadeIn(expressiveFadeTween()) + expandHorizontally(expressiveSpring()) else EnterTransition.None,
-                                    exit = if (animationsEnabled) fadeOut(expressiveFadeTween()) + shrinkHorizontally() else ExitTransition.None,
+                                    enter = if (animationsEnabled) fadeIn(expressiveFadeTween()) + expandHorizontally(expressiveLayoutTween()) else EnterTransition.None,
+                                    exit = if (animationsEnabled) fadeOut(expressiveFadeTween()) + shrinkHorizontally(expressiveLayoutTween()) else ExitTransition.None,
                                 ) {
                                     Row(modifier = Modifier.fillMaxHeight()) {
                                         if (square) {

@@ -9,6 +9,7 @@ import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.TextFields
+import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -37,12 +38,14 @@ fun NowPlayingSettingsGroup() {
     val lyricsLineSpacing by viewModel.lyricsLineSpacing.collectAsState()
     val lyricsAnimationStyle by viewModel.lyricsAnimationStyle.collectAsState()
     val lyricsRomanize by viewModel.lyricsRomanize.collectAsState()
+    val lyricsOffsetMs by viewModel.lyricsOffsetMs.collectAsState()
     val queuePersistenceEnabled by viewModel.queuePersistenceEnabled.collectAsState()
     var showAnimationDropdown by remember { mutableStateOf(false) }
     var showSizeDropdown by remember { mutableStateOf(false) }
     var showSpacingDropdown by remember { mutableStateOf(false) }
+    var showOffsetDropdown by remember { mutableStateOf(false) }
 
-    val itemCount = 9
+    val itemCount = 10
     var idx = 0
 
     SettingsGroup(
@@ -126,6 +129,20 @@ fun NowPlayingSettingsGroup() {
             colors = colors,
             state = lyricsRomanize,
             onCheckedChange = { viewModel.setLyricsRomanize(it) }
+        )
+        val offsetOptions = listOf(
+            -2000, -1500, -1000, -500, -250, 0, 250, 500, 1000, 1500, 2000
+        )
+        DropdownSelector(
+            label = stringResource(Res.string.lyrics_offset_settings),
+            icon = Icons.Rounded.Timer,
+            currentValue = stringResource(Res.string.lyrics_offset_value, lyricsOffsetMs),
+            segmentedShape = ListItemDefaults.segmentedShapes(index = idx++, count = itemCount),
+            expanded = showOffsetDropdown,
+            onExpandedChange = { showOffsetDropdown = it },
+            options = offsetOptions.map { it to stringResource(Res.string.lyrics_offset_value, it) },
+            isSelected = { it == lyricsOffsetMs },
+            onSelect = { viewModel.setLyricsOffsetMs(it); showOffsetDropdown = false },
         )
         SettingsSwitch(
             icon = { Icon(Icons.Rounded.Save, null) },

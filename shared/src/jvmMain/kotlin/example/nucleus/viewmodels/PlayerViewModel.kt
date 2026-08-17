@@ -8,6 +8,7 @@ import example.nucleus.data.repository.BackgroundStyle
 import example.nucleus.data.repository.UserPreferencesRepository
 import example.nucleus.db.DatabaseDao
 import example.nucleus.db.entities.ArtistEntity
+import example.nucleus.db.entities.LyricsEntity
 import example.nucleus.download.DownloadService
 import example.nucleus.lyrics.BetterLyrics
 import example.nucleus.lyrics.LyricLine
@@ -799,60 +800,72 @@ class PlayerViewModel(
 
     fun next() {
         val state = _uiState.value
-        val nextIndex = PlayerQueueCoordinator.nextIndex(state) ?: run {
+        if (state.queueSession.order.isEmpty()) return
+
+        // Skip manual: no respetar Repeat.ONE (eso solo aplica al fin de pista).
+        val nextIndex = PlayerQueueCoordinator.nextIndex(state, ignoreRepeatOne = true) ?: run {
             if (state.repeatMode == RepeatMode.OFF) stop()
             return
         }
 
-        _uiState.update {
-            val updatedSession = it.queueSession.copy(currentIndex = nextIndex)
-            it.copy(
-                currentIndex = nextIndex,
-                currentSong = updatedSession.order.getOrNull(nextIndex)?.let(updatedSession.items::getOrNull),
-                queueSession = updatedSession,
-                queue = updatedSession.queueItems()
-            )
+        // Evitar “recargar” la misma canción si no hay avance real.
+        if (nextIndex == state.currentIndex &&
+            state.queueSession.order.size <= 1 &&
+            state.repeatMode == RepeatMode.OFF
+        ) {
+            stop()
+            return
         }
 
-        // Usar QueueManager para auto-carga si tenemos una cola
+        playAtIndex(nextIndex)
+
+        // Prefetch / auto-carga de cola tras el salto
         currentQueue?.let { queue ->
             viewModelScope.launch(Dispatchers.IO) {
-                val newItems = queueManager.checkAndLoadMore(queue, nextIndex, _uiState.value.queueSession.items.size)
+                val newItems = queueManager.checkAndLoadMore(
+                    queue,
+                    nextIndex,
+                    _uiState.value.queueSession.items.size,
+                )
                 if (newItems.isNotEmpty()) {
                     _uiState.update { currentState ->
                         val currentSession = currentState.queueSession
                         val updatedItems = currentSession.items + newItems
-                        val newOrder = currentSession.order + newItems.indices.map { currentSession.items.size + it }
+                        val newOrder = currentSession.order +
+                            newItems.indices.map { currentSession.items.size + it }
                         val updatedSession = currentSession.copy(
                             items = updatedItems,
                             order = newOrder,
                         )
                         currentState.copy(
                             queueSession = updatedSession,
-                            queue = updatedSession.queueItems()
+                            queue = updatedSession.queueItems(),
                         )
                     }
                 }
             }
         }
-        // Respaldo para colas antiguas sin interfaz Queue
         if (currentQueue == null) {
             checkAndFetchMoreSongs(_uiState.value, nextIndex)
         }
-
-        playAtIndex(nextIndex)
     }
 
     fun previous() {
         val state = _uiState.value
-        if (state.queueSession.items.isEmpty()) return
+        if (state.queueSession.order.isEmpty()) return
 
-        if (_progressState.value.positionMs > 3000) {
-            seekTo(0)
+        // Estándar media player: >3s reinicia la pista actual; no re-resuelve stream.
+        if (_progressState.value.positionMs > 3000L) {
+            seekTo(0L)
             return
         }
 
-        val prevIndex = PlayerQueueCoordinator.previousIndex(state) ?: return
+        val prevIndex = PlayerQueueCoordinator.previousIndex(state, ignoreRepeatOne = true) ?: return
+        if (prevIndex == state.currentIndex) {
+            // Ya en la primera (o cola de 1): solo reiniciar sin cascade resolve.
+            seekTo(0L)
+            return
+        }
         playAtIndex(prevIndex)
     }
 
@@ -1358,70 +1371,239 @@ class PlayerViewModel(
     private val _syncedLyrics = MutableStateFlow<List<LyricLine>?>(null)
     val syncedLyrics: StateFlow<List<LyricLine>?> = _syncedLyrics.asStateFlow()
 
+    /** true mientras se buscan letras de la canción actual (distinto de "sin letras"). */
+    private val _lyricsLoading = MutableStateFlow(false)
+    val lyricsLoading: StateFlow<Boolean> = _lyricsLoading.asStateFlow()
+
     // Canción para la que ya se pidieron (o están en curso) las letras. Evita re-fetch al solo
     // cambiar de pestaña (Cola/Info -> Letras) sobre la misma canción.
     private var lastLyricsSongId: String? = null
 
+    /** Job único de búsqueda de letras: se cancela al cambiar de canción para no aplicar LRC viejo. */
+    private var lyricsJob: Job? = null
+
+    /** Prefetch en background de la siguiente pista; no toca el estado visible. */
+    private var lyricsPrefetchJob: Job? = null
+
+    /**
+     * Cache en memoria de LRC crudo (o marcador NOT_FOUND) por song id.
+     * Complementa la tabla SQL `Lyrics` para hits rápidos entre pistas.
+     */
+    private val lyricsMemoryCache = Collections.synchronizedMap(
+        object : LinkedHashMap<String, CachedLyrics>(0, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, CachedLyrics>?) =
+                size > 48
+        }
+    )
+
+    private data class CachedLyrics(
+        val raw: String,
+        val provider: String,
+        val notFound: Boolean = false,
+    )
+
     fun fetchLyrics() {
         val song = _uiState.value.currentSong ?: return
-        if (song.id == lastLyricsSongId) return
-        lastLyricsSongId = song.id
-        viewModelScope.launch(Dispatchers.IO) {
-            _currentLyrics.value = null
-            _syncedLyrics.value = null
+        if (song.id == lastLyricsSongId && lyricsJob?.isActive == true) return
+        if (song.id == lastLyricsSongId && _currentLyrics.value != null && !_lyricsLoading.value) return
+
+        val requestSongId = song.id
+        lastLyricsSongId = requestSongId
+        lyricsJob?.cancel()
+
+        // Si hay cache en memoria de la pista actual, publicar al instante.
+        lyricsMemoryCache[requestSongId]?.let { cached ->
+            applyCachedLyrics(cached)
+            _lyricsLoading.value = false
+            prefetchNextLyrics()
+            return
+        }
+
+        // Limpiar de inmediato para que la UI no muestre letras de la pista anterior.
+        _currentLyrics.value = null
+        _syncedLyrics.value = null
+        _lyricsLoading.value = true
+
+        lyricsJob = viewModelScope.launch(Dispatchers.IO) {
+            fun stillCurrent(): Boolean =
+                _uiState.value.currentSong?.id == requestSongId && lastLyricsSongId == requestSongId
+
+            fun publishPlain(text: String?, provider: String = "Unknown") {
+                if (!stillCurrent()) return
+                val plain = text.orEmpty()
+                _syncedLyrics.value = null
+                _currentLyrics.value = plain
+                _lyricsLoading.value = false
+                rememberLyrics(requestSongId, plain, provider, notFound = plain.isBlank())
+            }
+
+            fun publishSynced(parsed: List<LyricLine>, plainFallback: String, provider: String, raw: String) {
+                if (!stillCurrent()) return
+                _syncedLyrics.value = parsed
+                _currentLyrics.value = plainFallback
+                _lyricsLoading.value = false
+                rememberLyrics(requestSongId, raw, provider, notFound = false)
+            }
+
             try {
+                // 1) Disco (SQLDelight)
+                val dbHit = databaseDao.getLyrics(requestSongId)
+                if (dbHit != null) {
+                    val notFound = dbHit.lyrics == LyricsEntity.LYRICS_NOT_FOUND || dbHit.lyrics.isBlank()
+                    val cached = CachedLyrics(
+                        raw = if (notFound) "" else dbHit.lyrics,
+                        provider = dbHit.provider,
+                        notFound = notFound,
+                    )
+                    lyricsMemoryCache[requestSongId] = cached
+                    if (stillCurrent()) {
+                        applyCachedLyrics(cached)
+                        _lyricsLoading.value = false
+                    }
+                    return@launch
+                }
+
                 withTimeout(20_000L) {
-                    val artist = song.artists.joinToString(", ") { it.name }
-                    val album = song.album?.title
+                    val result = lookupLyricsRemote(song) ?: return@withTimeout
+                    if (!stillCurrent()) return@withTimeout
 
-                    // Intentar proveedores sincronizados en orden de fiabilidad. El primer LRC utilizable gana.
-                    //   1) LrcLib  — gratuito, confiable, sincronizado por líneas
-                    //   2) KuGou   — sincronizado por líneas
-                    //   3) BetterLyrics — sincronizado por palabras
-                    suspend fun <T> attempt(block: suspend () -> T): T? = try {
-                        block()
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (_: Exception) {
-                        null
-                    }
-
-                    val lrc = attempt { LrcLib.getLyrics(song.title, artist, song.duration, album).getOrNull() }
-                        ?: attempt { KuGou.getLyrics(song.title, artist, song.duration, album).getOrNull() }
-                        ?: attempt { BetterLyrics.getLyrics(song.title, artist, song.duration, album) }
-
-                    if (lrc != null) {
-                        if (SyncedLyrics.isSynced(lrc)) {
-                            val parsed = SyncedLyrics.parse(lrc)
-                            if (parsed.isNotEmpty()) {
-                                _syncedLyrics.value = parsed
-                                _currentLyrics.value = parsed.joinToString("\n") { it.text }
-                                return@withTimeout
-                            }
+                    if (result.raw.isNotEmpty() && SyncedLyrics.isSynced(result.raw)) {
+                        val parsed = SyncedLyrics.parse(result.raw)
+                        if (parsed.isNotEmpty()) {
+                            publishSynced(
+                                parsed = parsed,
+                                plainFallback = parsed.joinToString("\n") { it.text },
+                                provider = result.provider,
+                                raw = result.raw,
+                            )
+                            return@withTimeout
                         }
-                        // LRC plano sin marcas de tiempo — mostrar como texto.
-                        _currentLyrics.value = lrc
-                        return@withTimeout
                     }
-
-                    // Recurrir a las letras de YouTube.
-                    val nextResult = YouTube.next(WatchEndpoint(videoId = song.id)).getOrNull() ?: return@withTimeout
-                    val endpoint = nextResult.lyricsEndpoint ?: return@withTimeout
-                    val lyrics = YouTube.lyrics(endpoint).getOrNull()
-                    _currentLyrics.value = lyrics
-                    if (lyrics != null && SyncedLyrics.isSynced(lyrics)) {
-                        _syncedLyrics.value = SyncedLyrics.parse(lyrics).takeIf { it.isNotEmpty() }
-                    }
+                    publishPlain(result.raw.ifBlank { null }, result.provider)
                 }
             } catch (_: TimeoutCancellationException) {
-                Napier.w("Lyrics lookup timed out for ${song.id}")
+                Napier.w("Lyrics lookup timed out for $requestSongId")
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Napier.w("Lyrics lookup failed for ${song.id}: ${e.message}")
+                Napier.w("Lyrics lookup failed for $requestSongId: ${e.message}")
             } finally {
-                // null means loading in the UI; always finish with an explicit empty result.
-                if (_currentLyrics.value == null) _currentLyrics.value = ""
+                // null means loading in the UI; always finish with an explicit empty result
+                // solo si seguimos en la misma canción (si no, otro job ya tomó el relevo).
+                if (stillCurrent() && _currentLyrics.value == null) {
+                    _currentLyrics.value = ""
+                    _syncedLyrics.value = null
+                    _lyricsLoading.value = false
+                    rememberLyrics(requestSongId, "", "None", notFound = true)
+                }
+                if (stillCurrent()) {
+                    prefetchNextLyrics()
+                }
+            }
+        }
+    }
+
+    private fun applyCachedLyrics(cached: CachedLyrics) {
+        if (cached.notFound || cached.raw.isBlank()) {
+            _syncedLyrics.value = null
+            _currentLyrics.value = ""
+            return
+        }
+        if (SyncedLyrics.isSynced(cached.raw)) {
+            val parsed = SyncedLyrics.parse(cached.raw)
+            if (parsed.isNotEmpty()) {
+                _syncedLyrics.value = parsed
+                _currentLyrics.value = parsed.joinToString("\n") { it.text }
+                return
+            }
+        }
+        _syncedLyrics.value = null
+        _currentLyrics.value = cached.raw
+    }
+
+    private fun rememberLyrics(songId: String, raw: String, provider: String, notFound: Boolean) {
+        val storeRaw = if (notFound) LyricsEntity.LYRICS_NOT_FOUND else raw
+        lyricsMemoryCache[songId] = CachedLyrics(
+            raw = if (notFound) "" else raw,
+            provider = provider,
+            notFound = notFound,
+        )
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching {
+                databaseDao.insertLyrics(songId, storeRaw, provider)
+            }
+        }
+    }
+
+    private data class RemoteLyrics(val raw: String, val provider: String)
+
+    private suspend fun lookupLyricsRemote(song: MediaMetadata): RemoteLyrics? {
+        val artist = song.artists.joinToString(", ") { it.name }
+        val album = song.album?.title
+
+        // Intentar proveedores sincronizados en orden de fiabilidad. El primer LRC utilizable gana.
+        //   1) LrcLib  — gratuito, confiable, sincronizado por líneas
+        //   2) KuGou   — sincronizado por líneas
+        //   3) BetterLyrics — sincronizado por palabras
+        //   4) YouTube lyrics endpoint
+        suspend fun <T> attempt(block: suspend () -> T): T? = try {
+            block()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            null
+        }
+
+        attempt { LrcLib.getLyrics(song.title, artist, song.duration, album).getOrNull() }
+            ?.let { return RemoteLyrics(it, "LrcLib") }
+        attempt { KuGou.getLyrics(song.title, artist, song.duration, album).getOrNull() }
+            ?.let { return RemoteLyrics(it, "KuGou") }
+        attempt { BetterLyrics.getLyrics(song.title, artist, song.duration, album) }
+            ?.let { return RemoteLyrics(it, "BetterLyrics") }
+
+        val nextResult = attempt { YouTube.next(WatchEndpoint(videoId = song.id)).getOrNull() }
+            ?: return null
+        val endpoint = nextResult.lyricsEndpoint ?: return null
+        val lyrics = attempt { YouTube.lyrics(endpoint).getOrNull() } ?: return null
+        return RemoteLyrics(lyrics, "YouTube")
+    }
+
+    /** Prefetch de la siguiente canción de la cola (no bloquea UI ni pisa estado actual). */
+    private fun prefetchNextLyrics() {
+        val state = _uiState.value
+        val queue = state.queue
+        val index = state.currentIndex
+        if (queue.isEmpty() || index < 0 || index >= queue.lastIndex) return
+        val next = queue.getOrNull(index + 1) ?: return
+        if (lyricsMemoryCache.containsKey(next.id)) return
+
+        lyricsPrefetchJob?.cancel()
+        lyricsPrefetchJob = viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val dbHit = databaseDao.getLyrics(next.id)
+                if (dbHit != null) {
+                    val notFound = dbHit.lyrics == LyricsEntity.LYRICS_NOT_FOUND || dbHit.lyrics.isBlank()
+                    lyricsMemoryCache[next.id] = CachedLyrics(
+                        raw = if (notFound) "" else dbHit.lyrics,
+                        provider = dbHit.provider,
+                        notFound = notFound,
+                    )
+                    return@launch
+                }
+                withTimeout(20_000L) {
+                    val result = lookupLyricsRemote(next) ?: run {
+                        rememberLyrics(next.id, "", "None", notFound = true)
+                        return@withTimeout
+                    }
+                    val notFound = result.raw.isBlank()
+                    rememberLyrics(next.id, result.raw, result.provider, notFound = notFound)
+                }
+            } catch (_: TimeoutCancellationException) {
+                Napier.w("Lyrics prefetch timed out for ${next.id}")
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Napier.w("Lyrics prefetch failed for ${next.id}: ${e.message}")
             }
         }
     }
@@ -1429,6 +1611,8 @@ class PlayerViewModel(
     override fun onCleared() {
         resolveJob?.cancel()
         reconnectWatchJob?.cancel()
+        lyricsJob?.cancel()
+        lyricsPrefetchJob?.cancel()
         playRequestId += 1
         resolveJob = null
         playerService.stopAudioOnly()

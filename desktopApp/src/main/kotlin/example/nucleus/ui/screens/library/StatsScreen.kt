@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package example.nucleus.ui.screens.library
 
 import androidx.compose.foundation.layout.*
@@ -69,8 +71,7 @@ fun StatsScreen(onBack: () -> Unit) {
                 title = {
                     Text(
                         stringResource(Res.string.stats_title),
-                        fontWeight = FontWeight.Black,
-                        style = MaterialTheme.typography.displaySmall.copy(fontSize = 32.sp),
+                        style = MaterialTheme.typography.displaySmallEmphasized,
                     )
                 },
                 navigationIcon = {
@@ -156,7 +157,7 @@ private fun StatCard(label: String, value: String, modifier: Modifier = Modifier
         Column(Modifier.padding(16.dp)) {
             Text(
                 text = value,
-                style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                style = MaterialTheme.typography.headlineMediumEmphasized,
                 color = MaterialTheme.colorScheme.primary,
             )
             Text(
@@ -172,7 +173,7 @@ private fun StatCard(label: String, value: String, modifier: Modifier = Modifier
 private fun StatsHeader(title: String) {
     Text(
         text = title,
-        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+        style = MaterialTheme.typography.titleMediumEmphasized,
         modifier = Modifier.padding(top = 8.dp),
     )
 }

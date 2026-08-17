@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package example.nucleus.ui.screens
 
 import example.nucleus.shared.generated.resources.Res
@@ -41,6 +43,8 @@ import example.nucleus.ui.components.images.MusicPlayerImage
 import example.nucleus.ui.components.images.PlaceholderType
 import example.nucleus.ui.utils.circleAwareShape
 import example.nucleus.ui.themes.LocalMiniPlayerInset
+import example.nucleus.ui.themes.expressiveFadeTween
+import example.nucleus.ui.themes.expressiveTween
 import example.nucleus.utils.LocalPlayerViewModel
 import example.nucleus.utils.LocalAnimationsEnabled
 import example.nucleus.viewmodels.AccountState
@@ -174,7 +178,7 @@ fun AccountScreen(
             AnimatedContent(
                 targetState = state.uiState,
                 transitionSpec = {
-                    if (animationsEnabled) fadeIn(tween(300)) togetherWith fadeOut(tween(200))
+                    if (animationsEnabled) fadeIn(expressiveTween(280)) togetherWith fadeOut(expressiveFadeTween())
                     else EnterTransition.None togetherWith ExitTransition.None
                 },
                 label = "accountContent"
@@ -269,7 +273,7 @@ private fun LoginSection(
             ) {
                 Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(44.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
             }
-            Text(stringResource(Res.string.login_title), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            Text(stringResource(Res.string.login_title), style = MaterialTheme.typography.headlineSmallEmphasized)
             Text(
                 stringResource(Res.string.login_description),
                 style = MaterialTheme.typography.bodySmall,
@@ -733,8 +737,7 @@ private fun AccountProfileHeader(accountInfo: com.metrolist.innertube.models.Acc
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         accountInfo.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMediumEmphasized,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -829,8 +832,7 @@ private fun PlaylistsSection(
         ) {
             Text(
                 stringResource(Res.string.your_playlists),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
+                style = MaterialTheme.typography.titleLargeEmphasized,
             )
             IconButton(
                 onClick = onRefresh,
@@ -1053,7 +1055,7 @@ private fun CookieExpiredSection(
             ) {
                 Icon(Icons.Default.LockClock, contentDescription = null, modifier = Modifier.size(44.dp), tint = MaterialTheme.colorScheme.onErrorContainer)
             }
-            Text(stringResource(Res.string.session_expired_title), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            Text(stringResource(Res.string.session_expired_title), style = MaterialTheme.typography.headlineSmallEmphasized)
             Text(
                 stringResource(Res.string.session_expired_desc),
                 style = MaterialTheme.typography.bodySmall,
@@ -1067,7 +1069,7 @@ private fun CookieExpiredSection(
                 shape = RoundedCornerShape(16.dp)
             ) {
                 Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(stringResource(Res.string.renew_cookie), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(Res.string.renew_cookie), style = MaterialTheme.typography.labelMediumEmphasized)
                     Text(stringResource(Res.string.renew_cookie_desc), style = MaterialTheme.typography.bodySmall)
                 }
             }

@@ -1,7 +1,8 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package example.nucleus.ui.components.player
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.rounded.Check
@@ -13,7 +14,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import example.nucleus.utils.LocalPlayerViewModel
 import example.nucleus.shared.generated.resources.Res
@@ -24,46 +24,52 @@ import kotlin.math.abs
 
 internal fun formatSpeed(speed: Float): String = String.format(Locale.US, "%.1fx", speed)
 
+/**
+ * Acciones superiores estilo Apple Music / media player: iconos fantasma sin chip opaco.
+ */
 @Composable
-fun BoxScope.TopActionOverlay(
+fun NowPlayingTopActions(
     showMenu: Boolean,
     onMenuToggle: (Boolean) -> Unit,
     onOpenEqualizer: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val playerViewModel = LocalPlayerViewModel.current
     val speed by playerViewModel.playbackSpeed.collectAsState(1f)
     var showSpeedMenu by remember { mutableStateOf(false) }
     val speeds = listOf(0.5f, 1.0f, 1.5f, 2.0f)
+    val isDefaultSpeed = abs(speed - 1f) < 0.01f
 
     Row(
-        modifier = modifier.align(Alignment.TopEnd),
+        modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         Box {
-            Surface(
+            TextButton(
                 onClick = { showSpeedMenu = true },
-                shape = RoundedCornerShape(50),
-                color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.55f),
-                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)
+                modifier = Modifier
+                    .height(40.dp)
+                    .pointerHoverIcon(PointerIcon.Hand),
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = if (isDefaultSpeed) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.primary
+                    },
+                ),
+                contentPadding = PaddingValues(horizontal = 10.dp),
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                ) {
-                    Icon(
-                        Icons.Rounded.Speed, null,
-                        modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.onSurface
-                    )
-                    Spacer(Modifier.width(4.dp))
-                    Text(
-                        formatSpeed(speed),
-                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
+                Icon(
+                    Icons.Rounded.Speed,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    formatSpeed(speed),
+                    style = MaterialTheme.typography.labelLargeEmphasized,
+                )
             }
             DropdownMenu(
                 expanded = showSpeedMenu,
@@ -75,33 +81,38 @@ fun BoxScope.TopActionOverlay(
                 speeds.forEach { s ->
                     DropdownMenuItem(
                         text = { Text(formatSpeed(s)) },
-                        onClick = { playerViewModel.setPlaybackSpeed(s); showSpeedMenu = false },
+                        onClick = {
+                            playerViewModel.setPlaybackSpeed(s)
+                            showSpeedMenu = false
+                        },
                         trailingIcon = {
                             if (abs(s - speed) < 0.01f) {
                                 Icon(
-                                    Icons.Rounded.Check, null,
+                                    Icons.Rounded.Check,
+                                    null,
                                     tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(18.dp)
+                                    modifier = Modifier.size(18.dp),
                                 )
                             }
-                        }
+                        },
                     )
                 }
             }
         }
 
-        Box(modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)) {
+        Box {
             IconButton(
                 onClick = { onMenuToggle(true) },
-                modifier = Modifier.size(40.dp)
+                modifier = Modifier
+                    .size(40.dp)
+                    .pointerHoverIcon(PointerIcon.Hand),
             ) {
                 Icon(
                     Icons.Filled.MoreVert,
                     contentDescription = stringResource(Res.string.more_options),
-                    tint = MaterialTheme.colorScheme.onSurface
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-
             DropdownMenu(
                 expanded = showMenu,
                 onDismissRequest = { onMenuToggle(false) },
@@ -111,10 +122,31 @@ fun BoxScope.TopActionOverlay(
             ) {
                 DropdownMenuItem(
                     text = { Text(stringResource(Res.string.equalizer_menu)) },
-                    onClick = { onMenuToggle(false); onOpenEqualizer() },
-                    leadingIcon = { Icon(Icons.Rounded.GraphicEq, null) }
+                    onClick = {
+                        onMenuToggle(false)
+                        onOpenEqualizer()
+                    },
+                    leadingIcon = { Icon(Icons.Rounded.GraphicEq, null) },
                 )
             }
         }
     }
+}
+
+/** Compat: overlay absoluto legacy (ya no se usa en el layout principal). */
+@Composable
+fun BoxScope.TopActionOverlay(
+    showMenu: Boolean,
+    onMenuToggle: (Boolean) -> Unit,
+    onOpenEqualizer: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    NowPlayingTopActions(
+        showMenu = showMenu,
+        onMenuToggle = onMenuToggle,
+        onOpenEqualizer = onOpenEqualizer,
+        modifier = modifier
+            .align(Alignment.TopEnd)
+            .padding(top = 8.dp, end = 12.dp),
+    )
 }

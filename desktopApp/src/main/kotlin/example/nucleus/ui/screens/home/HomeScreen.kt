@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package example.nucleus.ui.screens.home
 
 import androidx.compose.foundation.background
@@ -256,9 +258,7 @@ private fun HomeSectionRow(
     Column(modifier = Modifier.padding(top = 10.dp, bottom = 10.dp, end = 12.dp)) {
         Text(
             text = section.title,
-            style = MaterialTheme.typography.headlineSmall.copy(
-                fontWeight = FontWeight.Bold,
-            ),
+            style = MaterialTheme.typography.headlineSmallEmphasized,
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
         )
 
@@ -323,9 +323,7 @@ private fun QuickPicksSection(
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = stringResource(Res.string.recently_played),
-            style = MaterialTheme.typography.headlineSmall.copy(
-                fontWeight = FontWeight.Bold,
-            ),
+            style = MaterialTheme.typography.headlineSmallEmphasized,
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
         )
         HorizontalGridLikeRow(

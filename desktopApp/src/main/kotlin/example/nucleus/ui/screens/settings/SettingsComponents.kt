@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package example.nucleus.ui.screens.settings
 
 import androidx.compose.foundation.background
@@ -270,7 +272,7 @@ internal fun AboutCard() {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = stringResource(Res.string.about_title),
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    style = MaterialTheme.typography.titleMediumEmphasized,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
@@ -285,7 +287,7 @@ internal fun AboutCard() {
             ) {
                 Text(
                     text = stringResource(Res.string.version_prefix) + AppViewModel.CURRENT_VERSION,
-                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                    style = MaterialTheme.typography.labelMediumEmphasized,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                 )
@@ -326,7 +328,7 @@ internal fun SeekBarStylePickerContent(
                 ) {
                     Text(
                         style.displayName(),
-                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                        style = MaterialTheme.typography.titleSmallEmphasized,
                         color = if (selected) MaterialTheme.colorScheme.primary
                         else MaterialTheme.colorScheme.onSurface
                     )

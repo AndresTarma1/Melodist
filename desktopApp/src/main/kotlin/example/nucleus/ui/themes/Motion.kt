@@ -1,33 +1,162 @@
 package example.nucleus.ui.themes
 
+import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.Easing
+import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.SpringSpec
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.runtime.Composable
+import example.nucleus.utils.LocalAnimationsEnabled
 
 /**
- * Motion de Material 3 Expressive: muelles con overshoot moderado para transiciones
- * de "énfasis" (entradas de pantallas, mini reproductor, tabs), y un muelle rápido
- * sin rebote para interacciones (hover/press). Se combinan siempre con la preferencia
- * de animaciones del usuario.
+ * Single source of UI motion for PaltaSound (Material 3 Expressive on desktop).
  *
- * Son funciones genéricas para poder usarlas con cualquier tipo animado
- * (Float, IntSize, IntOffset, Dp...).
+ * Prefer these helpers over ad-hoc `tween(220/300)` / local springs so nav, mini player,
+ * tabs, and chrome stay consistent. Always pair with [LocalAnimationsEnabled] via
+ * [uiSpring] / [uiTween] / [rememberUiSpring] so reduce-motion snaps instantly.
+ *
+ * Motion language: **smooth ease, no bounce**. Springs use critically-damped ratios so
+ * chrome settles without overshoot; fades/layout prefer [expressiveEasing] tweens.
+ *
+ * | Spec | When |
+ * |---|---|
+ * | [expressiveSpring] | Layout emphasis: rail, mini player show/hide (no bounce) |
+ * | [interactionSpring] | Hover/press, thumb grow — snappy, critically damped |
+ * | [contentSpring] | Hierarchy (lyrics line, title weight/scale) |
+ * | [expressiveFadeTween] / [expressiveTween] | Crossfades, alpha, color scheme bloom |
  */
 
-/** Muelle expresivo — overshoot moderado, el sello de M3E. */
+/**
+ * Material-like emphasized decelerate — settles quickly without elastic rebound.
+ * Control points tuned for desktop UI (slightly softer than mobile MD emphasized).
+ */
+val expressiveEasing: Easing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1.0f)
+
+/** Standard emphasized accelerate for exits / dismiss. */
+val expressiveAccelerateEasing: Easing = CubicBezierEasing(0.3f, 0.0f, 0.8f, 0.15f)
+
+/**
+ * Soft layout spring — critically damped (no overshoot).
+ * Prefer for expand/collapse and large chrome moves when a spring feel is desired.
+ */
 fun <T> expressiveSpring(): SpringSpec<T> = spring(
-    dampingRatio = 0.55f,
-    stiffness = Spring.StiffnessMedium,
+    dampingRatio = Spring.DampingRatioNoBouncy,
+    stiffness = 380f,
 )
 
-/** Muelle rápido y contenido para estados de interacción. */
+/**
+ * Fast interaction spring — no bounce, high stiffness for thumbs/hover morphs.
+ */
 fun <T> interactionSpring(): SpringSpec<T> = spring(
-    dampingRatio = Spring.DampingRatioMediumBouncy,
+    dampingRatio = Spring.DampingRatioNoBouncy,
     stiffness = Spring.StiffnessHigh,
 )
 
-/** Duración corta para fundidos que acompañan a los muelles (220ms). */
-const val expressiveFadeDuration = 220
+/**
+ * Soft content spring for hierarchy — active lyric line, weight, scale.
+ */
+fun <T> contentSpring(): SpringSpec<T> = spring(
+    dampingRatio = Spring.DampingRatioNoBouncy,
+    stiffness = Spring.StiffnessMediumLow,
+)
 
-fun expressiveFadeTween() = tween<Float>(durationMillis = expressiveFadeDuration)
+/** Duración corta para fundidos que acompañan al motion (240ms). */
+const val expressiveFadeDuration = 240
+
+/** Slightly longer fade for color-scheme / seed transitions. */
+const val expressiveColorDuration = 300
+
+/** Smooth scroll / longer content motion (synced lyrics). */
+const val expressiveScrollDuration = 480
+
+/** Default duration for layout morphs that use tween instead of spring. */
+const val expressiveLayoutDuration = 320
+
+fun expressiveFadeTween(): FiniteAnimationSpec<Float> =
+    tween(durationMillis = expressiveFadeDuration, easing = expressiveEasing)
+
+fun <T> expressiveTween(
+    durationMillis: Int = expressiveFadeDuration,
+    delayMillis: Int = 0,
+    easing: Easing = expressiveEasing,
+): FiniteAnimationSpec<T> = tween(
+    durationMillis = durationMillis,
+    delayMillis = delayMillis,
+    easing = easing,
+)
+
+/** Layout morph tween (expand/slide) — preferred over bouncy springs. */
+fun <T> expressiveLayoutTween(
+    durationMillis: Int = expressiveLayoutDuration,
+    delayMillis: Int = 0,
+): FiniteAnimationSpec<T> = expressiveTween(durationMillis, delayMillis, expressiveEasing)
+
+/**
+ * Spring or [snap] depending on [animationsEnabled].
+ * Use at non-composable call sites that already read the preference.
+ */
+fun <T> uiSpring(
+    animationsEnabled: Boolean,
+    spec: () -> SpringSpec<T> = { expressiveSpring() },
+): FiniteAnimationSpec<T> = if (animationsEnabled) spec() else snap()
+
+/**
+ * Tween or [snap] depending on [animationsEnabled].
+ */
+fun <T> uiTween(
+    animationsEnabled: Boolean,
+    durationMillis: Int = expressiveFadeDuration,
+    delayMillis: Int = 0,
+    easing: Easing = expressiveEasing,
+): FiniteAnimationSpec<T> = if (animationsEnabled) {
+    expressiveTween(durationMillis, delayMillis, easing)
+} else {
+    snap()
+}
+
+/** Generic gate: keep [spec] when animations on, else [snap]. */
+fun <T> motionSpec(
+    animationsEnabled: Boolean,
+    spec: AnimationSpec<T>,
+): AnimationSpec<T> = if (animationsEnabled) spec else snap()
+
+/** Reads [LocalAnimationsEnabled] — preferred inside composables. */
+@Composable
+fun <T> rememberUiSpring(
+    spec: () -> SpringSpec<T> = { expressiveSpring() },
+): FiniteAnimationSpec<T> {
+    val enabled = LocalAnimationsEnabled.current
+    return uiSpring(enabled, spec)
+}
+
+/** Reads [LocalAnimationsEnabled] for tweens. */
+@Composable
+fun <T> rememberUiTween(
+    durationMillis: Int = expressiveFadeDuration,
+    delayMillis: Int = 0,
+    easing: Easing = expressiveEasing,
+): FiniteAnimationSpec<T> {
+    val enabled = LocalAnimationsEnabled.current
+    return uiTween(enabled, durationMillis, delayMillis, easing)
+}
+
+/** Content hierarchy spring with reduce-motion. */
+@Composable
+fun <T> rememberContentSpring(): FiniteAnimationSpec<T> =
+    rememberUiSpring { contentSpring() }
+
+/** Interaction spring with reduce-motion. */
+@Composable
+fun <T> rememberInteractionSpring(): FiniteAnimationSpec<T> =
+    rememberUiSpring { interactionSpring() }
+
+/** Layout tween with reduce-motion — prefer for expand/slide chrome. */
+@Composable
+fun <T> rememberExpressiveLayout(): FiniteAnimationSpec<T> {
+    val enabled = LocalAnimationsEnabled.current
+    return if (enabled) expressiveLayoutTween() else snap()
+}

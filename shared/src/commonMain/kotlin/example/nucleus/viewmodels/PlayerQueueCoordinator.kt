@@ -132,26 +132,44 @@ object PlayerQueueCoordinator {
         )
     }
 
-    fun nextIndex(state: PlayerUiState): Int? {
-        if (state.queueSession.items.isEmpty()) return null
+    /**
+     * @param ignoreRepeatOne si true (skip manual del usuario), avanza/retrocede como ALL/OFF
+     * en lugar de devolver el índice actual (que re-carga la misma canción).
+     */
+    fun nextIndex(state: PlayerUiState, ignoreRepeatOne: Boolean = false): Int? {
+        if (state.queueSession.order.isEmpty()) return null
+        val mode = if (ignoreRepeatOne && state.repeatMode == RepeatMode.ONE) {
+            RepeatMode.ALL
+        } else {
+            state.repeatMode
+        }
+        val size = state.queueSession.order.size
+        val current = state.currentIndex.coerceIn(0, size - 1)
 
-        return when (state.repeatMode) {
-            RepeatMode.ONE -> state.currentIndex
-            RepeatMode.ALL -> (state.currentIndex + 1) % state.queueSession.order.size
+        return when (mode) {
+            RepeatMode.ONE -> current
+            RepeatMode.ALL -> (current + 1) % size
             RepeatMode.OFF -> {
-                val next = state.currentIndex + 1
-                if (next >= state.queueSession.order.size) null else next
+                val next = current + 1
+                if (next >= size) null else next
             }
         }
     }
 
-    fun previousIndex(state: PlayerUiState): Int? {
-        if (state.queueSession.items.isEmpty()) return null
+    fun previousIndex(state: PlayerUiState, ignoreRepeatOne: Boolean = false): Int? {
+        if (state.queueSession.order.isEmpty()) return null
+        val mode = if (ignoreRepeatOne && state.repeatMode == RepeatMode.ONE) {
+            RepeatMode.ALL
+        } else {
+            state.repeatMode
+        }
+        val size = state.queueSession.order.size
+        val current = state.currentIndex.coerceIn(0, size - 1)
 
-        return when (state.repeatMode) {
-            RepeatMode.ONE -> state.currentIndex
-            RepeatMode.ALL -> if (state.currentIndex - 1 < 0) state.queueSession.order.lastIndex else state.currentIndex - 1
-            RepeatMode.OFF -> (state.currentIndex - 1).coerceAtLeast(0)
+        return when (mode) {
+            RepeatMode.ONE -> current
+            RepeatMode.ALL -> if (current - 1 < 0) size - 1 else current - 1
+            RepeatMode.OFF -> if (current <= 0) null else current - 1
         }
     }
 }
