@@ -24,12 +24,25 @@ class MpvAudioPlayer {
     private var lastSpeed: Float? = null
     private val _isPlaying = MutableStateFlow(false)
     val isPlaying = _isPlaying.asStateFlow()
+
+    /** mpv pausó por underrun de red/caché (`paused-for-cache`). */
+    private val _isBuffering = MutableStateFlow(false)
+    val isBuffering = _isBuffering.asStateFlow()
+
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private var openUriJob: Job? = null
+
+    /** True tras el primer PLAYBACK_RESTART de la carga actual (permite distinguir error mid-stream). */
+    @Volatile
+    private var playbackEverStarted = false
 
     // Se emite cuando la pista actual termina naturalmente (mpv END_FILE con razón EOF).
     private val _ended = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val ended: SharedFlow<Unit> = _ended.asSharedFlow()
+
+    /** Fallo de stream tras haber iniciado (p. ej. 403 a mitad de canción). */
+    private val _streamFailed = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val streamFailed: SharedFlow<Unit> = _streamFailed.asSharedFlow()
 
     // Resultado de la carga más reciente de openUri: completado por el bucle de eventos de mpv —
     // true en el primer PLAYBACK_RESTART (el nuevo archivo se está decodificando/reproduciendo),
@@ -98,11 +111,13 @@ class MpvAudioPlayer {
 
 // 3. Límites de memoria y control de búfer optimizado
                 MpvLib.mpv_set_property_string(it, "cache", "yes")
-                MpvLib.mpv_set_property_string(it, "cache-secs", "10") // Caché de tiempo corto para arrancar rápido
-                MpvLib.mpv_set_property_string(it, "demuxer-max-bytes", "10485760") // 10 MiB
-                MpvLib.mpv_set_property_string(it, "demuxer-max-back-bytes", "2097152") // 2 MiB
-
+                // Margen generoso: redes flojas / googlevideo a mitad de pista sin stall eterno.
+                MpvLib.mpv_set_property_string(it, "cache-secs", "45")
+                MpvLib.mpv_set_property_string(it, "demuxer-max-bytes", "52428800") // 50 MiB
+                MpvLib.mpv_set_property_string(it, "demuxer-max-back-bytes", "10485760") // 10 MiB
                 MpvLib.mpv_set_property_string(it, "cache-pause", "yes")
+                MpvLib.mpv_set_property_string(it, "cache-pause-initial", "yes")
+                MpvLib.mpv_set_property_string(it, "cache-pause-wait", "1.0")
 
                 startEventLoop(it)
             }
@@ -124,6 +139,7 @@ class MpvAudioPlayer {
      *  - éxito/fallo de la carga ([loadResult]) — reemplaza la detección basada en sondeo,
      *  - la señal de fin natural de la pista ([ended]) — reemplaza la heurística pos≈dur,
      *  - el estado real de reproducción ([_isPlaying]).
+     *  - fallos mid-stream ([streamFailed]) cuando ya hubo PLAYBACK_RESTART.
      */
     private fun startEventLoop(h: MemorySegment) {
         if (eventThread != null) return
@@ -142,6 +158,8 @@ class MpvAudioPlayer {
                     MpvLib.MPV_EVENT_PLAYBACK_RESTART -> {
                         // El nuevo archivo se está decodificando/reproduciendo (también se dispara
                         // después de búsquedas — inofensivo).
+                        playbackEverStarted = true
+                        _isBuffering.value = false
                         _isPlaying.value = true
                         loadResult.takeIf { !it.isCompleted }?.complete(true)
                     }
@@ -156,11 +174,18 @@ class MpvAudioPlayer {
                         }
                         when (reason) {
                             MpvLib.MPV_END_FILE_REASON_ERROR -> {
+                                val midStream = playbackEverStarted
                                 _isPlaying.value = false
+                                _isBuffering.value = false
                                 loadResult.takeIf { !it.isCompleted }?.complete(false)
+                                if (midStream) {
+                                    log.warning("mpv END_FILE error mid-stream")
+                                    _streamFailed.tryEmit(Unit)
+                                }
                             }
                             MpvLib.MPV_END_FILE_REASON_EOF -> {
                                 _isPlaying.value = false
+                                _isBuffering.value = false
                                 loadResult.takeIf { !it.isCompleted }?.complete(true)
                                 _ended.tryEmit(Unit)
                             }
@@ -187,10 +212,12 @@ class MpvAudioPlayer {
             // END_FILE/ERROR => false).
             loadResult.takeIf { !it.isCompleted }?.complete(false)
             loadResult = CompletableDeferred()
+            playbackEverStarted = false
             // Hasta que el nuevo archivo realmente inicie, reportar que no se reproduce para que la
             // UI se mantenga en LOADING en lugar de cambiar a PLAYING con el estado residual de la
             // pista anterior.
             _isPlaying.value = false
+            _isBuffering.value = false
             openUriJob = scope.launch {
                 withContext(Dispatchers.IO) {
                     MpvLib.mpv_set_property_string(h, "user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:140.0) Gecko/20100101 Firefox/140.0")
@@ -218,7 +245,10 @@ class MpvAudioPlayer {
     fun play() {
         handle?.let {
             MpvLib.mpv_set_property_string(it, "pause", "no")
-            _isPlaying.value = true
+            // El ticker / paused-for-cache afinarán PLAYING vs BUFFERING.
+            if (!_isBuffering.value) {
+                _isPlaying.value = true
+            }
         }
     }
 
@@ -226,6 +256,7 @@ class MpvAudioPlayer {
         handle?.let {
             MpvLib.mpv_set_property_string(it, "pause", "yes")
             _isPlaying.value = false
+            _isBuffering.value = false
         }
     }
 
@@ -233,6 +264,8 @@ class MpvAudioPlayer {
         handle?.let {
             MpvLib.mpv_command(it, arrayOf("stop", null))
             _isPlaying.value = false
+            _isBuffering.value = false
+            playbackEverStarted = false
         }
     }
 
@@ -241,6 +274,51 @@ class MpvAudioPlayer {
             val position = (percent * 100).coerceIn(0f, 100f)
             MpvLib.mpv_command(it, arrayOf("seek", "$position", "absolute-percent", null))
         }
+    }
+
+    /** Seek absoluto en milisegundos (recovery mid-track). */
+    fun seekToMs(millis: Long) {
+        handle?.let {
+            val seconds = (millis.coerceAtLeast(0L) / 1000.0)
+            MpvLib.mpv_command(it, arrayOf("seek", "$seconds", "absolute", null))
+            MpvLib.mpv_set_property_string(it, "pause", "no")
+        }
+    }
+
+    /**
+     * Lee flags de caché/idle de mpv. Llamar desde el ticker del [PlayerService].
+     * @return true si el núcleo está en underrun de buffer (debería mapearse a BUFFERING).
+     *
+     * [userWantsPlay] solo es true cuando el usuario no pausó manualmente; así
+     * `pause`+`core-idle` se interpreta como stall/cache y no como PAUSED.
+     */
+    fun refreshBufferingState(userWantsPlay: Boolean): Boolean {
+        if (handle == null || !userWantsPlay) {
+            if (_isBuffering.value) _isBuffering.value = false
+            return false
+        }
+        if (mpvFlagTrue("eof-reached")) {
+            _isBuffering.value = false
+            return false
+        }
+        val pausedForCache = mpvFlagTrue("paused-for-cache")
+        val coreIdle = mpvFlagTrue("core-idle")
+        val pause = mpvFlagTrue("pause")
+        // Preferir paused-for-cache; si no, idle+pause con intención de play ≈ stall AO/red.
+        val isBuf = pausedForCache ||
+            (playbackEverStarted && coreIdle && pause)
+        _isBuffering.value = isBuf
+        if (isBuf) {
+            _isPlaying.value = false
+        } else if (!pause && playbackEverStarted) {
+            _isPlaying.value = true
+        }
+        return isBuf
+    }
+
+    private fun mpvFlagTrue(name: String): Boolean {
+        val v = getMpvPropertyString(name) ?: return false
+        return v == "yes" || v == "true" || v == "1"
     }
 
     var volume: Float

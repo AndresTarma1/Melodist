@@ -137,7 +137,8 @@ fun MiniPlayer(
 
     val isError = state.playbackState == PlaybackState.ERROR
     val isPlaying = state.playbackState == PlaybackState.PLAYING
-    val isLoading = state.playbackState == PlaybackState.LOADING
+    val isLoading = state.playbackState == PlaybackState.LOADING ||
+        state.playbackState == PlaybackState.BUFFERING
 
     val ratio = remember(song.thumbnailUrl) {
         if (isWideThumbnail(song.thumbnailUrl)) 16f / 9f else 1f

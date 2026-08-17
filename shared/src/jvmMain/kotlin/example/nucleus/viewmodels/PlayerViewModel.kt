@@ -249,8 +249,8 @@ class PlayerViewModel(
                 _uiState.update { it.copy(playbackState = state) }
 
                 mediaSession.setPlaybackStatus(
-                    isPlaying = state == PlaybackState.PLAYING,
-                    isPaused = state == PlaybackState.PAUSED
+                    isPlaying = state == PlaybackState.PLAYING || state == PlaybackState.BUFFERING,
+                    isPaused = state == PlaybackState.PAUSED,
                 )
 
                 when (state) {
@@ -259,6 +259,16 @@ class PlayerViewModel(
                     PlaybackState.ERROR -> log.warning("Error de reproducción; el usuario puede reintentar manualmente")
                     else -> Unit
                 }
+            }
+        }
+
+        // Anti-stall: re-resolve + seek si la posición se congela o el stream muere a mitad.
+        viewModelScope.launch {
+            playerService.recoveryRequests.collect { resumeMs ->
+                val song = _uiState.value.currentSong ?: return@collect
+                Napier.w("Playback recovery requested for ${song.id} @${resumeMs}ms")
+                _playbackMessages.tryEmit("Reconectando…")
+                resolveAndPlay(song, resumePositionMs = resumeMs)
             }
         }
 
@@ -1008,24 +1018,38 @@ class PlayerViewModel(
      * Reproduce la canción dada, resolviendo su fuente de audio mediante múltiples estrategias
      * de respaldo.
      *
-     * Primero busca un archivo en caché. Si no está disponible, resuelve una URL de stream y
-     * confirma que la reproducción haya iniciado. Si la reproducción no logra iniciarse, recurre
-     * a resolver mediante yt-dlp. Usa seguimiento de ID de solicitud para ignorar resultados de
-     * intentos de reproducción obsoletos. Al tener éxito, almacena los metadatos de la canción
-     * en caché y registra el evento de reproducción. Actualiza el estado de la interfaz con
-     * información de carga y errores según sea necesario.
+     * @param resumePositionMs si > 0, reanuda cerca de esa posición tras re-resolver (stall mid-track).
      */
-    private fun resolveAndPlay(song: MediaMetadata) {
+    private fun resolveAndPlay(song: MediaMetadata, resumePositionMs: Long = 0L) {
         resolveJob?.cancel()
         reconnectWatchJob?.cancel()
         playRequestId += 1
         val requestId = playRequestId
+        val resumeMs = resumePositionMs.coerceAtLeast(0L)
+        val isResume = resumeMs > 500L
 
-        _progressState.update { it.copy(positionMs = 0, durationMs = song.duration.toLong() * 1000) }
+        if (!isResume) {
+            _progressState.update { it.copy(positionMs = 0, durationMs = song.duration.toLong() * 1000) }
+        } else {
+            _progressState.update {
+                it.copy(
+                    positionMs = resumeMs,
+                    durationMs = it.durationMs.takeIf { d -> d > 0 }
+                        ?: song.duration.toLong() * 1000,
+                )
+            }
+        }
 
         resolveJob = viewModelScope.launch {
-            _uiState.update { it.copy(playbackState = PlaybackState.LOADING, error = null) }
-            _progressState.update { it.copy(positionMs = 0, durationMs = song.duration.toLong() * 1000) }
+            _uiState.update {
+                it.copy(
+                    playbackState = if (isResume) PlaybackState.BUFFERING else PlaybackState.LOADING,
+                    error = null,
+                )
+            }
+            if (!isResume) {
+                _progressState.update { it.copy(positionMs = 0, durationMs = song.duration.toLong() * 1000) }
+            }
             playerService.stopAudioOnly()
 
             try {
@@ -1043,26 +1067,26 @@ class PlayerViewModel(
                     return@launch
                 }
 
+                fun startUrl(url: String) {
+                    if (isResume) playerService.playFrom(url, resumeMs) else playerService.play(url)
+                }
+
                 // videostatsPlaybackUrl de la pista resuelta — se guarda para registrar la
                 // reproducción en la cuenta después (historial/recomendaciones) cuando se
                 // supere el umbral de escucha (ver collector en init). El cache permite
                 // reportar también las canciones reproducidas desde caché/offline.
                 val played: Boolean = when {
                     cachedFile != null -> {
-                        playerService.play(cachedFile.absolutePath)
+                        startUrl(cachedFile.absolutePath)
                         true
                     }
                     YtDlpResolver.needsYtDlp(song.id) -> {
                         // Video conocido como problemático (todos los clientes en-proceso dan 403 en
                         // esta sesión): saltar directamente a yt-dlp en lugar de repetir el ciclo lento
                         // de resolución + fallo de mpv.
-                        playViaYtDlp(song, requestId)
+                        playViaYtDlp(song, requestId, resumeMs)
                     }
                     else -> {
-                        // La resolución en-proceso puede LANZAR excepciones para videos con restricción
-                        // de edad/login (cada cliente sin poToken retorna LOGIN_REQUIRED). No saltar a
-                        // la siguiente pista — yt-dlp (con la cookie de la cuenta) puede reproducirlos,
-                        // así que tratar una resolución lanzada/vacía como "intentar yt-dlp".
                         val playbackData = try {
                             withContext(Dispatchers.IO) {
                                 streamResolver.resolveAudioStream(song.id)
@@ -1080,7 +1104,7 @@ class PlayerViewModel(
                         if (requestId != playRequestId) return@launch
 
                         if (!streamUrl.isNullOrEmpty()) {
-                            playerService.play(streamUrl)
+                            startUrl(streamUrl)
                             // El stream resuelto puede pasar la validación HTTP pero dar 403 en mpv
                             // (por ejemplo, URLs IOS con restricción spc). Si la reproducción no
                             // inicia realmente, recurrir a yt-dlp, que maneja los videos difíciles
@@ -1091,13 +1115,12 @@ class PlayerViewModel(
                             } else {
                                 YtDlpResolver.markNeedsYtDlp(song.id)
                                 Napier.w("Stream did not start for ${song.id}; trying yt-dlp fallback")
-                                playViaYtDlp(song, requestId)
+                                playViaYtDlp(song, requestId, resumeMs)
                             }
                         } else {
-                            // La resolución lanzó o no retornó nada (login/restricción de edad): último recurso es yt-dlp.
                             YtDlpResolver.markNeedsYtDlp(song.id)
                             Napier.w("No in-process stream for ${song.id}; trying yt-dlp fallback")
-                            playViaYtDlp(song, requestId)
+                            playViaYtDlp(song, requestId, resumeMs)
                         }
                     }
                 }
@@ -1108,12 +1131,10 @@ class PlayerViewModel(
                     return@launch
                 }
 
-                // Guardar canción en caché (el playTime real lo registra recordPlaybackStats)
                 withContext(Dispatchers.IO) {
                     cacheSongMetadata(song)
                 }
 
-                // Pre-calentar el caché del stream de la siguiente pista para que saltar a ella sea casi instantáneo.
                 prefetchNext()
             } catch (e: CancellationException) {
                 throw e
@@ -1251,13 +1272,26 @@ class PlayerViewModel(
      * mientras tanto. Retorna verdadero si la reproducción se inició, falso si la URL no pudo
      * resolverse (el llamador maneja el fallo/salto).
      */
-    private suspend fun playViaYtDlp(song: MediaMetadata, requestId: Long): Boolean {
-        _uiState.update { it.copy(playbackState = PlaybackState.LOADING, error = null) }
+    private suspend fun playViaYtDlp(
+        song: MediaMetadata,
+        requestId: Long,
+        resumePositionMs: Long = 0L,
+    ): Boolean {
+        _uiState.update {
+            it.copy(
+                playbackState = if (resumePositionMs > 500L) PlaybackState.BUFFERING else PlaybackState.LOADING,
+                error = null,
+            )
+        }
         val ytUrl = withContext(Dispatchers.IO) {
             YtDlpResolver.resolveAudioUrl(song.id, streamResolver.currentAudioQuality())
         }
         return requestId != playRequestId || if (ytUrl != null) {
-            playerService.play(ytUrl)
+            if (resumePositionMs > 500L) {
+                playerService.playFrom(ytUrl, resumePositionMs)
+            } else {
+                playerService.play(ytUrl)
+            }
             true
         } else {
             false

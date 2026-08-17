@@ -2,17 +2,18 @@ package example.nucleus.player
 
 import example.nucleus.data.repository.UserPreferencesRepository
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.logging.Logger
 import kotlin.time.Duration.Companion.milliseconds
 
-class PlayerService
-    (
-    private val userPreferences: UserPreferencesRepository
-            ){
-
+class PlayerService(
+    private val userPreferences: UserPreferencesRepository,
+) {
     private val log = Logger.getLogger("PlayerService")
     private val mpvPlayer = MpvAudioPlayer()
     private val isMpvDisabled = false
@@ -29,12 +30,18 @@ class PlayerService
     private val _volume = MutableStateFlow(100)
     val volume: StateFlow<Int> = _volume.asStateFlow()
 
+    /**
+     * Emite la posición (ms) en la que se detectó un stall / stream muerto para que el
+     * ViewModel re-resuelva la URL y haga seek de vuelta.
+     */
+    private val _recoveryRequests = MutableSharedFlow<Long>(extraBufferCapacity = 1)
+    val recoveryRequests: SharedFlow<Long> = _recoveryRequests.asSharedFlow()
+
     private var _previousVolume = 100
 
     private var initAttempted = false
 
-    /** ¿Hay un medio cargado en mpv? Falso tras arrancar o tras [stop] — un toggle de play en
-     *  ese estado no haría nada, hay que resolver y reproducir la pista primero. */
+    /** ¿Hay un medio cargado en mpv? Falso tras arrancar o tras [stop]. */
     @Volatile
     private var hasMedia = false
 
@@ -49,7 +56,21 @@ class PlayerService
     @Volatile
     private var endNotified = false
 
-    private var prevPlayingPos = 0L
+    /** El usuario quiere audio (play/resume/load); false solo tras pause/stop manual. */
+    @Volatile
+    private var userWantsPlay = false
+
+    private var lastPolledPos = -1L
+    private var frozenTicks = 0
+    private var lastRecoveryAtMs = 0L
+
+    private companion object {
+        const val TICK_MS = 400L
+        /** ~3.2 s de posición congelada con intención de play → recovery. */
+        const val STALL_TICKS = 8
+        const val RECOVERY_COOLDOWN_MS = 12_000L
+        const val MIN_POS_FOR_STALL_MS = 1_500L
+    }
 
     fun init() {
         if (initAttempted) return
@@ -63,21 +84,29 @@ class PlayerService
 
         loadSavedVolume()
 
-        // Fin natural de la pista, reportado por el evento END_FILE(EOF) de mpv (autoritativo).
         scope.launch {
             mpvPlayer.ended.collect {
                 if (!endNotified) {
                     endNotified = true
+                    userWantsPlay = false
+                    frozenTicks = 0
                     _playbackState.value = PlaybackState.ENDED
                 }
+            }
+        }
+
+        scope.launch {
+            mpvPlayer.streamFailed.collect {
+                if (!hasMedia || isTransitioning) return@collect
+                val pos = _position.value.coerceAtLeast(0L)
+                log.warning("streamFailed mid-track @${pos}ms — requesting recovery")
+                requestRecovery(pos)
             }
         }
     }
 
     /**
-     * Hidrata el volumen guardado en la UI SIN inicializar mpv. mpv (y su DLL + ~10 MiB de cache)
-     * se crea recién en el primer `play()` (que llama a [init]); al arrancar solo queremos que la
-     * barra de volumen muestre el valor persistido.
+     * Hidrata el volumen guardado en la UI SIN inicializar mpv.
      */
     fun primeVolume() {
         loadSavedVolume()
@@ -97,9 +126,6 @@ class PlayerService
 
     /**
      * Carga e inicia la reproducción de la URL de audio especificada.
-     *
-     * Reinicia la posición y duración de reproducción. Si la carga falla, el estado de
-     * reproducción se establece en ERROR y el error se registra en el log.
      */
     fun play(url: String) {
         init()
@@ -113,13 +139,12 @@ class PlayerService
             _playbackState.value = PlaybackState.LOADING
             isTransitioning = false
             endNotified = false
-            prevPlayingPos = 0L
+            userWantsPlay = true
+            frozenTicks = 0
+            lastPolledPos = -1L
             _position.value = 0L
             _duration.value = 0L
             hasMedia = true
-            // openUri es no bloqueante (lanza su propio job de IO) y prepara el resultado de
-            // carga sincrónicamente, por lo que un awaitPlaybackStarted() posterior observa ESTA
-            // carga, no un resultado obsoleto de la pista anterior.
             mpvPlayer.openUri(url)
         } catch (e: Exception) {
             _playbackState.value = PlaybackState.ERROR
@@ -128,20 +153,31 @@ class PlayerService
     }
 
     /**
-     * Espera a que la reproducción inicie dentro de un tiempo de espera especificado.
-     *
-     * @return `true` si la reproducción inició dentro del tiempo de espera, `false` en caso contrario.
+     * Reanuda un stream re-resuelto en [seekMs] (anti-stall mid-track).
      */
+    fun playFrom(url: String, seekMs: Long) {
+        play(url)
+        if (seekMs > 500L) {
+            scope.launch {
+                val started = awaitPlaybackStarted(timeoutMs = 12_000)
+                if (started && hasMedia && userWantsPlay) {
+                    delay(80)
+                    mpvPlayer.seekToMs(seekMs)
+                    _position.value = seekMs
+                }
+            }
+        }
+    }
+
     suspend fun awaitPlaybackStarted(timeoutMs: Long = 6000): Boolean {
         return !isMpvDisabled && mpvPlayer.awaitPlaybackStarted(timeoutMs)
     }
 
-    /**
-     * Pausa la reproducción y actualiza el estado a `PAUSED`.
-     */
     fun pause() {
         isTransitioning = false
         endNotified = false
+        userWantsPlay = false
+        frozenTicks = 0
         _playbackState.value = PlaybackState.PAUSED
         if (isMpvDisabled) return
         mpvPlayer.pause()
@@ -150,19 +186,26 @@ class PlayerService
     fun resume() {
         isTransitioning = false
         endNotified = false
+        userWantsPlay = true
+        frozenTicks = 0
         _playbackState.value = PlaybackState.PLAYING
         if (isMpvDisabled) return
         mpvPlayer.play()
     }
 
     fun togglePlayPause() {
-        if (_playbackState.value == PlaybackState.PLAYING) pause() else resume()
+        when (_playbackState.value) {
+            PlaybackState.PLAYING, PlaybackState.BUFFERING, PlaybackState.LOADING -> pause()
+            else -> resume()
+        }
     }
 
     fun stop() {
         isTransitioning = false
         endNotified = false
-        prevPlayingPos = 0L
+        userWantsPlay = false
+        frozenTicks = 0
+        lastPolledPos = -1L
         hasMedia = false
         _playbackState.value = PlaybackState.IDLE
         _position.value = 0L
@@ -179,8 +222,12 @@ class PlayerService
             if (millis < dur - endThresholdMs) {
                 endNotified = false
             }
-            prevPlayingPos = 0L
+            frozenTicks = 0
+            lastPolledPos = millis
             mpvPlayer.seekTo(millis.toFloat() / dur.toFloat())
+        } else if (millis >= 0) {
+            frozenTicks = 0
+            mpvPlayer.seekToMs(millis)
         }
     }
 
@@ -201,7 +248,6 @@ class PlayerService
 
     fun setEqualizer(bands: List<Float>) {
         if (isMpvDisabled) return
-        // Enviar valores a mpv
         mpvPlayer.setEqualizer(bands)
     }
 
@@ -229,34 +275,89 @@ class PlayerService
         scope.cancel()
     }
 
+    private fun requestRecovery(atMs: Long) {
+        val now = System.currentTimeMillis()
+        if (now - lastRecoveryAtMs < RECOVERY_COOLDOWN_MS) return
+        lastRecoveryAtMs = now
+        frozenTicks = 0
+        if (_playbackState.value != PlaybackState.LOADING) {
+            _playbackState.value = PlaybackState.BUFFERING
+        }
+        _recoveryRequests.tryEmit(atMs.coerceAtLeast(0L))
+    }
+
     private fun startPositionTicker() {
         if (isMpvDisabled) return
         tickJob = scope.launch {
             while (isActive) {
                 try {
-                    val shouldPoll = _playbackState.value == PlaybackState.PLAYING ||
-                            _playbackState.value == PlaybackState.LOADING
+                    val state = _playbackState.value
+                    val shouldPoll = state == PlaybackState.PLAYING ||
+                        state == PlaybackState.LOADING ||
+                        state == PlaybackState.BUFFERING ||
+                        (userWantsPlay && hasMedia && state != PlaybackState.ENDED)
 
                     if (shouldPoll) {
-                        // Solo progreso (el fin de la pista ahora viene del evento END_FILE de mpv,
-                        // no de una heurística pos≈dur). 250ms mantiene la barra de búsqueda suave.
                         _duration.value = mpvPlayer.getDuration()
-                        _position.value = mpvPlayer.getCurrentPosition()
+                        val pos = mpvPlayer.getCurrentPosition()
+                        _position.value = pos
 
-                        if (!isTransitioning) {
+                        if (!isTransitioning && hasMedia) {
+                            val buffering = mpvPlayer.refreshBufferingState(userWantsPlay)
                             val playing = mpvPlayer.isPlaying.value
-                            if (playing && _playbackState.value != PlaybackState.PLAYING) {
-                                endNotified = false
-                                _playbackState.value = PlaybackState.PLAYING
-                            } else if (!playing && _playbackState.value == PlaybackState.PLAYING) {
-                                _playbackState.value = PlaybackState.PAUSED
+
+                            when {
+                                !userWantsPlay -> {
+                                    // pause/stop manual ya fijaron PAUSED/IDLE
+                                }
+                                buffering -> {
+                                    endNotified = false
+                                    if (_playbackState.value != PlaybackState.LOADING) {
+                                        _playbackState.value = PlaybackState.BUFFERING
+                                    }
+                                }
+                                playing -> {
+                                    endNotified = false
+                                    if (_playbackState.value != PlaybackState.PLAYING) {
+                                        _playbackState.value = PlaybackState.PLAYING
+                                    }
+                                }
+                                _playbackState.value == PlaybackState.PLAYING ||
+                                    _playbackState.value == PlaybackState.BUFFERING -> {
+                                    // Sin playing ni buffer claro: no flip a PAUSED si el usuario
+                                    // quiere play (evita el “pause fantasma” del stall).
+                                    if (_playbackState.value != PlaybackState.BUFFERING) {
+                                        _playbackState.value = PlaybackState.BUFFERING
+                                    }
+                                }
+                            }
+
+                            // Watchdog: posición congelada con intención de reproducir.
+                            if (userWantsPlay &&
+                                pos >= MIN_POS_FOR_STALL_MS &&
+                                state != PlaybackState.LOADING &&
+                                state != PlaybackState.ENDED
+                            ) {
+                                if (lastPolledPos >= 0 && kotlin.math.abs(pos - lastPolledPos) < 200L) {
+                                    frozenTicks++
+                                    if (frozenTicks >= STALL_TICKS) {
+                                        log.warning("position stall @${pos}ms (${frozenTicks} ticks) — recovery")
+                                        requestRecovery(pos)
+                                    }
+                                } else {
+                                    frozenTicks = 0
+                                }
+                                lastPolledPos = pos
+                            } else if (!userWantsPlay) {
+                                frozenTicks = 0
+                                lastPolledPos = pos
                             }
                         }
                     }
-                } catch (e: Throwable) {
-                    // Captura silenciosa para el ticker en segundo plano
+                } catch (_: Throwable) {
+                    // ticker en segundo plano
                 }
-                delay(1000.milliseconds)
+                delay(TICK_MS.milliseconds)
             }
         }
     }
@@ -264,14 +365,16 @@ class PlayerService
     fun stopAudioOnly() {
         isTransitioning = true
         endNotified = false
-        prevPlayingPos = 0L
+        userWantsPlay = true // vamos a cargar otra URL enseguida
+        frozenTicks = 0
+        lastPolledPos = -1L
         _position.value = 0L
         _duration.value = 0L
         if (isMpvDisabled) return
         scope.launch {
             try {
                 mpvPlayer.pause()
-            } catch (e: Throwable) { /* ignorar */ }
+            } catch (_: Throwable) { /* ignorar */ }
         }
     }
 }

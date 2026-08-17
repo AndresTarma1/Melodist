@@ -338,6 +338,8 @@
     <string name="mp_collapse">Cerrar reproducción</string>
     <string name="mp_expand">Abrir reproducción</string>
     <string name="mp_error">Error</string>
+    <string name="mp_buffering">Cargando…</string>
+    <string name="mp_reconnecting">Reconectando…</string>
 
     <!-- Now Playing / Lyrics -->
     <string name="lyrics_header_title">Letras</string>
