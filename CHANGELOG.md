@@ -1,6 +1,6 @@
 # Changelog
 
-Todas las versiones de PaltaSound. Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
+Todas las versiones de PaltaSound. Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ## [0.8.1] - 2026-08-20
 
