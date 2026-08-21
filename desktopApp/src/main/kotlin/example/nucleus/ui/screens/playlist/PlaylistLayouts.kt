@@ -4,13 +4,12 @@ import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.FavoriteBorder
@@ -25,7 +24,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -34,12 +32,26 @@ import example.nucleus.ui.components.LoadingMoreSongsItem
 import example.nucleus.ui.components.images.MusicPlayerImage
 import example.nucleus.ui.components.images.PlaceholderType
 import example.nucleus.ui.components.dialogs.DownloadConfirmationDialog
+import example.nucleus.ui.components.layout.AppScrollbarGutter
 import example.nucleus.ui.components.layout.AppVerticalScrollbar
+import example.nucleus.ui.components.layout.appScrollContentPadding
 import example.nucleus.ui.screens.PlaylistActions
 import example.nucleus.ui.screens.PlaylistScreenState
+import example.nucleus.ui.screens.shared.CollectionCompactCoverSize
+import example.nucleus.ui.screens.shared.CollectionHeroActionRow
+import example.nucleus.ui.screens.shared.CollectionHeroIconButton
+import example.nucleus.ui.screens.shared.CollectionStickyHeaderBar
+import example.nucleus.ui.screens.shared.CollectionWideCoverSize
+import example.nucleus.ui.screens.shared.CollectionWideGap
+import example.nucleus.ui.screens.shared.CollectionWideHeroWidth
+import example.nucleus.ui.screens.shared.CollectionWidePaddingBottom
+import example.nucleus.ui.screens.shared.CollectionWidePaddingStart
+import example.nucleus.ui.screens.shared.CollectionWidePaddingTop
 import example.nucleus.ui.utils.circleAwareShape
+import example.nucleus.ui.themes.AppShapes
 import example.nucleus.ui.themes.LocalMiniPlayerInset
-import example.nucleus.utils.LocalAnimationsEnabled
+import example.nucleus.ui.themes.collectionTitle
+import example.nucleus.ui.themes.ctaLabel
 import example.nucleus.utils.LocalDownloadViewModel
 import com.metrolist.innertube.models.SongItem
 import com.metrolist.innertube.pages.PlaylistPage
@@ -144,41 +156,57 @@ internal fun PlaylistWideLayout(
     onClearSelection: () -> Unit,
     onSongPlay: (Int) -> Unit,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(start = 48.dp, end = 48.dp, top = 32.dp, bottom = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(40.dp)
-    ) {
-        Column(
+    val listState = rememberLazyListState()
+
+    // Scrollbar anclado al borde derecho de la pantalla (no al final de la columna de la lista).
+    Box(Modifier.fillMaxSize()) {
+        Row(
             modifier = Modifier
-                .width(280.dp)
-                .fillMaxHeight()
-                .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally,
+                .fillMaxSize()
+                .padding(
+                    start = CollectionWidePaddingStart,
+                    end = AppScrollbarGutter,
+                    top = CollectionWidePaddingTop,
+                    bottom = CollectionWidePaddingBottom,
+                ),
+            horizontalArrangement = Arrangement.spacedBy(CollectionWideGap),
         ) {
-            PlaylistInfoPanel(
-                playlistPage = playlistPage,
-                coverSize = 240.dp,
-                controls = controls,
+            Column(
+                modifier = Modifier
+                    .width(CollectionWideHeroWidth)
+                    .fillMaxHeight()
+                    .verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                PlaylistInfoPanel(
+                    playlistPage = playlistPage,
+                    coverSize = CollectionWideCoverSize,
+                    controls = controls,
+                    actions = actions,
+                    isDownloadingAny = isAnyDownloading,
+                    isFullyDownloaded = isFullyDownloaded,
+                    onDownloadClick = onDownloadClick,
+                )
+            }
+
+            PlaylistSongList(
+                modifier = Modifier.weight(1f),
+                listState = listState,
+                state = state,
+                selectedSongIds = selectedSongIds,
+                selectedSongs = selectedSongs,
                 actions = actions,
-                isDownloadingAny = isAnyDownloading,
-                isFullyDownloaded = isFullyDownloaded,
-                onDownloadClick = onDownloadClick
+                onSelectionChange = onSelectionChange,
+                onClearSelection = onClearSelection,
+                onSongPlay = onSongPlay,
             )
         }
 
-        // Lista de canciones
-        PlaylistSongList(
-            modifier = Modifier.weight(1f),
-            state = state,
-            playlistPage = playlistPage,
-            selectedSongIds = selectedSongIds,
-            selectedSongs = selectedSongs,
-            actions = actions,
-            onSelectionChange = onSelectionChange,
-            onClearSelection = onClearSelection,
-            onSongPlay = onSongPlay
+        AppVerticalScrollbar(
+            state = listState,
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .fillMaxHeight(),
         )
     }
 }
@@ -198,8 +226,7 @@ internal fun PlaylistCompactLayout(
     onClearSelection: () -> Unit,
     onSongPlay: (Int) -> Unit,
 ) {
-    Box {
-
+    Box(Modifier.fillMaxSize()) {
         val lazyColumnState = rememberLazyListState()
 
         val showStickHeader by remember {
@@ -207,66 +234,46 @@ internal fun PlaylistCompactLayout(
         }
 
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize(),
+            modifier = Modifier.fillMaxSize(),
             state = lazyColumnState,
-
-            ) {
-
+            contentPadding = appScrollContentPadding(
+                bottom = maxOf(
+                    if (selectedSongIds.isNotEmpty()) 72.dp else 0.dp,
+                    LocalMiniPlayerInset.current,
+                ),
+            ),
+        ) {
             if (showStickHeader) {
                 stickyHeader {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.surface)
-                            .padding(start = 56.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = playlistPage.playlist.title,
-                            style = MaterialTheme.typography.titleMedium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f)
-                        )
-
-                        IconButton(
-                            onClick = onDownloadClick,
-                            enabled = !isAnyDownloading() || isFullyDownloaded()
-                        ) {
-                            Icon(
-                                imageVector = if (isFullyDownloaded()) Icons.Default.Delete else Icons.Default.Download,
-                                contentDescription = if (isFullyDownloaded()) stringResource(Res.string.cd_delete_downloads) else stringResource(Res.string.cd_download_playlist)
-                            )
-                        }
-
-                        IconButton(onClick = actions.onPlay) {
-                            Icon(imageVector = Icons.Default.PlayArrow, contentDescription = stringResource(Res.string.cd_play))
-                        }
-                    }
+                    CollectionStickyHeaderBar(
+                        title = playlistPage.playlist.title,
+                        isDownloading = isAnyDownloading(),
+                        isFullyDownloaded = isFullyDownloaded(),
+                        onDownloadClick = onDownloadClick,
+                        onPlayClick = actions.onPlay,
+                        playContentDescription = stringResource(Res.string.cd_play),
+                    )
                 }
             }
 
-                // Info panel sin scroll propio: se desplaza con la Column
-                item {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Spacer(Modifier.height(16.dp))
-                        PlaylistInfoPanel(
-                            playlistPage = playlistPage,
-                            coverSize = 190.dp,
-                            controls = controls,
-                            actions = actions,
-                            isDownloadingAny = isAnyDownloading,
-                            isFullyDownloaded = isFullyDownloaded,
-                            onDownloadClick = onDownloadClick
-                        )
-                        Spacer(Modifier.height(12.dp))
-                    }
-
+            // Info panel sin scroll propio: se desplaza con la Column
+            item {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Spacer(Modifier.height(16.dp))
+                    PlaylistInfoPanel(
+                        playlistPage = playlistPage,
+                        coverSize = CollectionCompactCoverSize,
+                        controls = controls,
+                        actions = actions,
+                        isDownloadingAny = isAnyDownloading,
+                        isFullyDownloaded = isFullyDownloaded,
+                        onDownloadClick = onDownloadClick,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                }
             }
 
             itemsIndexed(
@@ -303,8 +310,10 @@ internal fun PlaylistCompactLayout(
         }
 
         AppVerticalScrollbar(
-            modifier = Modifier.align(Alignment.CenterEnd),
-            state = lazyColumnState
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .fillMaxHeight(),
+            state = lazyColumnState,
         )
 
         MultiSongSelectionBar(
@@ -322,8 +331,8 @@ internal fun PlaylistCompactLayout(
 @Composable
 private fun PlaylistSongList(
     modifier: Modifier,
+    listState: LazyListState,
     state: PlaylistScreenState,
-    playlistPage: PlaylistPage,
     selectedSongIds: Set<String>,
     selectedSongs: List<SongItem>,
     actions: PlaylistActions,
@@ -331,24 +340,20 @@ private fun PlaylistSongList(
     onClearSelection: () -> Unit,
     onSongPlay: (Int) -> Unit,
 ) {
-    Box(modifier = modifier) {
-        val lazyListState = rememberLazyListState()
-
+    Box(modifier = modifier.fillMaxSize()) {
         LazyColumn(
-            state = lazyListState,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(end = 16.dp),
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(
                 bottom = maxOf(
                     if (selectedSongIds.isNotEmpty()) 72.dp else 0.dp,
-                    LocalMiniPlayerInset.current
-                )
-            )
+                    LocalMiniPlayerInset.current,
+                ),
+            ),
         ) {
             itemsIndexed(
                 items = state.songs,
-                key = { index, song -> "${song.id}_$index" }
+                key = { index, song -> "${song.id}_$index" },
             ) { index, song ->
                 SongListItem(
                     song = song,
@@ -367,9 +372,9 @@ private fun PlaylistSongList(
                     modifier = Modifier.animateItem(
                         placementSpec = spring(
                             dampingRatio = Spring.DampingRatioNoBouncy,
-                            stiffness = Spring.StiffnessMediumLow
-                        )
-                    )
+                            stiffness = Spring.StiffnessMediumLow,
+                        ),
+                    ),
                 )
             }
 
@@ -378,14 +383,6 @@ private fun PlaylistSongList(
             }
         }
 
-        AppVerticalScrollbar(
-            state = lazyListState,
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .fillMaxHeight()
-                .width(12.dp)
-        )
-
         MultiSongSelectionBar(
             selectedSongs = selectedSongs,
             allSongIds = state.songs.map { it.id },
@@ -393,7 +390,7 @@ private fun PlaylistSongList(
             onClearSelection = onClearSelection,
             onSelectAll = { state.songs.forEach { onSelectionChange(it.id, true) } },
             onRemoveFromPlaylist = actions.onRemoveSongFromPlaylist,
-            modifier = Modifier.align(Alignment.BottomCenter)
+            modifier = Modifier.align(Alignment.BottomCenter),
         )
     }
 }
@@ -421,8 +418,7 @@ internal fun PlaylistInfoPanel(
             label = {
                 Text(
                     text = author.name,
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Medium
+                    style = MaterialTheme.typography.ctaLabel,
                 )
             },
             leadingIcon = {
@@ -444,17 +440,19 @@ internal fun PlaylistInfoPanel(
                     )
                 }
             },
+            shape = AppShapes.large,
             modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)
         )
         Spacer(Modifier.height(16.dp))
     }
 
-    // Cover
+    // Cover — M3E soft radius + tonal elevation
     Card(
         modifier = Modifier
             .size(coverSize)
-            .shadow(elevation = 20.dp, shape = RoundedCornerShape(16.dp), clip = false),
-        shape = RoundedCornerShape(16.dp),
+            .shadow(elevation = 16.dp, shape = AppShapes.xLarge, clip = false),
+        shape = AppShapes.xLarge,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
@@ -469,22 +467,19 @@ internal fun PlaylistInfoPanel(
         }
     }
 
-    Spacer(Modifier.height(20.dp))
+    Spacer(Modifier.height(22.dp))
 
-    // Título
     Text(
         text = playlistPage.playlist.title,
-        style = MaterialTheme.typography.headlineSmall,
-        fontWeight = FontWeight.Bold,
+        style = MaterialTheme.typography.collectionTitle,
         textAlign = TextAlign.Center,
         maxLines = 2,
         overflow = TextOverflow.Ellipsis,
         color = MaterialTheme.colorScheme.onSurface
     )
 
-    Spacer(Modifier.height(4.dp))
+    Spacer(Modifier.height(6.dp))
 
-    // Meta
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center
@@ -504,64 +499,19 @@ internal fun PlaylistInfoPanel(
         }
     }
 
-    Spacer(Modifier.height(24.dp))
+    Spacer(Modifier.height(28.dp))
 
-    // Botones de control
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        // Grupo Izquierdo
-        PlaylistActionButton(
-            onClick = { actions.onToggleSave() },
-            icon = if (controls.isSaved) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-            isActive = controls.isSaved,
-            isLoading = controls.isSaving
-        )
-
-        Spacer(Modifier.width(12.dp))
-
-        // Descargar
-        DownloadAllButton(
-            isDownloadingAny = isDownloadingAny,
-            isFullyDownloaded = isFullyDownloaded,
-            onClick = onDownloadClick
-        )
-
-        Spacer(Modifier.width(10.dp)) // Espacio mayor para el Play
-
-        FloatingActionButton(
-            onClick = { if (!controls.isLoadingForPlay) actions.onPlay() },
-            shape = circleAwareShape(),
-            containerColor = MaterialTheme.colorScheme.primary,
-            elevation = FloatingActionButtonDefaults.elevation(8.dp, 12.dp),
-            modifier = Modifier
-                .size(64.dp)
-        ) {
-            if (controls.isLoadingForPlay) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(22.dp),
-                    strokeWidth = 2.5.dp,
-                    color = MaterialTheme.colorScheme.onPrimary
-                )
-            } else {
-                Icon(Icons.Default.PlayArrow, null, modifier = Modifier.size(28.dp))
-            }
-        }
-
-        // Play — acción principal, más grande
-        Spacer(Modifier.width(10.dp))
-
-        // SHUFFLE
-        PlaylistActionButton(
-            onClick = { actions.onShuffle() },
-            icon = Icons.Default.Shuffle,
-            isActive = false,
-            isLoading = false
-        )
-
-    }
+    CollectionHeroActionRow(
+        isSaved = controls.isSaved,
+        isSaving = controls.isSaving,
+        onToggleSave = actions.onToggleSave,
+        isLoadingForPlay = controls.isLoadingForPlay,
+        onPlay = actions.onPlay,
+        onShuffle = actions.onShuffle,
+        isDownloading = isDownloadingAny(),
+        isFullyDownloaded = isFullyDownloaded(),
+        onDownloadClick = onDownloadClick,
+    )
 }
 
 @Composable
@@ -571,80 +521,28 @@ fun PlaylistActionButton(
     isActive: Boolean,
     isLoading: Boolean,
     activeColor: Color = MaterialTheme.colorScheme.primary,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
-    // Animación suave de color de fondo y contenido
-    val containerColor = if (isActive) activeColor.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceContainerHigh
-
-    val contentColor = if (isActive) activeColor else MaterialTheme.colorScheme.onSurfaceVariant
-
-    FilledTonalIconButton(
+    CollectionHeroIconButton(
         onClick = onClick,
-        modifier = modifier.size(48.dp), // Un poco más grandes para mejor touch target
-        colors = IconButtonDefaults.filledTonalIconButtonColors(
-            containerColor = containerColor,
-            contentColor = contentColor
-        ),
-        shape = circleAwareShape() // Compatible con OpenGL
-    ) {
-        val animationsEnabled = LocalAnimationsEnabled.current
-        Crossfade(
-            targetState = isLoading,
-            animationSpec = if (animationsEnabled) tween(200) else snap(),
-            label = "icon_state"
-        ) { loading ->
-            if (loading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(20.dp),
-                    strokeWidth = 2.dp,
-                    color = contentColor
-                )
-            } else {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    modifier = Modifier.size(22.dp)
-                )
-            }
-        }
-    }
+        icon = icon,
+        active = isActive,
+        isLoading = isLoading,
+        modifier = modifier,
+    )
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun DownloadAllButton(
     isDownloadingAny: () -> Boolean,
     isFullyDownloaded: () -> Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ) {
-    val downloading = isDownloadingAny()
-    val fullyDownloaded = isFullyDownloaded()
-
-    FilledTonalIconButton(
+    CollectionHeroIconButton(
         onClick = onClick,
-        modifier = Modifier
-            .size(44.dp)
-            .pointerHoverIcon(PointerIcon.Hand),
-        colors = IconButtonDefaults.filledTonalIconButtonColors(
-            containerColor = if (fullyDownloaded)
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-            else
-                MaterialTheme.colorScheme.surfaceContainerHigh
-        )
-    ) {
-        if (downloading) {
-            CircularWavyProgressIndicator(
-                modifier = Modifier.size(18.dp),
-                color = MaterialTheme.colorScheme.primary
-            )
-        } else {
-            Icon(
-                imageVector = if (fullyDownloaded) Icons.Default.DownloadDone else Icons.Default.Download,
-                contentDescription = null,
-                tint = if (fullyDownloaded) MaterialTheme.colorScheme.primary
-                else MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(20.dp)
-            )
-        }
-    }
+        icon = if (isFullyDownloaded()) Icons.Default.DownloadDone else Icons.Default.Download,
+        active = isFullyDownloaded(),
+        isLoading = isDownloadingAny(),
+        useWavyProgress = true,
+    )
 }

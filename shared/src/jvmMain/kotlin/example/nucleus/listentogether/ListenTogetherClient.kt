@@ -409,6 +409,35 @@ class ListenTogetherClient(
                 }
                 MessageTypes.SYNC_PLAYBACK -> {
                     val p = codec.decodePayload(type, payloadBytes) as? PlaybackActionPayload ?: return
+                    // Mantener el estado local de la sala al día para que el manager pueda
+                    // reconciliar al invitado si se desvía de la pista del host.
+                    _roomState.value = _roomState.value?.let { rs ->
+                        when (p.action) {
+                            PlaybackActions.PLAY -> rs.copy(
+                                isPlaying = true,
+                                position = p.position,
+                                lastUpdate = System.currentTimeMillis(),
+                            )
+                            PlaybackActions.PAUSE -> rs.copy(
+                                isPlaying = false,
+                                position = p.position,
+                                lastUpdate = System.currentTimeMillis(),
+                            )
+                            PlaybackActions.SEEK -> rs.copy(
+                                position = p.position,
+                                lastUpdate = System.currentTimeMillis(),
+                            )
+                            PlaybackActions.CHANGE_TRACK -> rs.copy(
+                                currentTrack = p.trackInfo,
+                                isPlaying = false,
+                                position = 0,
+                                queue = p.queue,
+                                lastUpdate = System.currentTimeMillis(),
+                            )
+                            PlaybackActions.SYNC_QUEUE -> rs.copy(queue = p.queue)
+                            else -> rs
+                        }
+                    }
                     emit(ListenTogetherEvent.PlaybackSync(p))
                 }
                 MessageTypes.BUFFER_WAIT -> {
@@ -421,6 +450,14 @@ class ListenTogetherClient(
                 }
                 MessageTypes.SYNC_STATE -> {
                     val p = codec.decodePayload(type, payloadBytes) as? SyncStatePayload ?: return
+                    _roomState.value = _roomState.value?.copy(
+                        currentTrack = p.currentTrack,
+                        isPlaying = p.isPlaying,
+                        position = p.position,
+                        lastUpdate = p.lastUpdate,
+                        queue = p.queue,
+                        volume = p.volume,
+                    )
                     emit(ListenTogetherEvent.SyncStateReceived(p))
                 }
                 MessageTypes.HOST_CHANGED -> {

@@ -5,7 +5,7 @@ plugins {
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.kotlin.serialization)
-    id("dev.nucleusframework") version "2.4.4"
+    id("dev.nucleusframework") version "2.4.7"
 
 }
 
@@ -18,7 +18,7 @@ kotlin {
 
 dependencies {
     implementation(project(":shared"))
-    val nucleusVersion = "2.4.4"
+    val nucleusVersion = "2.4.7"
 
 
 
@@ -159,13 +159,13 @@ nucleus.application {
         enableAotCache = !System.getProperty("os.name").lowercase().contains("linux")
         appName = "PaltaSound"
         packageName = "PaltaSound"
-        packageVersion = "0.8.0"
+        packageVersion = "0.8.1"
         vendor = "Tarma"
         homepage = "https://github.com/AndresTarma1/PaltaSound"
         // Nsis (no Exe): el updater selecciona el instalador .exe filtrando por el sufijo
         // "-nsis." del nombre del artefacto, y el plugin solo añade ese sufijo para el target
         // Nsis/NsisWeb/Portable. Ambos generan el mismo instalador electron-builder "nsis".
-        targetFormats(TargetFormat.Nsis, TargetFormat.Msi, TargetFormat.Deb, TargetFormat.Rpm)
+        targetFormats(TargetFormat.Nsis, TargetFormat.Deb, TargetFormat.Rpm)
 
         windows {
             upgradeUuid = "4A2F8B6C-1D3E-4F5A-B7C8-9D0E1F2A3B4C"

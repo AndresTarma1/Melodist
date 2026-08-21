@@ -140,7 +140,7 @@ class WindowsMediaSession {
 
     fun updateMetadata(title: String, artist: String, album: String, thumbnailUrl: String? = null, durationMs: Long? = null) {
         if (!configured || !MediaControlService.isAvailable()) return
-        // thumbnailUrl ya llega como URI (file:///... desde downloadThumbToTemp, o una URL remota).
+        // coverUrl: https remoto, file:// o ruta local (Nucleus 2.4.7+ Windows CreateFromFile).
         MediaControlService.setMetadata(
             MediaMetadata(
                 title = title,

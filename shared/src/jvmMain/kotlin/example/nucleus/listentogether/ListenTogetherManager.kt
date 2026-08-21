@@ -11,6 +11,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 /**
@@ -77,6 +78,7 @@ class ListenTogetherManager(
     fun rejectJoin(userId: String) = client.rejectJoin(userId)
     fun kickUser(userId: String) = client.kickUser(userId)
     fun transferHost(userId: String) = client.transferHost(userId)
+    fun requestSync() = client.requestSync()
 
     // ---- Observación del anfitrión ----
 
@@ -153,6 +155,23 @@ class ListenTogetherManager(
                     )
                 }
             }
+            // Latido del anfitrión: reenvía PLAY con la posición cada pocos segundos mientras
+            // reproduce. Es el ancla que permite a un invitado desviado volver a la pista del
+            // host (junto con la reconciliación por trackId), aunque no haya ningún cambio de estado.
+            launch {
+                while (isHost && isActive) {
+                    delay(4_000)
+                    val state = pvm.uiState.value
+                    val song = state.currentSong
+                    if (state.playbackState == PlaybackState.PLAYING && song != null) {
+                        client.sendPlaybackAction(
+                            action = PlaybackActions.PLAY,
+                            trackId = song.id,
+                            position = pvm.progressState.value.positionMs,
+                        )
+                    }
+                }
+            }
         }
     }
 
@@ -202,9 +221,9 @@ class ListenTogetherManager(
         val pvm = player ?: return
         when (action.action) {
             PlaybackActions.CHANGE_TRACK -> action.trackInfo?.let { loadTrack(it, action.queue, action.position, autoplay = true) }
-            PlaybackActions.PLAY -> applyPlay(action.position)
-            PlaybackActions.PAUSE -> applyPause(action.position)
-            PlaybackActions.SEEK -> applySeek(action.position)
+            PlaybackActions.PLAY -> applyPlay(action.trackId, action.position)
+            PlaybackActions.PAUSE -> applyPause(action.trackId, action.position)
+            PlaybackActions.SEEK -> applySeek(action.trackId, action.position)
             PlaybackActions.SKIP_NEXT -> withRemote { pvm.next() }
             PlaybackActions.SKIP_PREV -> withRemote { pvm.previous() }
             PlaybackActions.SYNC_QUEUE -> applyQueueSync(action.queue)
@@ -224,10 +243,18 @@ class ListenTogetherManager(
         Napier.i("$TAG Guest load ${currentTrack.title} @ $position (queue=${queue.size})")
         if (queue.isNotEmpty()) {
             val items = queue.map { it.toMediaMetadata() }
-            val index = items.indexOfFirst { it.id == currentTrack.id }.coerceAtLeast(0)
-            withRemote { pvm.playCustom(items, index) }
+            val index = items.indexOfFirst { it.id == currentTrack.id }
+            if (index >= 0) {
+                withRemote { pvm.playCustom(items, index) }
+            } else {
+                // La pista actual no está en la cola recibida (p. ej. host Metrolist manda
+                // solo las próximas). Usar Custom con la pista al frente para no disparar Single fetch.
+                Napier.w("$TAG Guest: current track not in received queue, playing custom single+queue")
+                val single = listOf(currentTrack.toMediaMetadata()) + items
+                withRemote { pvm.playCustom(single, 0) }
+            }
         } else {
-            withRemote { pvm.playSingle(currentTrack.toMediaMetadata()) }
+            withRemote { pvm.playCustom(listOf(currentTrack.toMediaMetadata()), 0) }
         }
         // El stream se resuelve de forma asíncrona; hacer seek (y pausar opcionalmente) una vez que esté reproduciendo.
         scope.launch {
@@ -239,37 +266,99 @@ class ListenTogetherManager(
         }
     }
 
-    /** Invitado: reconciliar ediciones de la cola sin reiniciar la reproducción (solo agregar para MVP). */
+    /** Invitado: sincronizar cola completa con el host sin reiniciar la reproducción.
+     *  Metrolist manda cola UPCOMING (sin la actual). Si current no esta en hostIds, anteponerla. */
     private fun applyQueueSync(queue: List<TrackInfo>) {
         if (isHost) return
         val pvm = player ?: return
         if (queue.isEmpty()) return
-        val current = pvm.uiState.value.queue.map { it.id }.toSet()
-        if (current.isEmpty()) return // aún no se cargó — CHANGE_TRACK lo llenará
-        val newTracks = queue.filter { it.id !in current }
-        if (newTracks.isEmpty()) return
-        Napier.i("$TAG Guest queue sync: appending ${newTracks.size} track(s)")
-        newTracks.forEach { t -> withRemote { pvm.addToQueue(t.toMediaMetadata()) } }
+        val state = pvm.uiState.value
+        val current = state.currentSong
+        val currentId = current?.id
+        val hostIds = queue.map { it.id }
+        val currentIds = state.queue.map { it.id }
+        if (currentIds == hostIds) return
+        if (currentIds.isEmpty()) return // aún no se cargó — CHANGE_TRACK lo llenará
+
+        val hostItems = queue.map { it.toMediaMetadata() }
+        // Host manda UPCOMING (sin current) -> anteponer current para no perderla y no adelantar 1
+        val fullItems: List<example.nucleus.models.MediaMetadata>
+        val newIndex: Int
+        if (current != null && currentId != null && currentId !in hostIds) {
+            fullItems = listOf(current) + hostItems
+            newIndex = 0
+        } else {
+            fullItems = hostItems
+            newIndex = hostIds.indexOf(currentId).let { if (it >= 0) it else state.currentIndex.coerceIn(0, hostIds.lastIndex) }
+        }
+
+        // Append puro (hostIds empieza con currentIds)
+        if (hostIds.size > currentIds.size && hostIds.subList(0, currentIds.size) == currentIds && fullItems.size == hostIds.size) {
+            val newTracks = queue.filter { it.id !in currentIds.toSet() }
+            Napier.i("$TAG Guest queue sync: appending ${newTracks.size} track(s)")
+            newTracks.forEach { t -> withRemote { pvm.addToQueue(t.toMediaMetadata()) } }
+            return
+        }
+
+        Napier.i("$TAG Guest queue sync: replacing queue ${currentIds.size} -> ${fullItems.size} (keep index $newIndex)")
+        withRemote { pvm.syncQueueFromHost(fullItems, newIndex) }
     }
 
-    private fun applyPlay(position: Long) {
+    private fun applyPlay(trackId: String?, position: Long) {
         val pvm = player ?: return
+        // Si el host dice "reproducir" pero localmente estamos en otra pista (p. ej. nos
+        // adelantamos por un fallo/fin de pista), volver a la pista del host antes de nada.
+        if (guestNeedsTrackReconcile(trackId, pvm.uiState.value.currentSong?.id)) {
+            reconcileGuestToHostTrack(trackId ?: return, wantPlaying = true, positionMs = position)
+            return
+        }
         val cur = pvm.progressState.value.positionMs
         if (kotlin.math.abs(cur - position) > POSITION_TOLERANCE_MS) withRemote { pvm.seekTo(position) }
         if (pvm.uiState.value.playbackState != PlaybackState.PLAYING) withRemote { pvm.togglePlayPause() }
     }
 
-    private fun applyPause(position: Long) {
+    private fun applyPause(trackId: String?, position: Long) {
         val pvm = player ?: return
+        if (guestNeedsTrackReconcile(trackId, pvm.uiState.value.currentSong?.id)) {
+            reconcileGuestToHostTrack(trackId ?: return, wantPlaying = false, positionMs = position)
+            return
+        }
         if (pvm.uiState.value.playbackState == PlaybackState.PLAYING) withRemote { pvm.togglePlayPause() }
         val cur = pvm.progressState.value.positionMs
         if (kotlin.math.abs(cur - position) > POSITION_TOLERANCE_MS) withRemote { pvm.seekTo(position) }
     }
 
-    private fun applySeek(position: Long) {
+    private fun applySeek(trackId: String?, position: Long) {
         val pvm = player ?: return
+        if (guestNeedsTrackReconcile(trackId, pvm.uiState.value.currentSong?.id)) {
+            reconcileGuestToHostTrack(trackId ?: return, wantPlaying = pvm.uiState.value.playbackState == PlaybackState.PLAYING, positionMs = position)
+            return
+        }
         if (kotlin.math.abs(pvm.progressState.value.positionMs - position) > POSITION_TOLERANCE_MS) {
             withRemote { pvm.seekTo(position) }
+        }
+    }
+
+    /**
+     * Verdadero cuando el host adjuntó un [actionTrackId] y el reproductor local no está
+     * en esa pista (o no tiene ninguna). Evita aplicar PLAY/PAUSE/SEEK a la canción equivocada.
+     */
+    private fun guestNeedsTrackReconcile(actionTrackId: String?, localMediaId: String?): Boolean {
+        val expected = actionTrackId?.takeIf { it.isNotEmpty() } ?: return false
+        return localMediaId == null || localMediaId != expected
+    }
+
+    /** Recarga la reproducción del invitado desde el [client.roomState] cuando coincide con la pista esperada. */
+    private fun reconcileGuestToHostTrack(expectedTrackId: String, wantPlaying: Boolean, positionMs: Long) {
+        val snapshot = client.roomState.value
+        val serverTrack = snapshot?.currentTrack
+        val queue = snapshot?.queue?.takeIf { it.isNotEmpty() }
+        if (serverTrack?.id == expectedTrackId) {
+            Napier.w("$TAG Guest: wrong local track — reloading ${serverTrack.title} from room state")
+            applyFullState(serverTrack, wantPlaying, positionMs, queue.orEmpty())
+        } else {
+            Napier.w("$TAG Guest: track mismatch, requesting sync")
+            client.requestSync()
         }
     }
 

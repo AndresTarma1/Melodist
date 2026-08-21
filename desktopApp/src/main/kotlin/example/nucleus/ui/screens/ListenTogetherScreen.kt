@@ -13,37 +13,41 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Groups
-import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PersonRemove
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarOutline
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -51,24 +55,29 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
-import java.awt.Toolkit
-import java.awt.datatransfer.StringSelection
 import example.nucleus.listentogether.ConnectionState
 import example.nucleus.listentogether.ListenTogetherEvent
 import example.nucleus.listentogether.ListenTogetherManager
 import example.nucleus.listentogether.RoomRole
+import example.nucleus.shared.generated.resources.Res
+import example.nucleus.shared.generated.resources.*
+import example.nucleus.ui.helpers.desktopClickableCursor
+import example.nucleus.ui.themes.AppShapes
 import example.nucleus.ui.themes.LocalMiniPlayerInset
+import example.nucleus.ui.themes.ctaLabel
+import example.nucleus.ui.themes.screenTitle
+import example.nucleus.ui.utils.circleAwareShape
 import example.nucleus.utils.LocalSnackbarHostState
 import example.nucleus.utils.LocalSnackbarScope
 import example.nucleus.utils.LocalUserPreferences
-import androidx.compose.runtime.LaunchedEffect
+import java.awt.Toolkit
+import java.awt.datatransfer.StringSelection
 import kotlinx.coroutines.launch
-import example.nucleus.shared.generated.resources.Res
-import example.nucleus.shared.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 
@@ -82,7 +91,6 @@ private data class MemberItem(
 
 /**
  * Pantalla de Escuchar Juntos — crear o unirse a una sala de escucha sincronizada.
- * MVP UI: estado de conexión, crear/unirse, código de sala, lista de miembros y aprobaciones del anfitrión.
  */
 @Composable
 fun ListenTogetherScreen() {
@@ -100,7 +108,6 @@ fun ListenTogetherScreen() {
     val savedName by prefs.listenTogetherUsername.collectAsState("")
     var username by remember { mutableStateOf("") }
     var joinCode by remember { mutableStateOf("") }
-    // Autocompletar el nombre de usuario recordado una vez que se cargue.
     LaunchedEffect(savedName) { if (username.isBlank() && savedName.isNotBlank()) username = savedName }
     val defaultHost = stringResource(Res.string.lt_default_host)
     val defaultGuest = stringResource(Res.string.lt_default_guest)
@@ -109,8 +116,7 @@ fun ListenTogetherScreen() {
     val fmtError = stringResource(Res.string.lt_error_generic)
     val fmtConnectionError = stringResource(Res.string.lt_connection_error)
 
-    // Mostrar eventos relevantes como snackbar.
-    androidx.compose.runtime.LaunchedEffect(Unit) {
+    LaunchedEffect(Unit) {
         manager.events.collect { event ->
             when (event) {
                 is ListenTogetherEvent.JoinRejected -> snackbar.showSnackbar(fmtRequestRejected.format(event.reason))
@@ -131,67 +137,89 @@ fun ListenTogetherScreen() {
                     start = 24.dp,
                     end = 24.dp,
                     top = 24.dp,
-                    bottom = 24.dp + LocalMiniPlayerInset.current
+                    bottom = 24.dp + LocalMiniPlayerInset.current,
                 ),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // Encabezado
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Filled.Groups, null, modifier = Modifier.size(28.dp), tint = MaterialTheme.colorScheme.primary)
-                Spacer(Modifier.width(10.dp))
-                Column {
-                    Text(
-                        stringResource(Res.string.lt_title),
-                        style = MaterialTheme.typography.headlineSmallEmphasized,
-                        color = MaterialTheme.colorScheme.onSurface
+            Column(
+                modifier = Modifier.widthIn(max = 560.dp).fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    Surface(
+                        modifier = Modifier.size(52.dp),
+                        shape = circleAwareShape(),
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        tonalElevation = 1.dp,
+                    ) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.Filled.Groups,
+                                contentDescription = null,
+                                modifier = Modifier.size(28.dp),
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            )
+                        }
+                    }
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            stringResource(Res.string.lt_title),
+                            style = MaterialTheme.typography.screenTitle,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            stringResource(Res.string.lt_subtitle),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+
+                ConnectionBadge(connectionState)
+
+                val room = roomState
+                if (room == null) {
+                    LobbyContent(
+                        username = username,
+                        onUsernameChange = { username = it },
+                        joinCode = joinCode,
+                        onJoinCodeChange = { joinCode = it.uppercase() },
+                        busy = connectionState == ConnectionState.CONNECTING,
+                        onCreate = {
+                            val name = username.ifBlank { defaultHost }
+                            scope.launch { prefs.setListenTogetherUsername(name.trim()) }
+                            manager.createRoom(name)
+                        },
+                        onJoin = {
+                            val name = username.ifBlank { defaultGuest }
+                            scope.launch { prefs.setListenTogetherUsername(name.trim()) }
+                            manager.joinRoom(joinCode.trim(), name)
+                        },
                     )
-                    Text(
-                        stringResource(Res.string.lt_subtitle),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                } else {
+                    val codeCopiedMsg = stringResource(Res.string.lt_code_copied, room.roomCode)
+                    RoomContent(
+                        roomCode = room.roomCode,
+                        isHost = role == RoomRole.HOST,
+                        members = room.users.map {
+                            MemberItem(it.userId, it.username, it.isHost, it.userId == myUserId)
+                        },
+                        pending = pendingRequests.map { it.userId to it.username },
+                        onApprove = { manager.approveJoin(it) },
+                        onReject = { manager.rejectJoin(it) },
+                        onTransferHost = { manager.transferHost(it) },
+                        onKick = { manager.kickUser(it) },
+                        onCopyCode = {
+                            val clipboard = Toolkit.getDefaultToolkit().systemClipboard
+                            clipboard.setContents(StringSelection(room.roomCode), null)
+                            scope.launch { snackbar.showSnackbar(codeCopiedMsg) }
+                        },
+                        onLeave = { manager.leaveRoom() },
                     )
                 }
-            }
-
-            ConnectionBadge(connectionState)
-
-            val room = roomState
-            if (room == null) {
-                LobbyContent(
-                    username = username,
-                    onUsernameChange = { username = it },
-                    joinCode = joinCode,
-                    onJoinCodeChange = { joinCode = it.uppercase() },
-                    busy = connectionState == ConnectionState.CONNECTING,
-                    onCreate = {
-                        val name = username.ifBlank { defaultHost }
-                        scope.launch { prefs.setListenTogetherUsername(name.trim()) }
-                        manager.createRoom(name)
-                    },
-                    onJoin = {
-                        val name = username.ifBlank { defaultGuest }
-                        scope.launch { prefs.setListenTogetherUsername(name.trim()) }
-                        manager.joinRoom(joinCode.trim(), name)
-                    },
-                )
-            } else {
-                val codeCopiedMsg = stringResource(Res.string.lt_code_copied, room.roomCode)
-                RoomContent(
-                    roomCode = room.roomCode,
-                    isHost = role == RoomRole.HOST,
-                    members = room.users.map { MemberItem(it.userId, it.username, it.isHost, it.userId == myUserId) },
-                    pending = pendingRequests.map { it.userId to it.username },
-                    onApprove = { manager.approveJoin(it) },
-                    onReject = { manager.rejectJoin(it) },
-                    onTransferHost = { manager.transferHost(it) },
-                    onKick = { manager.kickUser(it) },
-                    onCopyCode = {
-                        val clipboard = Toolkit.getDefaultToolkit().systemClipboard
-                        clipboard.setContents(StringSelection(room.roomCode), null)
-                        scope.launch { snackbar.showSnackbar(codeCopiedMsg) }
-                    },
-                    onLeave = { manager.leaveRoom() },
-                )
             }
         }
     }
@@ -207,19 +235,25 @@ private fun ConnectionBadge(state: ConnectionState) {
         ConnectionState.DISCONNECTED -> stringResource(Res.string.lt_disconnected) to MaterialTheme.colorScheme.onSurfaceVariant
     }
     Surface(
-        shape = RoundedCornerShape(10.dp),
-        color = MaterialTheme.colorScheme.surfaceContainer,
+        shape = AppShapes.extraLarge,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
         tonalElevation = 0.dp,
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Box(modifier = Modifier.size(8.dp)) {
-                Surface(shape = RoundedCornerShape(4.dp), color = color, modifier = Modifier.fillMaxSize()) {}
-            }
-            Spacer(Modifier.width(8.dp))
-            Text(label, style = MaterialTheme.typography.labelLarge, color = color)
+            Surface(
+                modifier = Modifier.size(10.dp),
+                shape = circleAwareShape(),
+                color = color,
+            ) {}
+            Text(
+                label,
+                style = MaterialTheme.typography.labelLargeEmphasized,
+                color = color,
+            )
         }
     }
 }
@@ -239,55 +273,77 @@ private fun LobbyContent(
         onValueChange = onUsernameChange,
         label = { Text(stringResource(Res.string.lt_username_label)) },
         singleLine = true,
+        shape = AppShapes.large,
         modifier = Modifier.fillMaxWidth(),
     )
 
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        modifier = Modifier.fillMaxWidth()
+        shape = AppShapes.xLarge,
+        modifier = Modifier.fillMaxWidth(),
     ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(stringResource(Res.string.lt_create_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(
+                stringResource(Res.string.lt_create_title),
+                style = MaterialTheme.typography.titleLargeEmphasized,
+            )
             Text(
                 stringResource(Res.string.lt_create_desc),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Button(onClick = onCreate, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+            Button(
+                onClick = onCreate,
+                enabled = !busy,
+                shape = AppShapes.extraLarge,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+                    .desktopClickableCursor(enabled = !busy),
+            ) {
                 if (busy) {
                     CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
                 } else {
-                    Text(stringResource(Res.string.lt_create_btn))
+                    Text(stringResource(Res.string.lt_create_btn), style = MaterialTheme.typography.ctaLabel)
                 }
             }
         }
     }
 
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        modifier = Modifier.fillMaxWidth()
+        shape = AppShapes.xLarge,
+        modifier = Modifier.fillMaxWidth(),
     ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(stringResource(Res.string.lt_join_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(
+                stringResource(Res.string.lt_join_title),
+                style = MaterialTheme.typography.titleLargeEmphasized,
+            )
             OutlinedTextField(
                 value = joinCode,
                 onValueChange = onJoinCodeChange,
                 label = { Text(stringResource(Res.string.lt_join_code_label)) },
                 singleLine = true,
+                shape = AppShapes.large,
                 keyboardOptions = KeyboardOptions(
                     capitalization = KeyboardCapitalization.Characters,
-                    imeAction = ImeAction.Done
+                    imeAction = ImeAction.Done,
                 ),
                 modifier = Modifier.fillMaxWidth(),
             )
             OutlinedButton(
                 onClick = onJoin,
                 enabled = !busy && joinCode.isNotBlank(),
-                modifier = Modifier.fillMaxWidth()
+                shape = AppShapes.extraLarge,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+                    .desktopClickableCursor(enabled = !busy && joinCode.isNotBlank()),
             ) {
-                Text(stringResource(Res.string.lt_join_btn))
+                Text(stringResource(Res.string.lt_join_btn), style = MaterialTheme.typography.ctaLabel)
             }
         }
     }
@@ -298,7 +354,7 @@ private fun RoomContent(
     roomCode: String,
     isHost: Boolean,
     members: List<MemberItem>,
-    pending: List<Pair<String, String>>, // userId, nombre de usuario
+    pending: List<Pair<String, String>>,
     onApprove: (String) -> Unit,
     onReject: (String) -> Unit,
     onTransferHost: (String) -> Unit,
@@ -307,49 +363,83 @@ private fun RoomContent(
     onLeave: () -> Unit,
 ) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        modifier = Modifier.fillMaxWidth()
+        shape = AppShapes.xLarge,
+        modifier = Modifier.fillMaxWidth(),
     ) {
-        Column(Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                if (isHost) stringResource(Res.string.lt_host_badge) else stringResource(Res.string.lt_guest_badge),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(Modifier.height(6.dp))
+        Column(
+            Modifier.padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Surface(
+                shape = AppShapes.extraLarge,
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f),
+            ) {
+                Text(
+                    if (isHost) stringResource(Res.string.lt_host_badge) else stringResource(Res.string.lt_guest_badge),
+                    style = MaterialTheme.typography.labelLargeEmphasized,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                )
+            }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     roomCode,
-                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.primary
+                    style = MaterialTheme.typography.headlineMediumEmphasized,
+                    color = MaterialTheme.colorScheme.primary,
                 )
-                Spacer(Modifier.width(8.dp))
-                IconButton(onClick = onCopyCode) {
-                    Icon(Icons.Filled.ContentCopy, contentDescription = stringResource(Res.string.lt_copy_code), modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(4.dp))
+                FilledTonalIconButton(
+                    onClick = onCopyCode,
+                    modifier = Modifier
+                        .size(40.dp)
+                        .pointerHoverIcon(PointerIcon.Hand),
+                    shape = circleAwareShape(),
+                ) {
+                    Icon(
+                        Icons.Filled.ContentCopy,
+                        contentDescription = stringResource(Res.string.lt_copy_code),
+                        modifier = Modifier.size(18.dp),
+                    )
                 }
             }
         }
     }
 
     if (pending.isNotEmpty()) {
-        Text(stringResource(Res.string.lt_pending_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+        Text(
+            stringResource(Res.string.lt_pending_title),
+            style = MaterialTheme.typography.titleMediumEmphasized,
+        )
         pending.forEach { (userId, name) ->
             Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = MaterialTheme.colorScheme.surfaceContainer,
+                shape = AppShapes.large,
+                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.55f),
                 tonalElevation = 0.dp,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    Text(name, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-                    IconButton(onClick = { onApprove(userId) }) {
-                        Icon(Icons.Filled.Check, stringResource(Res.string.lt_approve), tint = MaterialTheme.colorScheme.primary)
+                    Text(name, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyLargeEmphasized)
+                    FilledTonalIconButton(
+                        onClick = { onApprove(userId) },
+                        modifier = Modifier.size(40.dp).pointerHoverIcon(PointerIcon.Hand),
+                        colors = IconButtonDefaults.filledTonalIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        ),
+                    ) {
+                        Icon(Icons.Filled.Check, stringResource(Res.string.lt_approve))
                     }
-                    IconButton(onClick = { onReject(userId) }) {
+                    IconButton(
+                        onClick = { onReject(userId) },
+                        modifier = Modifier.size(40.dp).pointerHoverIcon(PointerIcon.Hand),
+                    ) {
                         Icon(Icons.Filled.Close, stringResource(Res.string.lt_reject), tint = MaterialTheme.colorScheme.error)
                     }
                 }
@@ -359,39 +449,52 @@ private fun RoomContent(
 
     Text(
         stringResource(Res.string.lt_members_title, members.size),
-        style = MaterialTheme.typography.titleSmall,
-        fontWeight = FontWeight.Bold
+        style = MaterialTheme.typography.titleMediumEmphasized,
     )
     LazyColumn(
-        modifier = Modifier.fillMaxWidth().height((members.size.coerceAtMost(6) * 52).dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .height((members.size.coerceAtMost(6) * 56).dp.coerceAtLeast(56.dp)),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        userScrollEnabled = members.size > 6,
     ) {
         items(members, key = { it.userId }) { member ->
             Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = MaterialTheme.colorScheme.surfaceContainer,
+                shape = AppShapes.large,
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
                 tonalElevation = 0.dp,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             ) {
                 Row(
-                    modifier = Modifier.padding(start = 12.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier.padding(start = 14.dp, end = 6.dp, top = 8.dp, bottom = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     if (member.isHost) {
-                        Icon(Icons.Filled.Star, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
-                        Spacer(Modifier.width(8.dp))
+                        Icon(
+                            Icons.Filled.Star,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                        Spacer(Modifier.width(10.dp))
                     }
                     Text(
-                        if (member.isMe) stringResource(Res.string.lt_you_suffix, member.username) else member.username,
-                        style = MaterialTheme.typography.bodyMedium,
+                        if (member.isMe) {
+                            stringResource(Res.string.lt_you_suffix, member.username)
+                        } else {
+                            member.username
+                        },
+                        style = MaterialTheme.typography.bodyLargeEmphasized,
                         color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
                     )
-                    // Controles exclusivos del anfitrión sobre otros miembros: transferir anfitrión, expulsar.
                     if (isHost && !member.isMe) {
                         var showMenu by remember { mutableStateOf(false) }
                         Box {
-                            IconButton(onClick = { showMenu = true }, modifier = Modifier.size(36.dp)) {
+                            IconButton(
+                                onClick = { showMenu = true },
+                                modifier = Modifier.size(40.dp).pointerHoverIcon(PointerIcon.Hand),
+                            ) {
                                 Icon(
                                     Icons.Filled.MoreVert,
                                     contentDescription = stringResource(Res.string.lt_member_options),
@@ -405,18 +508,36 @@ private fun RoomContent(
                                 containerColor = MaterialTheme.colorScheme.surfaceContainer,
                                 tonalElevation = 0.dp,
                                 shadowElevation = 8.dp,
+                                shape = AppShapes.large,
                             ) {
                                 if (!member.isHost) {
                                     DropdownMenuItem(
                                         text = { Text(stringResource(Res.string.lt_make_host)) },
-                                        onClick = { showMenu = false; onTransferHost(member.userId) },
+                                        onClick = {
+                                            showMenu = false
+                                            onTransferHost(member.userId)
+                                        },
                                         leadingIcon = { Icon(Icons.Filled.StarOutline, null) },
                                     )
                                 }
                                 DropdownMenuItem(
-                                    text = { Text(stringResource(Res.string.lt_kick), color = MaterialTheme.colorScheme.error) },
-                                    onClick = { showMenu = false; onKick(member.userId) },
-                                    leadingIcon = { Icon(Icons.Filled.PersonRemove, null, tint = MaterialTheme.colorScheme.error) },
+                                    text = {
+                                        Text(
+                                            stringResource(Res.string.lt_kick),
+                                            color = MaterialTheme.colorScheme.error,
+                                        )
+                                    },
+                                    onClick = {
+                                        showMenu = false
+                                        onKick(member.userId)
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            Icons.Filled.PersonRemove,
+                                            null,
+                                            tint = MaterialTheme.colorScheme.error,
+                                        )
+                                    },
                                 )
                             }
                         }
@@ -429,14 +550,18 @@ private fun RoomContent(
     Spacer(Modifier.height(4.dp))
     Button(
         onClick = onLeave,
-        modifier = Modifier.fillMaxWidth(),
-        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(52.dp)
+            .pointerHoverIcon(PointerIcon.Hand),
+        shape = AppShapes.extraLarge,
+        colors = ButtonDefaults.buttonColors(
             containerColor = MaterialTheme.colorScheme.errorContainer,
-            contentColor = MaterialTheme.colorScheme.onErrorContainer
-        )
+            contentColor = MaterialTheme.colorScheme.onErrorContainer,
+        ),
     ) {
         Icon(Icons.AutoMirrored.Filled.Logout, null, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(8.dp))
-        Text(stringResource(Res.string.lt_leave_btn))
+        Text(stringResource(Res.string.lt_leave_btn), style = MaterialTheme.typography.ctaLabel)
     }
 }

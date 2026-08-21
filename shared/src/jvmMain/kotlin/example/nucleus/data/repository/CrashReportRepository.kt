@@ -1,10 +1,10 @@
 package example.nucleus.data.repository
 
 import example.nucleus.data.AppDirs
+import example.nucleus.platform.NativeDesktop
 import io.github.aakira.napier.Napier
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import java.awt.Desktop
 import java.io.File
 import java.net.URI
 import java.net.URLEncoder
@@ -82,7 +82,7 @@ object CrashReportRepository {
     fun openCrashAsGitHubIssue(report: CrashReport) {
         runCatching {
             val title = "[Crash] ${report.exception} on ${report.appVersion}"
-            val body = buildString {
+            var body = buildString {
                 appendLine("## Crash Report")
                 appendLine()
                 appendLine("**Version:** ${report.appVersion}")
@@ -103,10 +103,16 @@ object CrashReportRepository {
                 appendLine("## Steps to Reproduce")
                 appendLine("1. ")
             }
+            // GitHub/navegador/cmd tienen límite de URL (~8191 en cmd, ~8000 en navegadores).
+            // El body url-encoded triplica su tamaño, así que lo truncamos para que `&body=` no se descarte.
+            val maxRawBody = 6000
+            if (body.length > maxRawBody) {
+                body = body.take(maxRawBody) + "\n... (truncado, ver logs/crash/*.json)"
+            }
             val url = "https://github.com/AndresTarma1/PaltaSound/issues/new" +
                 "?title=${URLEncoder.encode(title, "UTF-8")}" +
                 "&body=${URLEncoder.encode(body, "UTF-8")}"
-            Desktop.getDesktop().browse(URI(url))
+            NativeDesktop.browse(URI(url))
         }.onFailure { Napier.e("Failed to open GitHub issue", it) }
     }
 

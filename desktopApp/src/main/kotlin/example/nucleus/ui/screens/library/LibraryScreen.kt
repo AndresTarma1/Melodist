@@ -9,19 +9,24 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -76,7 +81,7 @@ import example.nucleus.shared.generated.resources.Res
 import example.nucleus.shared.generated.resources.*
 import org.koin.compose.koinInject
 import org.jetbrains.compose.resources.stringResource
-import java.awt.Desktop
+import example.nucleus.platform.NativeDesktop
 import java.net.URI
 
 data class LibraryScreenState(
@@ -104,6 +109,7 @@ data class LibraryActions(
     val onRefreshYtm: () -> Unit,
     val onCreatePlaylist: (String) -> Unit,
     val onImportCsv: () -> Unit,
+    val onExportPlaylist: (String) -> Unit,
     val onSearchQueryChange: (String) -> Unit,
     val onClearSearch: () -> Unit,
     val onSortOrderChange: (LibrarySortOrder) -> Unit,
@@ -207,6 +213,12 @@ fun LibraryScreenRoute(
             onRefreshYtm = viewModel::refreshYtmLibrary,
             onCreatePlaylist = viewModel::createLocalPlaylist,
             onImportCsv = { showCsvTutorial = true },
+            onExportPlaylist = { playlistId ->
+                playlistsViewModel.exportPlaylist(playlistId) { success, msg ->
+                    // Manejo simple: log o snackbar (por ahora solo log)
+                    println(if (success) "Exportado: $msg" else "Error export: $msg")
+                }
+            },
             onSearchQueryChange = viewModel::setSearchQuery,
             onClearSearch = viewModel::clearSearch,
             onSortOrderChange = viewModel::setSortOrder,
@@ -220,18 +232,42 @@ fun LibraryScreenRoute(
         playerViewModel = playerViewModel,
     )
 
+    var openExtractPage by remember { mutableStateOf(true) }
     if (showCsvTutorial) {
         AlertDialog(
             onDismissRequest = { showCsvTutorial = false },
             icon = { CsvImportTutorialIcon() },
             title = { Text(stringResource(Res.string.csv_tutorial_title)) },
-            text = { CsvImportTutorialBody() },
+            text = {
+                Column {
+                    CsvImportTutorialBody()
+                    Spacer(Modifier.height(12.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { openExtractPage = !openExtractPage }
+                            .padding(4.dp)
+                    ) {
+                        Checkbox(checked = openExtractPage, onCheckedChange = { openExtractPage = it })
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            stringResource(Res.string.csv_tutorial_open_page),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            },
             confirmButton = {
                 TextButton(onClick = {
                     showCsvTutorial = false
+                    if (openExtractPage) {
+                        NativeDesktop.browse(URI("https://www.tunemymusic.com/"))
+                    }
                     playlistsViewModel.importCsvFile()
-                    Desktop.getDesktop().browse(URI("https://www.tunemymusic.com/"))
-                }) { Text(stringResource(Res.string.csv_tutorial_btn)) }
+                }) { Text(if (openExtractPage) stringResource(Res.string.csv_tutorial_btn) else stringResource(Res.string.csv_import_open_picker)) }
             },
             dismissButton = {
                 TextButton(onClick = { showCsvTutorial = false }) { Text(stringResource(Res.string.cancel)) }

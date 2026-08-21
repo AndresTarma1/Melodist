@@ -1,23 +1,21 @@
 package example.nucleus.platform
 
-import java.awt.FileDialog
-import java.awt.Frame
 import java.io.File
 
 actual object CsvFilePicker {
     actual suspend fun pickAndReadCsvFile(): CsvFileResult? {
-        val dialog = FileDialog(null as Frame?, "Importar CSV", FileDialog.LOAD)
-        dialog.file = "*.csv"
-        dialog.isVisible = true
-        val dir = dialog.directory
-        val file = dialog.file
-        if (dir != null && file != null) {
-            val csvFile = File(dir, file)
-            return CsvFileResult(
-                fileName = csvFile.nameWithoutExtension,
-                content = csvFile.readText(),
-            )
-        }
-        return null
+        // No usar java.awt.FileDialog: en GraalVM Windows falla con
+        // NoSuchFieldError: sun.awt.windows.WFileDialogPeer.parent
+        val path = NativeDesktop.pickOpenFile(
+            title = "Importar CSV",
+            filterDescription = "CSV",
+            extensions = listOf("csv"),
+        ) ?: return null
+        val csvFile = File(path)
+        if (!csvFile.isFile) return null
+        return CsvFileResult(
+            fileName = csvFile.nameWithoutExtension,
+            content = csvFile.readText(),
+        )
     }
 }

@@ -81,7 +81,6 @@ fun BoxScope.SnackBar(
 
                     Spacer(modifier = Modifier.width(12.dp))
 
-                    // Texto del mensaje
                     Text(
                         text = snackbarData.visuals.message,
                         style = MaterialTheme.typography.bodyMedium,
@@ -90,7 +89,6 @@ fun BoxScope.SnackBar(
                     )
                 }
 
-                // Botón de acción (por ejemplo, "Reintentar" o "Deshacer") si existe
                 snackbarData.visuals.actionLabel?.let { actionLabel ->
                     Spacer(modifier = Modifier.width(8.dp))
                     TextButton(
@@ -98,11 +96,12 @@ fun BoxScope.SnackBar(
                         colors = ButtonDefaults.textButtonColors(
                             contentColor = MaterialTheme.colorScheme.inversePrimary
                         ),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                        shape = AppShapes.large,
                     ) {
                         Text(
                             text = actionLabel,
-                            style = MaterialTheme.typography.labelLarge
+                            style = MaterialTheme.typography.labelLargeEmphasized,
                         )
                     }
                 }

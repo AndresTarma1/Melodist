@@ -25,6 +25,7 @@ import example.nucleus.data.repository.UserPreferencesRepository
 import example.nucleus.di.appModule
 import example.nucleus.di.dataStoreModule
 import example.nucleus.lifecycle.AppLifecycleManager
+import example.nucleus.logging.AppFileLogger
 import example.nucleus.navigation.RootComponent
 import example.nucleus.ui.components.CoilSetup
 import example.nucleus.utils.OfflineModeController
@@ -59,6 +60,11 @@ fun main() = nucleusApplication(backend = NucleusBackend.Tao) {
     }
     runBlocking {
         userPreferencesRepository.migrateDisabledIslandsLayout()
+        // Preferencias de logging a disco (después de DataStore; W/E ya se escriben siempre).
+        AppFileLogger.applyPreferences(
+            logToFile = userPreferencesRepository.logToFile.first(),
+            verbose = userPreferencesRepository.logVerbose.first(),
+        )
     }
 
     // Inicializar AccountManager

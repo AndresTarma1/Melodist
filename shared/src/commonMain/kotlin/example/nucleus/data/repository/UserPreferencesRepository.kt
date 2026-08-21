@@ -41,9 +41,9 @@ enum class LayoutMode {
     ISLANDS, ATTACHED, SQUARE
 }
 
-/** Estilo visual del mini reproductor. BAR = barra pegada al borde inferior (por defecto). FLOATING = tarjeta flotante sobre el contenido. */
+/** Estilo visual del mini reproductor. BAR = barra pegada al borde inferior de la ventana. FLOATING = tarjeta flotante sobre el contenido. DOCKED = integrado al final de las pantallas. */
 enum class MiniPlayerStyle {
-    BAR, FLOATING
+    BAR, FLOATING, DOCKED
 }
 
 /** Fondo de la tarjeta del mini reproductor flotante. SOLID = color sólido del chrome. COVER = carátula desenfocada con gradiente de sus colores. TRANSLUCENT = semitransparente. */
@@ -122,6 +122,14 @@ enum class BackgroundStyle {
     GRADIENT, BLURRED_COVER, SOLID_COLOR
 }
 
+/** Diseño visual de la pantalla Now Playing, inspirado en grandes reproductores.
+ *  YOUTUBE_MUSIC = carátula centrada con fondo borroso ambiental.
+ *  APPLE_MUSIC   = carátula grande a la izquierda y panel frosted a la derecha.
+ *  SPOTIFY       = fondo degradado oscuro desde la carátula y tipografía grande. */
+enum class NowPlayingDesign {
+    YOUTUBE_MUSIC, APPLE_MUSIC, SPOTIFY
+}
+
 class UserPreferencesRepository(private val dataStore: DataStore<Preferences>) {
 
     private object PreferencesKeys {
@@ -169,6 +177,7 @@ class UserPreferencesRepository(private val dataStore: DataStore<Preferences>) {
         val MINI_PLAYER_STYLE = stringPreferencesKey("mini_player_style")
         val MINI_PLAYER_BG_STYLE = stringPreferencesKey("mini_player_bg_style")
         val NOW_PLAYING_BACKGROUND = stringPreferencesKey("now_playing_background")
+        val NOW_PLAYING_DESIGN = stringPreferencesKey("now_playing_design")
         val FULL_SCREEN_PLAYER = booleanPreferencesKey("full_screen_player")
         val SELECTED_FONT = stringPreferencesKey("selected_font")
         val PREFERENCES_MIGRATION_VERSION = intPreferencesKey("preferences_migration_version")
@@ -184,6 +193,8 @@ class UserPreferencesRepository(private val dataStore: DataStore<Preferences>) {
         val LYRICS_ANIMATION_STYLE = stringPreferencesKey("lyrics_animation_style")
         val LYRICS_ROMANIZE = booleanPreferencesKey("lyrics_romanize")
         val LYRICS_OFFSET_MS = intPreferencesKey("lyrics_offset_ms")
+        val LOG_TO_FILE = booleanPreferencesKey("log_to_file")
+        val LOG_VERBOSE = booleanPreferencesKey("log_verbose")
     }
 
 
@@ -487,8 +498,17 @@ class UserPreferencesRepository(private val dataStore: DataStore<Preferences>) {
     }
 
     val nowPlayingBackground: Flow<BackgroundStyle> = dataStore.data.map { pref ->
-        try { BackgroundStyle.valueOf(pref[PreferencesKeys.NOW_PLAYING_BACKGROUND] ?: BackgroundStyle.GRADIENT.name) }
-        catch (_: Exception) { BackgroundStyle.GRADIENT }
+        try { BackgroundStyle.valueOf(pref[PreferencesKeys.NOW_PLAYING_BACKGROUND] ?: BackgroundStyle.SOLID_COLOR.name) }
+        catch (_: Exception) { BackgroundStyle.SOLID_COLOR }
+    }
+
+    val nowPlayingDesign: Flow<NowPlayingDesign> = dataStore.data.map { pref ->
+        try { NowPlayingDesign.valueOf(pref[PreferencesKeys.NOW_PLAYING_DESIGN] ?: NowPlayingDesign.YOUTUBE_MUSIC.name) }
+        catch (_: Exception) { NowPlayingDesign.YOUTUBE_MUSIC }
+    }
+
+    suspend fun setNowPlayingDesign(design: NowPlayingDesign) {
+        dataStore.edit { it[PreferencesKeys.NOW_PLAYING_DESIGN] = design.name }
     }
 
     val audioQuality: Flow<AudioQuality> = dataStore.data.map { preferences ->
@@ -527,6 +547,13 @@ class UserPreferencesRepository(private val dataStore: DataStore<Preferences>) {
         dataStore.edit { it[PreferencesKeys.PLAYBACK_SPEED] = speed.coerceIn(0.5f, 2f) }
     }
     val cacheImages: Flow<Boolean> = dataStore.data.map { it[PreferencesKeys.CACHE_IMAGES] ?: true }
+
+    /** Guardar logs de la app en disco (carpeta logs local). Default off. */
+    val logToFile: Flow<Boolean> = dataStore.data.map { it[PreferencesKeys.LOG_TO_FILE] ?: false }
+
+    /** Incluir DEBUG/VERBOSE en el log diario (solo si [logToFile]). */
+    val logVerbose: Flow<Boolean> = dataStore.data.map { it[PreferencesKeys.LOG_VERBOSE] ?: false }
+
     val imagesEnabled: Flow<Boolean> = dataStore.data.map { it[PreferencesKeys.IMAGES_ENABLED] ?: true }
     val minimizeToTray: Flow<Boolean> = dataStore.data.map { it[PreferencesKeys.MINIMIZE_TO_TRAY] ?: true }
     val trimMemoryOnTray: Flow<Boolean> = dataStore.data.map { it[PreferencesKeys.TRIM_MEMORY_ON_TRAY] ?: true }
@@ -575,6 +602,14 @@ class UserPreferencesRepository(private val dataStore: DataStore<Preferences>) {
 
     suspend fun setCacheImages(enabled: Boolean) {
         dataStore.edit { it[PreferencesKeys.CACHE_IMAGES] = enabled }
+    }
+
+    suspend fun setLogToFile(enabled: Boolean) {
+        dataStore.edit { it[PreferencesKeys.LOG_TO_FILE] = enabled }
+    }
+
+    suspend fun setLogVerbose(enabled: Boolean) {
+        dataStore.edit { it[PreferencesKeys.LOG_VERBOSE] = enabled }
     }
 
     suspend fun setImagesEnabled(enabled: Boolean) {
@@ -686,7 +721,17 @@ class UserPreferencesRepository(private val dataStore: DataStore<Preferences>) {
             val current = pref[PreferencesKeys.PENDING_ACTIONS]?.let {
                 try { pendingActionsJson.decodeFromString<List<PendingAction>>(it) } catch (_: Exception) { emptyList() }
             } ?: emptyList()
-            pref[PreferencesKeys.PENDING_ACTIONS] = pendingActionsJson.encodeToString(current + action)
+            // Sustituye acción previa del mismo objetivo (p. ej. like/unlike del mismo id).
+            val deduped = when (action) {
+                is PendingAction.LikeSong ->
+                    current.filterNot { it is PendingAction.LikeSong && it.songId == action.songId }
+                is PendingAction.SubscribeArtist ->
+                    current.filterNot {
+                        it is PendingAction.SubscribeArtist && it.channelId == action.channelId
+                    }
+            }
+            pref[PreferencesKeys.PENDING_ACTIONS] =
+                pendingActionsJson.encodeToString(deduped + action)
         }
     }
 

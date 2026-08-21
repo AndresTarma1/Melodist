@@ -79,6 +79,7 @@ fun LayoutMode.displayName(): String = when (this) {
 fun MiniPlayerStyle.displayName(): String = when (this) {
     MiniPlayerStyle.BAR -> stringResource(Res.string.mini_player_style_bar)
     MiniPlayerStyle.FLOATING -> stringResource(Res.string.mini_player_style_floating)
+    MiniPlayerStyle.DOCKED -> stringResource(Res.string.mini_player_style_docked)
 }
 
 @Composable

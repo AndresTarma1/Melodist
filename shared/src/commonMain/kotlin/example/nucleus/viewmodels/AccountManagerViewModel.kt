@@ -186,7 +186,6 @@ class AccountManagerViewModel(
                     )
                     handleAccountChange(info)
                     loadPlaylists()
-                    triggerPostLoginSync()
                 }
                 .onFailure { err ->
                     val isAuthError = isAuthenticationError(err)

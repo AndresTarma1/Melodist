@@ -68,6 +68,7 @@ import example.nucleus.overlay.HotkeyCombo
 import example.nucleus.player.PlaybackState
 import example.nucleus.shared.generated.resources.Res
 import example.nucleus.shared.generated.resources.*
+import example.nucleus.ui.components.artwork.ArtworkColors
 import example.nucleus.ui.components.artwork.LocalArtworkColors
 import example.nucleus.ui.components.artwork.rememberArtworkColors
 import example.nucleus.ui.components.background.BackgroundStyle
@@ -79,6 +80,7 @@ import example.nucleus.utils.LocalSnackbarHostState
 import example.nucleus.utils.LocalSnackbarScope
 import example.nucleus.utils.LocalUserPreferences
 import example.nucleus.utils.LocalAnimationsEnabled
+import example.nucleus.viewmodels.AppUpdateInfo
 import example.nucleus.viewmodels.AppViewModel
 import example.nucleus.viewmodels.DownloadViewModel
 import example.nucleus.viewmodels.LibraryPlaylistsViewModel
@@ -179,7 +181,14 @@ fun NucleusApplicationScope.App(
     }
 
     val playerUiState by playerViewModel.uiState.collectAsState()
-    val isPlaying = playerUiState.playbackState == PlaybackState.PLAYING
+    // BUFFERING/LOADING con intención de play: no flipar a "pausado" (thumbbar spam + UI mentirosa).
+    val isPlaying = when (playerUiState.playbackState) {
+        PlaybackState.PLAYING,
+        PlaybackState.BUFFERING,
+        -> true
+        PlaybackState.LOADING -> playerUiState.currentSong != null
+        else -> false
+    }
     val currentSong = playerUiState.currentSong
 
     val appLocale by remember(userPreferences) { userPreferences.locale }.collectAsState(AppLocale.SYSTEM)
@@ -188,7 +197,12 @@ fun NucleusApplicationScope.App(
         if (newLocale != null) Locale.setDefault(newLocale)
     }
 
-    val artworkColors = rememberArtworkColors(currentSong?.thumbnailUrl)
+    val dynamicColorEnabled by remember(userPreferences) { userPreferences.dynamicColorFromArtwork }.collectAsState(false)
+    val artworkColors = if (dynamicColorEnabled) {
+        rememberArtworkColors(currentSong?.thumbnailUrl)
+    } else {
+        ArtworkColors.Default
+    }
     val themeMode by remember(userPreferences) { userPreferences.themeMode }.collectAsState(ThemeMode.SYSTEM)
     val youtubeRegion by remember(userPreferences) { userPreferences.youtubeRegion }.collectAsState(YouTubeRegion.SYSTEM)
     val animationsEnabled by remember(userPreferences) { userPreferences.animationsEnabled }.collectAsState(true)
@@ -283,6 +297,14 @@ fun NucleusApplicationScope.App(
                         val showInstallPrompt by appViewModel.showInstallPrompt.collectAsState()
                         LaunchedEffect(Unit) { appViewModel.checkForUpdates() }
 
+                        WindowsTaskbarIntegration(
+                            isVisible = isVisible,
+                            isPlaying = isPlaying,
+                            onPrevious = { playerViewModel.previous() },
+                            onPlayPause = { playerViewModel.togglePlayPause() },
+                            onNext = { playerViewModel.next() },
+                        )
+
                         UpdateReadyDialog(
                             updateStatus = updateStatus,
                             showInstallPrompt = showInstallPrompt,
@@ -301,13 +323,23 @@ fun NucleusApplicationScope.App(
 
                         UnsentCrashReportsDialog()
 
-                        WindowsTaskbarIntegration(
-                            isVisible = isVisible,
-                            isPlaying = isPlaying,
-                            onPrevious = { playerViewModel.previous() },
-                            onPlayPause = { playerViewModel.togglePlayPause() },
-                            onNext = { playerViewModel.next() },
-                        )
+                        val mpvError by playerViewModel.mpvError.collectAsState()
+                        if (mpvError != null) {
+                            val scheme = MaterialTheme.colorScheme
+                            AlertDialog(
+                                onDismissRequest = { playerViewModel.clearMpvError() },
+                                containerColor = scheme.surfaceContainerHigh,
+                                titleContentColor = scheme.onSurface,
+                                textContentColor = scheme.onSurfaceVariant,
+                                title = { Text("Error de audio (libmpv)", color = scheme.onSurface) },
+                                text = { Text(mpvError ?: "", color = scheme.onSurfaceVariant) },
+                                confirmButton = {
+                                    TextButton(onClick = { playerViewModel.clearMpvError() }) {
+                                        Text("Entendido", color = scheme.primary)
+                                    }
+                                },
+                            )
+                        }
 
                         BackgroundStyle(
                             imageUrl = playerUiState.currentSong?.thumbnailUrl,
@@ -393,18 +425,24 @@ private fun UpdateReadyDialog(
     val readyStatus = updateStatus as? UpdateStatus.Ready
     if (showInstallPrompt && readyStatus != null) {
         val info = readyStatus.info
+        // Resolver los colores en esta composición (tema real de la app, incl. modo oscuro),
+        // no dentro del content del diálogo, que se compone en su propia ventana y puede
+        // caer al tema por defecto (claro) dejando texto negro sobre fondo oscuro.
+        val scheme = MaterialTheme.colorScheme
         AlertDialog(
             onDismissRequest = onPostpone,
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            containerColor = scheme.surfaceContainerHigh,
+            titleContentColor = scheme.onSurface,
+            textContentColor = scheme.onSurfaceVariant,
             tonalElevation = 0.dp,
             icon = { Icon(Icons.Rounded.SystemUpdate, null) },
-            title = { Text(stringResource(Res.string.update_ready_title)) },
-            text = { Text(stringResource(Res.string.update_ready_message, info.latestVersion)) },
+            title = { Text(stringResource(Res.string.update_ready_title), color = scheme.onSurface) },
+            text = { Text(stringResource(Res.string.update_ready_message, info.latestVersion), color = scheme.onSurfaceVariant) },
             confirmButton = {
-                TextButton(onClick = onInstall) { Text(stringResource(Res.string.update_install_now)) }
+                TextButton(onClick = onInstall) { Text(stringResource(Res.string.update_install_now), color = scheme.primary) }
             },
             dismissButton = {
-                TextButton(onClick = onPostpone) { Text(stringResource(Res.string.update_install_later)) }
+                TextButton(onClick = onPostpone) { Text(stringResource(Res.string.update_install_later), color = scheme.primary) }
             },
         )
     }
@@ -417,17 +455,20 @@ private fun YtmSyncWarningDialog(
     onDismiss: () -> Unit,
 ) {
     if (show) {
+        val scheme = MaterialTheme.colorScheme
         AlertDialog(
             onDismissRequest = onDismiss,
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            containerColor = scheme.surfaceContainerHigh,
+            titleContentColor = scheme.onSurface,
+            textContentColor = scheme.onSurfaceVariant,
             tonalElevation = 0.dp,
-            title = { Text(stringResource(Res.string.ytm_sync_warning_title)) },
-            text = { Text(stringResource(Res.string.ytm_sync_warning_message)) },
+            title = { Text(stringResource(Res.string.ytm_sync_warning_title), color = scheme.onSurface) },
+            text = { Text(stringResource(Res.string.ytm_sync_warning_message), color = scheme.onSurfaceVariant) },
             confirmButton = {
-                TextButton(onClick = onConfirm) { Text(stringResource(Res.string.ytm_sync_warning_confirm)) }
+                TextButton(onClick = onConfirm) { Text(stringResource(Res.string.ytm_sync_warning_confirm), color = scheme.primary) }
             },
             dismissButton = {
-                TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) }
+                TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel), color = scheme.primary) }
             },
         )
     }

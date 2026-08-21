@@ -25,12 +25,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import example.nucleus.navigation.Route
 import example.nucleus.ui.components.ChipRowSkeleton
+import example.nucleus.ui.components.ExpressiveEmptyState
 import example.nucleus.ui.components.HorizontalGridLikeRow
 import example.nucleus.ui.components.SectionSkeleton
+import example.nucleus.ui.components.layout.AppScreenContentHorizontal
 import example.nucleus.ui.components.layout.AppVerticalScrollbar
 import example.nucleus.ui.components.layout.HorizontalScrollableRow
+import example.nucleus.ui.components.layout.appScrollContentPadding
 import example.nucleus.ui.helpers.rememberSongDownloadState
+import example.nucleus.ui.themes.AppShapes
 import example.nucleus.ui.themes.LocalMiniPlayerInset
+import example.nucleus.ui.themes.ctaLabel
 import example.nucleus.utils.LocalDownloadViewModel
 import example.nucleus.utils.LocalPlayerViewModel
 import example.nucleus.viewmodels.HomeState
@@ -91,7 +96,10 @@ fun HomeScreen(
                 onScrollNearEnd = { onEvent(HomeUiEvent.LoadMore) },
                 onNavigate = onNavigate,
                 playerViewModel = playerViewModel,
-                contentPadding = PaddingValues(top = 16.dp, bottom = LocalMiniPlayerInset.current),
+                contentPadding = appScrollContentPadding(
+                    top = 16.dp,
+                    bottom = LocalMiniPlayerInset.current,
+                ),
             )
 
             is HomeState.Error -> HomeScreenError(
@@ -201,7 +209,9 @@ fun HomeScreenContent(
 
         AppVerticalScrollbar(
             state = listState,
-            modifier = Modifier.align(Alignment.CenterEnd)
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .fillMaxHeight(),
         )
     }
 }
@@ -214,11 +224,11 @@ private fun ChipFilterRow(
     onChipClick: (String?) -> Unit,
 ) {
     val lazyListState = rememberLazyListState()
-    Column(Modifier.padding(end = 12.dp)) {
+    Column {
         HorizontalScrollableRow(
             modifier = Modifier.padding(vertical = 10.dp),
             state = lazyListState,
-            contentPadding = PaddingValues(horizontal = 20.dp),
+            contentPadding = PaddingValues(horizontal = AppScreenContentHorizontal),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             items(chips.size) { index ->
@@ -255,11 +265,11 @@ private fun HomeSectionRow(
     onNavigate: (Route) -> Unit,
     playerViewModel: PlayerViewModel,
 ) {
-    Column(modifier = Modifier.padding(top = 10.dp, bottom = 10.dp, end = 12.dp)) {
+    Column(modifier = Modifier.padding(vertical = 10.dp)) {
         Text(
             text = section.title,
             style = MaterialTheme.typography.headlineSmallEmphasized,
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+            modifier = Modifier.padding(horizontal = AppScreenContentHorizontal, vertical = 4.dp),
         )
 
         val rows = section.numItemsPerColumn ?: 1
@@ -269,7 +279,7 @@ private fun HomeSectionRow(
                 items = section.items,
                 rows = rows,
                 modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 4.dp),
+                contentPadding = PaddingValues(horizontal = AppScreenContentHorizontal, vertical = 4.dp),
                 columnWidth = 320.dp,
                 rowSpacing = 8.dp,
                 columnSpacing = 12.dp,
@@ -286,7 +296,7 @@ private fun HomeSectionRow(
             HorizontalScrollableRow(
                 modifier = Modifier.fillMaxWidth(),
                 state = sectionScrollState,
-                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 4.dp),
+                contentPadding = PaddingValues(horizontal = AppScreenContentHorizontal, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 items(
@@ -320,17 +330,17 @@ private fun QuickPicksSection(
     val rowSpacing = 8.dp
     val columnWidth = 320.dp
 
-    Column(modifier = Modifier.fillMaxWidth()) {
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
         Text(
             text = stringResource(Res.string.recently_played),
             style = MaterialTheme.typography.headlineSmallEmphasized,
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+            modifier = Modifier.padding(horizontal = AppScreenContentHorizontal, vertical = 4.dp),
         )
         HorizontalGridLikeRow(
             items = songs,
             rows = rowCount,
             modifier = Modifier.fillMaxWidth(),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+            contentPadding = PaddingValues(horizontal = AppScreenContentHorizontal, vertical = 8.dp),
             columnWidth = columnWidth,
             rowSpacing = rowSpacing,
             columnSpacing = 12.dp,
@@ -370,23 +380,22 @@ fun HomeScreenError(message: String, isOffline: Boolean = false, onRetry: () -> 
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Icon(
-            if (isOffline) Icons.Default.WifiOff else Icons.Default.ErrorOutline,
-            contentDescription = null,
-            modifier = Modifier.size(48.dp),
-            tint = if (isOffline) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
+        ExpressiveEmptyState(
+            icon = if (isOffline) Icons.Default.WifiOff else Icons.Default.ErrorOutline,
+            title = stringResource(if (isOffline) Res.string.home_offline_title else Res.string.home_error),
+            subtitle = if (isOffline) stringResource(Res.string.home_offline_message) else message,
+            modifier = Modifier.weight(1f, fill = false).heightIn(max = 280.dp),
         )
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = stringResource(if (isOffline) Res.string.home_offline_title else Res.string.home_error),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-        )
-        Text(
-            text = if (isOffline) stringResource(Res.string.home_offline_message) else message,
-            style = MaterialTheme.typography.bodyMedium,
-        )
-        Spacer(modifier = Modifier.height(24.dp))
-        Button(onClick = onRetry) { Text(stringResource(Res.string.home_retry)) }
+        Spacer(modifier = Modifier.height(8.dp))
+        Button(
+            onClick = onRetry,
+            shape = AppShapes.extraLarge,
+            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+        ) {
+            Text(
+                stringResource(Res.string.home_retry),
+                style = MaterialTheme.typography.ctaLabel,
+            )
+        }
     }
 }

@@ -31,7 +31,12 @@ fun SupportSettingsGroup() {
     LaunchedEffect(Unit) { appViewModel.refreshCrashReports() }
 
     SettingsGroup(
-        title = { Text(stringResource(Res.string.section_support)) },
+        title = {
+            Text(
+                stringResource(Res.string.section_support),
+                style = MaterialTheme.typography.titleMediumEmphasized,
+            )
+        },
         colors = colors,
     ) {
         val downloading = updateStatus as? UpdateStatus.Downloading

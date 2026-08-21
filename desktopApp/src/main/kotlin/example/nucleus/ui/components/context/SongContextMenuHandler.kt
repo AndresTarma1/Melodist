@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Radio
 import androidx.compose.material.icons.filled.RemoveCircleOutline
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.outlined.Favorite
@@ -42,6 +43,7 @@ import example.nucleus.download.DownloadState
 import com.metrolist.innertube.models.SongItem
 import example.nucleus.shared.generated.resources.Res
 import example.nucleus.shared.generated.resources.*
+import example.nucleus.ui.themes.AppShapes
 import org.jetbrains.compose.resources.stringResource
 
 import androidx.compose.ui.graphics.Shape
@@ -252,6 +254,7 @@ fun CollectionContextMenuContent(
     onPlay: (() -> Unit)? = null,
     onShuffle: (() -> Unit)? = null,
     onRemoveFromLibrary: (() -> Unit)? = null,
+    onExport: (() -> Unit)? = null,
 ) {
     // Cuántos items va a tener el primer grupo (título es aparte, sin grupo).
     val mainGroupCount = 1 + // Open siempre
@@ -260,15 +263,15 @@ fun CollectionContextMenuContent(
 
     Column(modifier = Modifier.width(260.dp)) {
         Surface(
-            shape = MaterialTheme.shapes.medium,
-            color = MaterialTheme.colorScheme.surface,
+            shape = AppShapes.large,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
             tonalElevation = 0.dp,
         ) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleSmall,
+                style = MaterialTheme.typography.titleSmallEmphasized,
                 maxLines = 1,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
             )
         }
 
@@ -306,9 +309,24 @@ fun CollectionContextMenuContent(
             }
         }
 
+        val hasExport = onExport != null
+        val hasRemove = onRemoveFromLibrary != null
+        onExport?.let { action ->
+            Spacer(Modifier.height(MenuDefaults.GroupSpacing))
+            DropdownMenuGroup(shapes = MenuDefaults.groupShape(1, if (hasRemove) 3 else 2)) {
+                GroupMenuItem(
+                    text = stringResource(Res.string.export_playlist),
+                    icon = Icons.Default.Save,
+                    itemIndex = 0,
+                    groupItemCount = 1,
+                    onClick = action,
+                )
+            }
+        }
+
         onRemoveFromLibrary?.let { action ->
             Spacer(Modifier.height(MenuDefaults.GroupSpacing))
-            DropdownMenuGroup(shapes = MenuDefaults.groupShape(1, 2)) {
+            DropdownMenuGroup(shapes = MenuDefaults.groupShape(if (hasExport) 2 else 1, if (hasExport) 3 else 2)) {
                 GroupMenuItem(
                     text = stringResource(Res.string.context_remove_library),
                     icon = Icons.Default.Delete,

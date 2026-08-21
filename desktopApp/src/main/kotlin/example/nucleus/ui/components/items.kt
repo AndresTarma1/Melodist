@@ -52,7 +52,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
@@ -64,10 +63,18 @@ import example.nucleus.ui.components.context.CollectionContextMenuPopup
 import example.nucleus.ui.components.images.MusicPlayerImage
 import example.nucleus.ui.components.images.PlaceholderType
 import example.nucleus.ui.helpers.contextMenuArea
+import example.nucleus.ui.helpers.desktopInteractiveSurface
+import example.nucleus.ui.themes.AppShapes
 import example.nucleus.ui.themes.LocalDimens
+import example.nucleus.ui.themes.mediaItemTitle
 import example.nucleus.ui.utils.circleAwareShape
 import example.nucleus.ui.utils.isCircleLikeShape
 import example.nucleus.utils.thumbnailAspectRatio
+import example.nucleus.utils.LocalDownloadViewModel
+import example.nucleus.utils.LocalPlaylistsViewModel
+import example.nucleus.utils.LocalSnackbarHostState
+import example.nucleus.utils.LocalSnackbarScope
+import kotlinx.coroutines.launch
 import com.metrolist.innertube.models.AlbumItem
 import com.metrolist.innertube.models.ArtistItem
 import com.metrolist.innertube.models.PlaylistItem
@@ -231,7 +238,7 @@ fun YouTubeGridItem(
 
             Text(
                 text = item.title,
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                style = MaterialTheme.typography.mediaItemTitle,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.fillMaxWidth(),
@@ -279,6 +286,7 @@ fun MediaGridItem(
     onRemove: () -> Unit = {},
     isRemovable: Boolean = true,
     source: ItemContentSource = ItemContentSource.LOCAL,
+    onExport: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val isCircle = isCircleLikeShape(shape)
@@ -413,12 +421,12 @@ fun MediaGridItem(
                 onPlay = onPlay,
                 onShuffle = onShuffle,
                 onRemoveFromLibrary = if (isRemovable) onRemove else null,
+                onExport = onExport,
             )
             Spacer(Modifier.height(10.dp))
             Text(
                 title,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.mediaItemTitle,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.fillMaxWidth(),
@@ -446,6 +454,7 @@ fun MediaGridItem(
     onRemove: () -> Unit = {},
     isRemovable: Boolean = true,
     source: ItemContentSource = ItemContentSource.LOCAL,
+    onExport: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     MediaGridItem(
@@ -459,6 +468,7 @@ fun MediaGridItem(
         onShuffle = onShuffle,
         onRemove = onRemove,
         isRemovable = isRemovable,
+        onExport = onExport,
         source = source,
         modifier = modifier,
     )
@@ -498,22 +508,23 @@ fun YoutubeListItem(
 
     val sourceIcon = if (source == ItemContentSource.LOCAL) Icons.Default.PhoneAndroid else null
     val isCollectionItem = item is AlbumItem || item is PlaylistItem
+    val rowShape = AppShapes.large
 
     Box(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 2.dp)
-            .clip(RoundedCornerShape(dimens.itemCorner))
-            .background(if (isHovered) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.07f) else Color.Transparent)
+            .desktopInteractiveSurface(shape = rowShape, showHandCursor = true)
             .clickable { onClick(item) }
-            .pointerHoverIcon(PointerIcon.Hand)
             .contextMenuArea(
                 enabled = item is SongItem || isCollectionItem,
                 onHoverChange = { isHovered = it },
                 onMenuAction = {
                     showMenu = true
-                }
+                },
             )
+            // Evita que hover/menú se dibujen por encima del gutter del scrollbar padre.
+            .padding(end = 2.dp)
     ) {
         ListItem(
             modifier = Modifier.fillMaxWidth(),
@@ -523,7 +534,7 @@ fun YoutubeListItem(
                     text = item.title,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)
+                    style = MaterialTheme.typography.mediaItemTitle,
                 )
             },
             supportingContent = {
@@ -618,6 +629,9 @@ fun YoutubeListItem(
                 song = item
             )
         } else if (item is AlbumItem || item is PlaylistItem) {
+            val playlistsViewModel = LocalPlaylistsViewModel.current
+            val scope = LocalSnackbarScope.current
+            val snackbar = LocalSnackbarHostState.current
             CollectionContextMenuPopup(
                 expanded = showMenu,
                 onDismiss = { showMenu = false },
@@ -629,7 +643,25 @@ fun YoutubeListItem(
                 },
                 onShuffle = {
                     onShuffle(item)
-                }
+                },
+                onExport = if (item is PlaylistItem) ({
+                    playlistsViewModel.exportPlaylist(item.id) { success, msg ->
+                        scope.launch {
+                            if (success) {
+                                val result = snackbar.showSnackbar(
+                                    message = "Exportada a $msg",
+                                    actionLabel = "Abrir carpeta",
+                                    duration = androidx.compose.material3.SnackbarDuration.Long
+                                )
+                                if (result == androidx.compose.material3.SnackbarResult.ActionPerformed) {
+                                    try { example.nucleus.platform.NativeDesktop.openFolder(java.io.File(msg).parentFile ?: java.io.File(msg)) } catch (_: Exception) {}
+                                }
+                            } else {
+                                snackbar.showSnackbar("Error: $msg")
+                            }
+                        }
+                    }
+                }) else null
             )
         }
     }

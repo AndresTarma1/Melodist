@@ -31,13 +31,18 @@ fun CrashReportDialog(
 
     val count = reports.size
     val latest = reports.first().second
+    val scheme = MaterialTheme.colorScheme
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = scheme.surfaceContainerHigh,
+        titleContentColor = scheme.onSurface,
+        textContentColor = scheme.onSurfaceVariant,
         title = {
             Text(
                 if (count == 1) stringResource(Res.string.crash_detected)
-                else stringResource(Res.string.crash_detected_count).replace("%d", count.toString())
+                else stringResource(Res.string.crash_detected_count).replace("%d", count.toString()),
+                color = scheme.onSurface,
             )
         },
         text = {
@@ -46,6 +51,7 @@ fun CrashReportDialog(
                     text = if (count == 1) stringResource(Res.string.crash_description)
                     else stringResource(Res.string.crash_description_count).replace("%1\$d", count.toString()),
                     style = MaterialTheme.typography.bodyMedium,
+                    color = scheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(12.dp))
                 Text(
@@ -53,7 +59,7 @@ fun CrashReportDialog(
                         .replace("%1\$s", latest.appVersion)
                         .replace("%2\$s", latest.os),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = scheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
@@ -61,22 +67,24 @@ fun CrashReportDialog(
                     style = MaterialTheme.typography.bodySmall,
                     fontFamily = FontFamily.Monospace,
                     fontSize = 11.sp,
+                    color = scheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(12.dp))
                 Text(
                     text = stringResource(Res.string.crash_send_prompt),
                     style = MaterialTheme.typography.bodyMedium,
+                    color = scheme.onSurfaceVariant,
                 )
             }
         },
         confirmButton = {
             TextButton(onClick = onSend) {
-                Text(stringResource(Res.string.crash_send))
+                Text(stringResource(Res.string.crash_send), color = scheme.primary)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(stringResource(Res.string.crash_no_send))
+                Text(stringResource(Res.string.crash_no_send), color = scheme.primary)
             }
         },
     )

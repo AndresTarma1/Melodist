@@ -26,6 +26,9 @@ import com.metrolist.innertube.models.PlaylistItem
 import com.metrolist.innertube.models.SongItem
 import io.github.aakira.napier.Napier
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -37,6 +40,10 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import kotlin.uuid.ExperimentalUuidApi
 
@@ -494,6 +501,32 @@ class LibraryPlaylistsViewModel(
         return remoteId
     }
 
+    fun exportPlaylist(playlistId: String, onDone: (Boolean, String) -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val item = playlistRepository.getCachedPlaylistItem(playlistId)
+                val songs = playlistRepository.getCachedPlaylistSongs(playlistId).orEmpty()
+                if (item == null || songs.isEmpty()) {
+                    withContext(Dispatchers.Main) { onDone(false, "Playlist vacía") }
+                    return@launch
+                }
+                val csv = buildString {
+                    appendLine("Track Name,Artist Name,Album")
+                    songs.forEach { s ->
+                        val t = s.title.replace("\"", "\"\"")
+                        val a = s.artists.joinToString(", ") { it.name }.replace("\"", "\"\"")
+                        val al = s.album?.name?.replace("\"", "\"\"") ?: ""
+                        appendLine("\"$t\",\"$a\",\"$al\"")
+                    }
+                }
+                // Por ahora retornamos el CSV; la UI decide donde guardarlo (por ahora solo notifica)
+                withContext(Dispatchers.Main) { onDone(true, csv) }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) { onDone(false, e.message ?: "Error") }
+            }
+        }
+    }
+
     fun importCsvFile() {
         viewModelScope.launch(Dispatchers.IO) {
             val result = CsvFilePicker.pickAndReadCsvFile() ?: return@launch
@@ -537,19 +570,31 @@ class LibraryPlaylistsViewModel(
             )
 
             val foundSongs = mutableListOf<SongItem>()
-            for ((_, row) in songs.withIndex()) {
+            val mutex = kotlinx.coroutines.sync.Mutex()
+            val semaphore = Semaphore(6)
+            // Procesar en chunks para no saturar y actualizar UI cada ~10
+            for (chunk in songs.chunked(20)) {
+                coroutineScope {
+                    chunk.map { row ->
+                        async(Dispatchers.IO) {
+                            semaphore.withPermit {
+                                // ISRC primero si existe (1 hit), sino title+artist
+                                val query = row.isrc?.takeIf { it.isNotBlank() } ?: "${row.title} ${row.artist}"
+                                val result = YouTube.search(query, YouTube.SearchFilter.FILTER_SONG).getOrNull()
+                                result?.items?.firstOrNull { it is SongItem }?.let {
+                                    mutex.withLock { foundSongs.add(it as SongItem) }
+                                }
+                            }
+                        }
+                    }.awaitAll()
+                }
+                // Batch UI update cada chunk
+                val currentSize = mutex.withLock { foundSongs.size }
                 _csvImportState.value = CsvImportState.Searching(
-                    currentTitle = row.title,
-                    found = foundSongs.size,
+                    currentTitle = chunk.lastOrNull()?.title ?: "",
+                    found = currentSize,
                     total = songs.size,
                 )
-
-                val query = "${row.title} ${row.artist}"
-                val searchResult = withContext(Dispatchers.IO) {
-                    YouTube.search(query, YouTube.SearchFilter.FILTER_SONG)
-                }
-                searchResult.getOrNull()?.items?.firstOrNull { it is SongItem }
-                    ?.let { foundSongs.add(it as SongItem) }
             }
 
             if (foundSongs.isEmpty()) {

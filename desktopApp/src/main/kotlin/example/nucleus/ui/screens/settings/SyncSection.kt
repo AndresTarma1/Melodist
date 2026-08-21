@@ -33,7 +33,12 @@ fun SyncSettingsGroup(
     val isLoggedIn by remember { AccountManager.loginState }.collectAsState(false)
 
     SettingsGroup(
-        title = { Text(stringResource(Res.string.section_sync)) },
+        title = {
+            Text(
+                stringResource(Res.string.section_sync),
+                style = MaterialTheme.typography.titleMediumEmphasized,
+            )
+        },
         colors = colors,
     ) {
         SettingsSwitch(

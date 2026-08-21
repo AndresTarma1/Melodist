@@ -36,8 +36,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import example.nucleus.ui.components.ExpressiveEmptyState
+import example.nucleus.ui.themes.AppShapes
 import example.nucleus.ui.utils.circleAwareShape
 import example.nucleus.utils.LocalAnimationsEnabled
 
@@ -110,7 +111,7 @@ internal fun LibraryGridSkeleton(count: Int = 4, isCircle: Boolean = false) {
     }
     val alpha = animAlpha?.value ?: 0.42f
     val color = MaterialTheme.colorScheme.onSurface.copy(alpha = alpha * 0.15f)
-    val shape = if (isCircle) circleAwareShape() else MaterialTheme.shapes.medium
+    val shape = if (isCircle) circleAwareShape() else AppShapes.large
 
     LazyVerticalGrid(
         columns = GridCells.Adaptive(minSize = 160.dp),
@@ -141,35 +142,9 @@ internal fun LibraryEmptyState(
     title: String,
     subtitle: String,
 ) {
-    Box(modifier = Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Box(
-                modifier = Modifier.size(80.dp).clip(circleAwareShape())
-                    .background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.3f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    icon,
-                    null,
-                    modifier = Modifier.size(40.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                )
-            }
-            Spacer(Modifier.height(8.dp))
-            Text(
-                title,
-                style = MaterialTheme.typography.titleLargeEmphasized,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                subtitle,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-            )
-        }
-    }
+    ExpressiveEmptyState(
+        icon = icon,
+        title = title,
+        subtitle = subtitle,
+    )
 }

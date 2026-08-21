@@ -76,12 +76,20 @@ class PlayerViewModel(
     private val _progressState = MutableStateFlow(PlayerProgressState())
     val progressState: StateFlow<PlayerProgressState> = _progressState.asStateFlow()
 
+    val mpvError: StateFlow<String?> = playerService.mpvError
+    fun clearMpvError() = playerService.clearMpvError()
+
     /**
      * Emite la posición objetivo (ms) cada vez que el usuario realiza un salto. Se usa en Listen Together
      * para transmitir los saltos del anfitrión; es inofensivo cuando la función no está en uso.
      */
     private val _seekEvents = MutableSharedFlow<Long>(extraBufferCapacity = 8)
     val seekEvents: SharedFlow<Long> = _seekEvents.asSharedFlow()
+
+    // Stubs para compatibilidad con NowPlayingOverlay (prefetch deshabilitado temporalmente)
+    val currentSongLyricsOffsetMs: StateFlow<Int> = MutableStateFlow(0)
+    fun nudgeCurrentSongLyricsOffset(deltaMs: Int) {}
+    fun resetCurrentSongLyricsOffset() {}
 
     /** Mensajes transitorios para el usuario (por ejemplo, si una canción no se pudo reproducir). La UI los muestra como snackbars. */
     private val _playbackMessages = MutableSharedFlow<String>(extraBufferCapacity = 4)
@@ -192,6 +200,7 @@ class PlayerViewModel(
 
         viewModelScope.launch {
             _uiState
+                .distinctUntilChangedBy { it.queueSession }
                 .collectLatest { state ->
                     if (!userPreferences.queuePersistenceEnabled.first()) {
                         // Persistencia desactivada: limpiar cualquier cola guardada.
@@ -203,13 +212,26 @@ class PlayerViewModel(
                         return@collectLatest
                     }
                     delay(1000) // debounce: solo guardar cuando la cola se estabiliza
-                    runCatching {
-                        userPreferences.saveQueue(
+                    // Serializar fuera de Main (puede ser pesado con colas grandes) y no loguear cancelaciones.
+                    val json = try {
+                        withContext(Dispatchers.Default) {
                             queueJson.encodeToString(state.queueSession)
-                        )
+                        }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        Napier.w("Fallo al serializar cola: ${e.message}")
+                        return@collectLatest
+                    }
+                    try {
+                        userPreferences.saveQueue(json)
                         userPreferences.saveQueueShuffle(state.isShuffled)
                         userPreferences.saveQueueRepeat(state.repeatMode.name)
-                    }.onFailure { Napier.w("Fallo al persistir la cola: ${it.message}") }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        Napier.w("Fallo al persistir la cola: ${e.message}")
+                    }
                 }
         }
     }
@@ -468,7 +490,7 @@ class PlayerViewModel(
         // en segundo plano y nunca bloquea ni falla la reproducción — tocar una canción no debe depender
         // de su endpoint de radio.
         resolveAndPlay(song)
-        fetchRelatedQueue(song, _uiState.value.queueSession)
+        if (!listenTogetherGuestMode) fetchRelatedQueue(song, _uiState.value.queueSession)
     }
 
     /**
@@ -733,6 +755,7 @@ class PlayerViewModel(
     }
 
     private fun checkAndFetchMoreSongs(state: PlayerUiState, nextIndex: Int) {
+        if (listenTogetherGuestMode) return
         val session = state.queueSession
 
         if (session.playlistQueue != null && session.playlistQueue.hasNextPage() && nextIndex >= session.order.size - 3) {
@@ -809,6 +832,7 @@ class PlayerViewModel(
     }
 
     fun next() {
+        if (listenTogetherGuestMode && !allowInternalSync) return
         val state = _uiState.value
         if (state.queueSession.order.isEmpty()) return
 
@@ -861,6 +885,7 @@ class PlayerViewModel(
     }
 
     fun previous() {
+        if (listenTogetherGuestMode && !allowInternalSync) return
         val state = _uiState.value
         if (state.queueSession.order.isEmpty()) return
 
@@ -989,6 +1014,26 @@ class PlayerViewModel(
         _uiState.update { state -> PlayerQueueCoordinator.move(state, fromIndex, toIndex) }
     }
 
+    /** Sincroniza la cola completa desde el host (invitado) sin reiniciar la pista actual. */
+    fun syncQueueFromHost(items: List<MediaMetadata>, currentIndex: Int) {
+        if (items.isEmpty()) return
+        val idx = currentIndex.coerceIn(0, items.lastIndex)
+        val session = QueueSession(
+            source = QueueSource.Custom,
+            items = items,
+            order = items.indices.toList(),
+            currentIndex = idx,
+        )
+        _uiState.update {
+            it.copy(
+                queueSession = session,
+                queue = session.queueItems(),
+                currentIndex = idx,
+                // No tocamos currentSong/playbackState/progress — solo la cola
+            )
+        }
+    }
+
     /** Reintenta la reproducción de la canción actual (para una acción de "reintentar" en un error de reproducción). */
     fun retry() {
         val song = _uiState.value.currentSong ?: return
@@ -997,6 +1042,7 @@ class PlayerViewModel(
     }
 
     fun playAtIndex(index: Int) {
+        if (listenTogetherGuestMode && !allowInternalSync) return
         val state = _uiState.value
         if (index < 0 || index >= state.queueSession.order.size) return
 
@@ -1330,6 +1376,7 @@ class PlayerViewModel(
     }
 
     private fun onTrackEnded() {
+        if (listenTogetherGuestMode) return
         val state = _uiState.value
         when (state.repeatMode) {
             RepeatMode.ONE -> state.currentSong?.let(::resolveAndPlay)
@@ -1339,6 +1386,7 @@ class PlayerViewModel(
     }
 
     private fun fetchRelatedQueue(song: MediaMetadata, sessionSeed: QueueSession) {
+        if (listenTogetherGuestMode) return
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val endpoint = WatchEndpoint(videoId = song.id)
@@ -1409,6 +1457,14 @@ class PlayerViewModel(
     private val _lyricsLoading = MutableStateFlow(false)
     val lyricsLoading: StateFlow<Boolean> = _lyricsLoading.asStateFlow()
 
+    private val _lyricsFetchFailed = MutableStateFlow(false)
+    val lyricsFetchFailed: StateFlow<Boolean> = _lyricsFetchFailed.asStateFlow()
+
+    fun retryFetchLyrics() {
+        lastLyricsSongId = null
+        viewModelScope.launch { fetchLyrics() }
+    }
+
     // Canción para la que ya se pidieron (o están en curso) las letras. Evita re-fetch al solo
     // cambiar de pestaña (Cola/Info -> Letras) sobre la misma canción.
     private var lastLyricsSongId: String? = null
@@ -1445,11 +1501,14 @@ class PlayerViewModel(
         lastLyricsSongId = requestSongId
         lyricsJob?.cancel()
 
-        // Si hay cache en memoria de la pista actual, publicar al instante.
+        // Cache en memoria: parsear fuera de Main para no congelar al cambiar de cancion.
         lyricsMemoryCache[requestSongId]?.let { cached ->
-            applyCachedLyrics(cached)
-            _lyricsLoading.value = false
-            prefetchNextLyrics()
+            lyricsJob = viewModelScope.launch(Dispatchers.Default) {
+                if (_uiState.value.currentSong?.id != requestSongId || lastLyricsSongId != requestSongId) return@launch
+                applyCachedLyrics(cached)
+                _lyricsLoading.value = false
+                prefetchNextLyrics()
+            }
             return
         }
 

@@ -7,8 +7,10 @@ import com.kmpalette.color
 import com.kmpalette.loader.rememberNetworkLoader
 import com.kmpalette.rememberPaletteState
 import io.ktor.http.Url
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
@@ -77,7 +79,9 @@ fun rememberArtworkColors(url: String?): ArtworkColors {
 
         try {
             delay(120.milliseconds)
-            paletteState.generate(Url(url))
+            withContext(Dispatchers.IO) {
+                paletteState.generate(Url(url))
+            }
 
             val dominant = paletteState.palette?.dominantSwatch?.color
             val vibrant = paletteState.palette?.vibrantSwatch?.color

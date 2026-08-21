@@ -3,6 +3,7 @@ package example.nucleus.ui.screens.library.tabs
 import androidx.compose.foundation.layout.Arrangement
 import example.nucleus.shared.generated.resources.Res
 import example.nucleus.shared.generated.resources.*
+import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -13,6 +14,7 @@ import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import kotlinx.coroutines.launch
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
 import androidx.compose.runtime.Composable
@@ -50,6 +52,9 @@ fun PlaylistsTab(
     onQuickShufflePlaylist: (playlistId: String, endpoint: WatchEndpoint?, title: String, onFallback: () -> Unit) -> Unit,
 ) {
     val downloadViewModel = LocalDownloadViewModel.current
+    val playlistsViewModel = org.koin.compose.koinInject<example.nucleus.viewmodels.LibraryPlaylistsViewModel>()
+    val snackbar = example.nucleus.utils.LocalSnackbarHostState.current
+    val scope = example.nucleus.utils.LocalSnackbarScope.current
     val downloadedSongs by downloadViewModel.downloadedSongs.collectAsState()
     val downloadedCount by downloadViewModel.downloadedCount.collectAsState()
     val fullyDownloadedAlbums by downloadViewModel.fullyDownloadedAlbums.collectAsState()
@@ -88,6 +93,7 @@ fun PlaylistsTab(
         val isRemovable: Boolean,
         val onRemove: () -> Unit = {},
         val source: ItemContentSource,
+        val onExport: (() -> Unit)? = null,
     )
 
     val mergedPlaylists = remember(
@@ -126,6 +132,27 @@ fun PlaylistsTab(
                         isRemovable = true,
                         onRemove = { onRemove(playlist.id) },
                         source = ItemContentSource.LOCAL,
+                        onExport = {
+                            playlistsViewModel.exportPlaylist(playlist.id) { success, msg ->
+                                scope.launch {
+                                    if (success) {
+                                        val result = snackbar.showSnackbar(
+                                            message = org.jetbrains.compose.resources.getString(Res.string.export_playlist_success, msg),
+                                            actionLabel = "Abrir carpeta",
+                                            duration = androidx.compose.material3.SnackbarDuration.Long
+                                        )
+                                        if (result == androidx.compose.material3.SnackbarResult.ActionPerformed) {
+                                            try {
+                                                val file = java.io.File(msg)
+                                                example.nucleus.platform.NativeDesktop.openFolder(file.parentFile ?: file)
+                                            } catch (_: Exception) {}
+                                        }
+                                    } else {
+                                        snackbar.showSnackbar(org.jetbrains.compose.resources.getString(Res.string.export_playlist_error, msg))
+                                    }
+                                }
+                            }
+                        },
                     )
                 )
             }
@@ -267,6 +294,7 @@ fun PlaylistsTab(
                                 onRemove = entry.onRemove,
                                 isRemovable = entry.isRemovable,
                                 source = entry.source,
+                                onExport = entry.onExport,
                             )
                         } else {
                             MediaGridItem(
@@ -281,6 +309,7 @@ fun PlaylistsTab(
                                 onRemove = entry.onRemove,
                                 isRemovable = entry.isRemovable,
                                 source = entry.source,
+                                onExport = entry.onExport,
                             )
                         }
                     }

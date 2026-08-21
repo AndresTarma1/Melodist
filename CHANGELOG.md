@@ -2,6 +2,32 @@
 
 Todas las versiones de PaltaSound. Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [0.8.1] - 2026-08-20
+
+### Añadido
+
+- **Importar CSV con control**: check `Abrir página para extraer` en el tutorial — desmarcado solo abre el selector de archivos.
+
+### Corregido
+
+- Sincronización automática con YouTube al entrar a Cuenta deshabilitada (ahora solo manual tras login).
+- Fondo de NowPlaying siempre transparente (preferencia `nowPlayingBackground` quitada de Ajustes).
+- Diálogo de actualización en modo oscuro: texto negro sobre fondo oscuro → `color=scheme.onSurface` explícito `App.kt:421` y `CrashReportDialog.kt:38`.
+- Mini reproductor integrado (DOCKED) ahora muestra el contenido de las rutas por detrás con Haze translúcido como el flotante, pegado abajo sin márgenes `Navigation.kt:118` `MiniPlayer.kt:612`.
+- Barras de scroll (`AppVerticalScrollbar`) ya no quedan detrás del mini flotante/pegado (`LocalMiniPlayerInset` en `AppScrollbars.jvm.kt:62`).
+- Cola NowPlaying y principal ya no se re-renderiza al saltar 5 puestos: keys estables `song.id` y `scrollToItem` instantáneo si `distance>3`.
+- Tamaño de celdas en Biblioteca mixta `200dp → 150dp` igual que Álbumes/Artistas `LibraryMixedTab.kt:289`.
+
+### Optimizado
+
+- `ArtworkColorPalette` genera paleta en `Dispatchers.IO` y solo si `GRADIENT`/`dynamicColor`.
+- `BlurredImageBackgroundLayer` `blur 99dp → 32dp` y gate por estilo.
+- `PlayerViewModel` cola persistente `distinctUntilChangedBy { queueSession }` + serialización en `Default` sin loguear `CancellationException`.
+- `SyncedLyricsView` `binarySearch` y `useFading` solo si `lines>6`; `NowPlaying` sin doble `BoxWithConstraints`.
+- `Coil` `Memory 16→12MB`, `Disk 256→128MB`.
+- `CsvImport` `ISRC` primero + `Semaphore(6)` `chunked(20)` `awaitAll` con `Mutex`.
+- `MpvLib` validación `isFile/length>=50MB` + `try/catch` por candidatos y `isAvailable` flag con diálogo en vez de `ExceptionInInitializerError`.
+
 ## [0.8.0] - 2026-08-09
 
 ### Añadido

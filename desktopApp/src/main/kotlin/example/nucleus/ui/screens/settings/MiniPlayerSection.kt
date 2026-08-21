@@ -35,7 +35,12 @@ fun MiniPlayerSettingsGroup(
     var idx = 0
 
     SettingsGroup(
-        title = { Text(stringResource(Res.string.section_mini_player)) },
+        title = {
+            Text(
+                stringResource(Res.string.section_mini_player),
+                style = MaterialTheme.typography.titleMediumEmphasized,
+            )
+        },
         colors = colors,
     ) {
         DropdownSelector(

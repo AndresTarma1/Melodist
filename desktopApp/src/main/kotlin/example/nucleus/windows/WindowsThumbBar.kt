@@ -172,7 +172,12 @@ class WindowsThumbBar(
         // Si ya se agregó, una llamada a "add" es rechazada (E_INVALIDARG) — se usa update en su lugar.
         val index = if (buttonsAdded) V_THUMBBARUPDATEBUTTONS else V_THUMBBARADDBUTTONS
         val hr = vtable(index).invokeInt(arrayOf(tb, h, buttons.size, buttons.first().pointer))
-        Napier.i("[thumbbar] ${if (buttonsAdded) "update" else "add"}Buttons hr=$hr (0=OK)")
+        // update en cada play/pause: no spamear INFO (stall/recovery lo disparaba cada pocos s).
+        if (buttonsAdded) {
+            Napier.d("[thumbbar] updateButtons hr=$hr (0=OK)")
+        } else {
+            Napier.i("[thumbbar] addButtons hr=$hr (0=OK)")
+        }
         if (hr == 0) buttonsAdded = true
     }
 

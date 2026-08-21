@@ -31,7 +31,12 @@ fun AudioSettingsGroup(
     var showLoudnessDropdown by remember { mutableStateOf(false) }
 
     SettingsGroup(
-        title = { Text(stringResource(Res.string.section_audio)) },
+        title = {
+            Text(
+                stringResource(Res.string.section_audio),
+                style = MaterialTheme.typography.titleMediumEmphasized,
+            )
+        },
         colors = colors,
     ) {
         DropdownSelector(

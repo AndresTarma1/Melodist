@@ -2,20 +2,17 @@
 
 package example.nucleus.ui.components.player
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.LockOpen
@@ -23,28 +20,26 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import example.nucleus.ui.components.song.AddToPlaylistDialog
-import example.nucleus.utils.LocalDownloadViewModel
-import example.nucleus.utils.LocalPlayerViewModel
-import example.nucleus.utils.LocalSnackbarHostState
-import example.nucleus.utils.LocalSnackbarScope
-import example.nucleus.utils.LocalUserPreferences
-import example.nucleus.ui.components.layout.AppVerticalScrollbar
-import example.nucleus.viewmodels.PlayerUiState
-import example.nucleus.viewmodels.QueueSource
-import example.nucleus.utils.LocalPlaylistsViewModel
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import androidx.compose.ui.unit.sp
 import example.nucleus.shared.generated.resources.Res
 import example.nucleus.shared.generated.resources.*
+import example.nucleus.ui.components.ExpressiveEmptyState
+import example.nucleus.ui.components.layout.AppVerticalScrollbar
+import example.nucleus.ui.components.song.AddToPlaylistDialog
+import example.nucleus.ui.themes.AppShapes
+import example.nucleus.utils.*
+import example.nucleus.viewmodels.PlayerUiState
+import example.nucleus.viewmodels.QueueSource
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.stringResource
 import sh.calvin.reorderable.ReorderableItem
@@ -62,12 +57,19 @@ fun PlaybackQueuePanel(
 ) {
     val playerViewModel = LocalPlayerViewModel.current
     val downloadViewModel = LocalDownloadViewModel.current
-    val coroutineScope = rememberCoroutineScope()
-    val preferencesRepo = LocalUserPreferences.current
-    val listState = rememberLazyListState()
     val playlistsViewModel = LocalPlaylistsViewModel.current
+    val preferencesRepo = LocalUserPreferences.current
+    val coroutineScope = rememberCoroutineScope()
+    val snackbar = LocalSnackbarHostState.current
+    val scope = LocalSnackbarScope.current
+
+    val listState = rememberLazyListState()
+    val queueLocked by preferencesRepo.queueLocked.collectAsState(initial = false)
+    val queueSongs = remember(state.queue) { state.queue.map { it.toSongItem() } }
+
     var showSaveQueueDialog by remember { mutableStateOf(false) }
     var showAddQueueDialog by remember { mutableStateOf(false) }
+
     val defaultQueueName = stringResource(Res.string.queue_title)
     var queuePlaylistName by remember(state.queueSource, state.queue, defaultQueueName) {
         mutableStateOf(
@@ -78,27 +80,30 @@ fun PlaybackQueuePanel(
             }
         )
     }
-    val queueSongs = remember(state.queue) { state.queue.map { it.toSongItem() } }
-
-    val queueLocked by preferencesRepo.queueLocked.collectAsState(initial = false)
-    val snackbar = LocalSnackbarHostState.current
-    val scope = LocalSnackbarScope.current
 
     val reorderableState = rememberReorderableLazyListState(listState) { from, to ->
         playerViewModel.moveQueueItem(from.index, to.index)
     }
 
-    LaunchedEffect(state.isShuffled) {
+    // Auto-scroll — instantáneo si salto grande
+    var previousIndex by remember { mutableStateOf(state.currentIndex) }
+    LaunchedEffect(state.currentIndex, state.isShuffled) {
         if (state.queue.isNotEmpty() && state.currentIndex in state.queue.indices) {
-            delay(100.milliseconds)
-            listState.scrollToItem(state.currentIndex)
+            val distance = kotlin.math.abs(state.currentIndex - previousIndex)
+            previousIndex = state.currentIndex
+            val target = (state.currentIndex - 1).coerceAtLeast(0)
+            if (distance > 3) listState.scrollToItem(target)
+            else {
+                delay(120.milliseconds)
+                listState.animateScrollToItem(target)
+            }
         }
     }
 
     Surface(
         modifier = modifier,
         color = containerColor,
-        contentColor = containerColor,
+        contentColor = MaterialTheme.colorScheme.onSurface,
         tonalElevation = 0.dp,
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -120,6 +125,11 @@ fun PlaybackQueuePanel(
                 queueLocked = queueLocked,
             )
 
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
+                thickness = 0.5.dp,
+            )
+
             Box(Modifier.fillMaxSize()) {
                 if (state.queue.isEmpty()) {
                     EmptyQueuePlaceholder()
@@ -130,24 +140,23 @@ fun PlaybackQueuePanel(
                         contentPadding = PaddingValues(
                             start = 12.dp,
                             end = 12.dp,
-                            top = 12.dp,
+                            top = 10.dp,
                             bottom = 12.dp + bottomInset
                         ),
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         itemsIndexed(
                             items = state.queue,
-                            key = { index, _ ->
-                                state.queueSession.order.getOrNull(index) ?: index
-                            }
+                            key = { _, song -> song.id }
                         ) { index, queueSong ->
                             val isCurrent = index == state.currentIndex
-                            val itemKey = state.queueSession.order.getOrNull(index) ?: index
-                            ReorderableItem(reorderableState, key = itemKey) { isDragging ->
+                            ReorderableItem(reorderableState, key = queueSong.id) { isDragging ->
                                 val dragModifier = if (!queueLocked) Modifier.draggableHandle() else Modifier
                                 QueueItem(
                                     song = queueSong,
                                     isCurrent = isCurrent,
+                                    isPlaying = state.playbackState == example.nucleus.player.PlaybackState.PLAYING,
+                                    queueLocked = queueLocked,
                                     isDragging = isDragging,
                                     dragModifier = dragModifier,
                                     onClick = { playerViewModel.playAtIndex(index) },
@@ -185,7 +194,8 @@ fun PlaybackQueuePanel(
                     value = queuePlaylistName,
                     onValueChange = { queuePlaylistName = it },
                     label = { Text(stringResource(Res.string.playlist_name_label)) },
-                    singleLine = true
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
                 )
             },
             confirmButton = {
@@ -216,127 +226,193 @@ private fun QueueHeader(
     onToggleLock: () -> Unit,
     queueLocked: Boolean,
 ) {
-    Row(
+    val totalDurationSeconds = remember(state.queue) {
+        state.queue.sumOf { it.duration.toLong() }
+    }
+    val formattedDuration = remember(totalDurationSeconds) {
+        formatQueueDuration(totalDurationSeconds)
+    }
+
+    val sourceLabel = when (val source = state.queueSource) {
+        is QueueSource.Album -> stringResource(Res.string.from_album, source.title)
+        is QueueSource.Playlist -> stringResource(Res.string.from_playlist, source.title)
+        is QueueSource.Single -> null
+        QueueSource.Custom -> null
+        null -> null
+    }
+
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Column {
-            Text(
-                stringResource(Res.string.queue_title),
-                style = MaterialTheme.typography.titleLargeEmphasized,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                stringResource(Res.string.queue_songs_count, state.queue.size),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            var showMenu by remember { mutableStateOf(false) }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(Res.string.queue_title),
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = (-0.3).sp
+                    ),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
 
-            Box {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(top = 2.dp)
+                ) {
+                    Text(
+                        text = stringResource(Res.string.queue_songs_count, state.queue.size),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                    )
+
+                    if (formattedDuration.isNotEmpty()) {
+                        Text(
+                            text = "•",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                        )
+                        Text(
+                            text = formattedDuration,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                        )
+                    }
+                }
+            }
+
+            // Barra de acciones rápidas
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                // Bloquear/Desbloquear reordenación
                 IconButton(
-                    onClick = { showMenu = true },
-                    modifier = Modifier.size(36.dp).pointerHoverIcon(PointerIcon.Hand)
+                    onClick = onToggleLock,
+                    modifier = Modifier
+                        .size(32.dp)
+                        .pointerHoverIcon(PointerIcon.Hand),
                 ) {
                     Icon(
-                        Icons.Default.MoreVert,
-                        stringResource(Res.string.options),
-                        modifier = Modifier.size(22.dp),
+                        imageVector = if (queueLocked) Icons.Rounded.Lock else Icons.Rounded.LockOpen,
+                        contentDescription = stringResource(if (queueLocked) Res.string.unlock_queue else Res.string.lock_queue),
+                        modifier = Modifier.size(18.dp),
+                        tint = if (queueLocked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                // Guardar como playlist
+                IconButton(
+                    onClick = onSaveAsPlaylist,
+                    enabled = state.queue.isNotEmpty(),
+                    modifier = Modifier
+                        .size(32.dp)
+                        .pointerHoverIcon(PointerIcon.Hand),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Save,
+                        contentDescription = stringResource(Res.string.save_as_playlist),
+                        modifier = Modifier.size(18.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
-                DropdownMenu(
-                    expanded = showMenu,
-                    onDismissRequest = { showMenu = false },
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 0.dp,
-                    shadowElevation = 8.dp,
-                ) {
-                    DropdownMenuItem(
-                        onClick = { showMenu = false; onAddToPlaylist() },
-                        text = { Text(stringResource(Res.string.add_to_playlist)) },
-                        leadingIcon = {
-                            Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null, modifier = Modifier.size(20.dp))
-                        }
-                    )
-                    DropdownMenuItem(
-                        onClick = { showMenu = false; onDownloadAll() },
-                        text = { Text(stringResource(Res.string.download_queue)) },
-                        leadingIcon = {
-                            Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(20.dp))
-                        }
-                    )
-                    DropdownMenuItem(
-                        onClick = { showMenu = false; onSaveAsPlaylist() },
-                        text = { Text(stringResource(Res.string.save_as_playlist)) },
-                        leadingIcon = {
-                            Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(20.dp))
-                        }
-                    )
-                    DropdownMenuItem(
-                        onClick = { showMenu = false; onToggleLock() },
-                        text = { Text(if (queueLocked) stringResource(Res.string.unlock_queue) else stringResource(Res.string.lock_queue)) },
-                        leadingIcon = {
-                            Icon(
-                                if (queueLocked) Icons.Rounded.Lock else Icons.Rounded.LockOpen,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    )
-                }
-            }
-
-            if (showCloseButton) {
-                Spacer(Modifier.width(8.dp))
+                // Añadir a playlist
                 IconButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.size(36.dp).pointerHoverIcon(PointerIcon.Hand)
+                    onClick = onAddToPlaylist,
+                    enabled = state.queue.isNotEmpty(),
+                    modifier = Modifier
+                        .size(32.dp)
+                        .pointerHoverIcon(PointerIcon.Hand),
                 ) {
                     Icon(
-                        Icons.Default.Close, stringResource(Res.string.close_queue),
-                        modifier = Modifier.size(22.dp),
+                        imageVector = Icons.AutoMirrored.Filled.PlaylistAdd,
+                        contentDescription = stringResource(Res.string.add_to_playlist),
+                        modifier = Modifier.size(18.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+
+                // Descargar todo
+                IconButton(
+                    onClick = onDownloadAll,
+                    enabled = state.queue.isNotEmpty(),
+                    modifier = Modifier
+                        .size(32.dp)
+                        .pointerHoverIcon(PointerIcon.Hand),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Download,
+                        contentDescription = stringResource(Res.string.download_queue),
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                if (showCloseButton) {
+                    Spacer(Modifier.width(4.dp))
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .size(32.dp)
+                            .pointerHoverIcon(PointerIcon.Hand),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = stringResource(Res.string.close_queue),
+                            modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
         }
+
+        // Chip sutil del origen si está presente
+        if (sourceLabel != null) {
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f),
+                shape = CircleShape,
+                modifier = Modifier.padding(top = 2.dp)
+            ) {
+                Text(
+                    text = sourceLabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
+                )
+            }
+        }
+    }
+}
+
+private fun formatQueueDuration(totalSeconds: Long): String {
+    if (totalSeconds <= 0) return ""
+    val hours = totalSeconds / 3600
+    val minutes = (totalSeconds % 3600) / 60
+    return if (hours > 0) {
+        "${hours} h ${minutes} min"
+    } else {
+        "${minutes} min"
     }
 }
 
 @Composable
 private fun EmptyQueuePlaceholder() {
-    Column(
-        modifier = Modifier.fillMaxSize().padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Icon(
-            Icons.AutoMirrored.Filled.QueueMusic,
-            null,
-            modifier = Modifier.size(72.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.25f)
-        )
-        Spacer(Modifier.height(20.dp))
-        Text(
-            stringResource(Res.string.queue_empty),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(Modifier.height(6.dp))
-        Text(
-            stringResource(Res.string.queue_empty_hint),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-            textAlign = TextAlign.Center
-        )
-    }
+    ExpressiveEmptyState(
+        icon = Icons.AutoMirrored.Filled.QueueMusic,
+        title = stringResource(Res.string.queue_empty),
+        subtitle = stringResource(Res.string.queue_empty_hint),
+    )
 }
-

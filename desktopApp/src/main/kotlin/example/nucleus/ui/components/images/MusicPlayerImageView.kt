@@ -13,6 +13,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -84,17 +85,10 @@ fun MusicPlayerImage(
         val isListItem = isLowRes && !highResEnabled
         val effectiveLowRes = isLowRes || !highResEnabled
 
-        val coilSize = coilSizeOverride ?: if (isListItem) {
-            64
-        } else if (effectiveLowRes) {
-            128
-        } else {
-            // Portadas grandes (hero/NowPlaying): 384px equilibra nitidez vs memoria nativa
-            // (384^2x4 = 576 KB vs 1 MB a 512px).
-            384
+        val coilSize = remember(url, coilSizeOverride, isLowRes, highResEnabled) {
+            coilSizeOverride ?: if (isListItem) 64 else if (effectiveLowRes) 128 else 384
         }
-
-        val effectiveUrl = upscaleThumbnailUrl(url, coilSize)
+        val effectiveUrl = remember(url, coilSize) { upscaleThumbnailUrl(url, coilSize) }
 
         AsyncImage(
             model = ImageRequest.Builder(LocalPlatformContext.current)

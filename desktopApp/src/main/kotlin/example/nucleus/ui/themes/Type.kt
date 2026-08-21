@@ -182,3 +182,13 @@ val Typography.nowPlayingTitle: TextStyle
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 val Typography.ctaLabel: TextStyle
     get() = labelLargeEmphasized
+
+/** Collection / album / playlist hero title. */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+val Typography.collectionTitle: TextStyle
+    get() = headlineMediumEmphasized
+
+/** Compact media card title (grids / list rows). */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+val Typography.mediaItemTitle: TextStyle
+    get() = titleSmallEmphasized

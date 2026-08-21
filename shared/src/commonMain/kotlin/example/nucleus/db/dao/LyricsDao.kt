@@ -16,4 +16,8 @@ class LyricsDao(private val database: MusicPlayerDatabase) {
             LyricsEntity(id = row.id, lyrics = row.lyrics, provider = row.provider)
         }
     }
+
+    suspend fun deleteLyrics(id: String) = withContext(Dispatchers.IO) {
+        database.lyricsQueries.deleteLyrics(id)
+    }
 }

@@ -82,6 +82,9 @@ WHERE id = ?;
 updateSongLike:
 UPDATE Song SET liked = ?, likedDate = ? WHERE id = ?;
 
+updateSongLyricsOffset:
+UPDATE Song SET lyricsOffset = ? WHERE id = ?;
+
 updateSongInLibrary:
 UPDATE Song SET inLibrary = ? WHERE id = ?;
 

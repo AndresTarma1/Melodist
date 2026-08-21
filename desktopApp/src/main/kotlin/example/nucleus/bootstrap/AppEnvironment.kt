@@ -2,6 +2,7 @@ package example.nucleus.bootstrap
 
 import example.nucleus.data.AppDirs
 import example.nucleus.data.migration.AppDataMigration
+import example.nucleus.logging.AppFileLogger
 import io.github.aakira.napier.DebugAntilog
 import io.github.aakira.napier.Napier
 import java.io.File
@@ -16,7 +17,9 @@ object AppEnvironment {
         // creara primero, la detección "¿existe la antigua?" dejaría de funcionar.
         AppDataMigration.runIfNeeded()
         AppDirs.ensureDirectories()
-        // redirectStandardStreams()
+        // File logger siempre (W/E a disco); el diario completo se activa con prefs.
+        AppFileLogger.install()
+        // Consola solo útil en IDE / JVM con terminal (en Graal .exe no se ve).
         Napier.base(DebugAntilog())
         cleanupOrphanedTrayIcons()
         val tmpDir = AppDirs.tmpDir.also { it.mkdirs() }

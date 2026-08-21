@@ -45,11 +45,16 @@ fun NowPlayingSettingsGroup() {
     var showSpacingDropdown by remember { mutableStateOf(false) }
     var showOffsetDropdown by remember { mutableStateOf(false) }
 
-    val itemCount = 10
+    val itemCount = 8
     var idx = 0
 
     SettingsGroup(
-        title = { Text(stringResource(Res.string.section_now_playing)) },
+        title = {
+            Text(
+                stringResource(Res.string.section_now_playing),
+                style = MaterialTheme.typography.titleMediumEmphasized,
+            )
+        },
         colors = colors,
     ) {
         SettingsSwitch(

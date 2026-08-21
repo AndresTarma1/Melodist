@@ -125,6 +125,7 @@ fun MiniPlayer(
     isQueueVisible: Boolean,
     bgTransparent: Boolean = false,
     floating: Boolean = false,
+    isDocked: Boolean = false,
     backgroundStyle: MiniPlayerBackgroundStyle = MiniPlayerBackgroundStyle.TRANSLUCENT,
     hazeState: HazeState? = null,
     modifier: Modifier = Modifier,
@@ -143,6 +144,7 @@ fun MiniPlayer(
     val ratio = remember(song.thumbnailUrl) {
         if (isWideThumbnail(song.thumbnailUrl)) 16f / 9f else 1f
     }
+    val artworkColors = LocalArtworkColors.current
 
     val dimens = LocalDimens.current
     val chromeSurface = LocalChromeSurface.current
@@ -536,7 +538,6 @@ fun MiniPlayer(
     if (floating) {
         // Tarjeta flotante: SOLID / COVER / TRANSLUCENT (Haze).
         val floatingShape = AppShapes.extraLarge
-        val artworkColors = LocalArtworkColors.current
         Box(
             modifier = modifier
                 .fillMaxWidth()
@@ -608,6 +609,70 @@ fun MiniPlayer(
             }
             playerContent()
         }
+    } else if (isDocked) {
+        // Pegado abajo, como flotante pero sin margenes flotantes — contenido de las rutas se ve por detras con Haze
+        Box(
+            modifier = modifier
+                .fillMaxWidth()
+                .height(dimens.miniPlayerHeight)
+                .then(
+                    if (isOnNowPlaying || bgTransparent) {
+                        Modifier.background(Color.Transparent)
+                    } else {
+                        when (backgroundStyle) {
+                            MiniPlayerBackgroundStyle.TRANSLUCENT -> if (hazeState != null) {
+                                val style = HazeMaterials.ultraThin(
+                                    containerColor = colorScheme.surfaceContainer,
+                                )
+                                Modifier.hazeEffect(state = hazeState) {
+                                    blurEffect {
+                                        blurEnabled = true
+                                        this.style = style
+                                    }
+                                }
+                            } else {
+                                Modifier.background(
+                                    Brush.verticalGradient(
+                                        colors = listOf(
+                                            colorScheme.surfaceContainer.copy(alpha = 0.94f),
+                                            colorScheme.surfaceContainerHigh.copy(alpha = 0.88f),
+                                        ),
+                                    ),
+                                )
+                            }
+                            MiniPlayerBackgroundStyle.SOLID -> Modifier.background(colorScheme.surfaceContainer)
+                            MiniPlayerBackgroundStyle.COVER -> Modifier.background(colorScheme.surfaceContainer)
+                        }
+                    }
+                ),
+        ) {
+            if (backgroundStyle == MiniPlayerBackgroundStyle.COVER && !isOnNowPlaying && !bgTransparent) {
+                MusicPlayerImage(
+                    url = song.thumbnailUrl,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .matchParentSize()
+                        .blur(32.dp),
+                    shape = RectangleShape,
+                    contentScale = ContentScale.Crop,
+                    placeholderType = PlaceholderType.SONG,
+                    iconSize = 24.dp,
+                )
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    artworkColors.vibrant.copy(alpha = 0.6f),
+                                    artworkColors.muted.copy(alpha = 0.5f),
+                                ),
+                            ),
+                        ),
+                )
+            }
+            playerContent()
+        }
     } else if (square) {
         Column(modifier = modifier.fillMaxWidth().height(dimens.miniPlayerHeight)) {
             Box(
@@ -626,9 +691,21 @@ fun MiniPlayer(
             }
         }
     } else {
+        val useHazeDocked = isDocked && backgroundStyle == MiniPlayerBackgroundStyle.TRANSLUCENT && hazeState != null && !isOnNowPlaying && !bgTransparent
         Surface(
             modifier = modifier
                 .fillMaxWidth()
+                .then(
+                    if (useHazeDocked) {
+                        val style = HazeMaterials.ultraThin(containerColor = colorScheme.surfaceContainer)
+                        Modifier.hazeEffect(state = hazeState) {
+                            blurEffect {
+                                blurEnabled = true
+                                this.style = style
+                            }
+                        }
+                    } else Modifier
+                )
                 .then(
                     if (islands) {
                         Modifier
@@ -643,7 +720,7 @@ fun MiniPlayer(
                     },
                 )
                 .height(dimens.miniPlayerHeight),
-            color = chromeSurface,
+            color = if (useHazeDocked) Color.Transparent else chromeSurface,
             shape = surfaceShape,
             tonalElevation = 2.dp,
             shadowElevation = if (islands) 2.dp else 0.dp,

@@ -79,13 +79,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import example.nucleus.db.entities.SearchHistoryEntry
 import example.nucleus.navigation.Route
+import example.nucleus.ui.components.ExpressiveEmptyState
+import example.nucleus.ui.components.layout.AppScrollbarGutter
+import example.nucleus.ui.components.layout.AppScreenContentHorizontal
 import example.nucleus.ui.components.layout.AppVerticalScrollbar
 import example.nucleus.ui.components.ChipRowSkeleton
 import example.nucleus.ui.components.layout.HorizontalScrollableRow
+import example.nucleus.ui.components.layout.appScrollContentPadding
 import example.nucleus.ui.components.SongSkeleton
 import example.nucleus.ui.screens.shared.SectionGridItem
 import example.nucleus.ui.screens.shared.SectionListItem
 import example.nucleus.ui.screens.shared.onYTItemClick
+import example.nucleus.ui.themes.AppShapes
 import example.nucleus.ui.themes.LocalMiniPlayerInset
 import example.nucleus.utils.LocalPlayerViewModel
 import example.nucleus.utils.LocalAnimationsEnabled
@@ -385,7 +390,11 @@ private fun SectionHeader(title: String) {
             letterSpacing = 1.2.sp,
         ),
         color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(start = 12.dp, top = 8.dp, bottom = 12.dp),
+        modifier = Modifier.padding(
+            start = AppScreenContentHorizontal,
+            top = 8.dp,
+            bottom = 12.dp,
+        ),
     )
 }
 
@@ -493,9 +502,9 @@ fun FilterRow(
     HorizontalScrollableRow(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp, horizontal = 16.dp),
+            .padding(vertical = 8.dp),
         state = rememberLazyListState(),
-        contentPadding = PaddingValues(horizontal = 0.dp),
+        contentPadding = PaddingValues(horizontal = AppScreenContentHorizontal),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         items(filters) { (label, f) ->
@@ -503,8 +512,17 @@ fun FilterRow(
             FilterChip(
                 selected = isSelected,
                 onClick = { onFilterSelected(f) },
-                label = { Text(label) },
-                shape = RoundedCornerShape(50.dp),
+                label = {
+                    Text(
+                        label,
+                        style = if (isSelected) {
+                            MaterialTheme.typography.labelLargeEmphasized
+                        } else {
+                            MaterialTheme.typography.labelLarge
+                        },
+                    )
+                },
+                shape = AppShapes.extraLarge,
             )
         }
     }
@@ -592,11 +610,15 @@ fun ResultsList(
                     message = stringResource(Res.string.no_results),
                 )
             } else {
-                Box {
+                Box(Modifier.fillMaxSize()) {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         verticalArrangement = Arrangement.spacedBy(4.dp),
                         state = scrollable,
+                        contentPadding = appScrollContentPadding(
+                            end = AppScrollbarGutter + 4.dp,
+                            bottom = LocalMiniPlayerInset.current,
+                        ),
                     ) {
                         if (showFilterRow) {
                             item {
@@ -615,6 +637,7 @@ fun ResultsList(
                                         item = item,
                                         onNavigate = { onItemClick(item) },
                                         playerViewModel = playerViewModel,
+                                        modifier = Modifier.padding(horizontal = AppScreenContentHorizontal - 8.dp),
                                     )
                                 }
                             }
@@ -624,6 +647,7 @@ fun ResultsList(
                                     item = item,
                                     onNavigate = { onItemClick(item) },
                                     playerViewModel = playerViewModel,
+                                    modifier = Modifier.padding(horizontal = AppScreenContentHorizontal - 8.dp),
                                 )
                             }
                         }
@@ -645,7 +669,7 @@ fun ResultsList(
 
                     AppVerticalScrollbar(
                         state = scrollable,
-                        modifier = Modifier.align(Alignment.TopEnd).fillMaxHeight(),
+                        modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
                     )
                 }
             }
@@ -667,9 +691,17 @@ private fun SearchChartsContent(
         return
     }
 
+    Box(Modifier.fillMaxSize()) {
+    val chartsScroll = rememberLazyListState()
     LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
-        contentPadding = PaddingValues(bottom = LocalMiniPlayerInset.current),
+        state = chartsScroll,
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = appScrollContentPadding(
+            start = AppScreenContentHorizontal,
+            end = AppScrollbarGutter + AppScreenContentHorizontal,
+            top = 16.dp,
+            bottom = LocalMiniPlayerInset.current + 16.dp,
+        ),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
 
@@ -692,6 +724,14 @@ private fun SearchChartsContent(
             }
         }
     }
+
+        AppVerticalScrollbar(
+            state = chartsScroll,
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .fillMaxHeight(),
+        )
+    }
 }
 
 @Composable
@@ -706,7 +746,7 @@ private fun SearchAlbumGrid(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Default.Album, null, tint = MaterialTheme.colorScheme.primary)
             Spacer(Modifier.size(8.dp))
-            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(title, style = MaterialTheme.typography.headlineSmallEmphasized)
         }
         Spacer(Modifier.height(8.dp))
         HorizontalScrollableRow(
@@ -749,8 +789,7 @@ private fun SearchMoodGrid(
             Spacer(Modifier.size(8.dp))
             Text(
                 text = stringResource(Res.string.moods_genres),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.headlineSmallEmphasized,
             )
         }
 
@@ -780,17 +819,8 @@ private fun SearchMoodGrid(
 
 @Composable
 fun EmptyStateView(icon: ImageVector, message: String) {
-    Column(
-        modifier = Modifier.fillMaxSize().padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            modifier = Modifier.size(64.dp),
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(text = message, style = MaterialTheme.typography.bodyLarge)
-    }
+    ExpressiveEmptyState(
+        icon = icon,
+        title = message,
+    )
 }

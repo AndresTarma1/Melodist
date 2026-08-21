@@ -56,27 +56,40 @@ object MpvLib {
     private val C_LONG = ValueLayout.JAVA_LONG
     private val C_DOUBLE = ValueLayout.JAVA_DOUBLE
 
-    private val mpvCreate: MethodHandle
-    private val mpvInitialize: MethodHandle
-    private val mpvCommand: MethodHandle
-    private val mpvTerminateDestroy: MethodHandle
-    private val mpvSetPropertyString: MethodHandle
-    private val mpvGetPropertyString: MethodHandle
-    private val mpvFree: MethodHandle
-    private val mpvObserveProperty: MethodHandle
-    private val mpvWaitEvent: MethodHandle
-    private val mpvWakeup: MethodHandle
+    private var mpvCreate: MethodHandle? = null
+    private var mpvInitialize: MethodHandle? = null
+    private var mpvCommand: MethodHandle? = null
+    private var mpvTerminateDestroy: MethodHandle? = null
+    private var mpvSetPropertyString: MethodHandle? = null
+    private var mpvGetPropertyString: MethodHandle? = null
+    private var mpvFree: MethodHandle? = null
+    private var mpvObserveProperty: MethodHandle? = null
+    private var mpvWaitEvent: MethodHandle? = null
+    private var mpvWakeup: MethodHandle? = null
+
+    private var loadError: Throwable? = null
+    val isAvailable: Boolean get() = loadError == null && mpvCreate != null
+    fun getLoadError(): Throwable? = loadError
+
+    private fun ensureAvailable() {
+        if (!isAvailable) {
+            throw IllegalStateException(
+                "libmpv no disponible: ${loadError?.message ?: "desconocido"} — verifica que libmpv-2.dll no esté corrupto/bloqueado, instala VC++ Redistributable y reinstala la aplicación",
+                loadError
+            )
+        }
+    }
 
     init {
-        val lookup = resolveLibrary()
+        try {
+            val lookup = resolveLibrary()
+            fun bind(name: String, descriptor: FunctionDescriptor): MethodHandle =
+                linker.downcallHandle(
+                    lookup.find(name).orElseThrow { UnsatisfiedLinkError("mpv symbol not found: $name") },
+                    descriptor,
+                )
 
-        fun bind(name: String, descriptor: FunctionDescriptor): MethodHandle =
-            linker.downcallHandle(
-                lookup.find(name).orElseThrow { UnsatisfiedLinkError("mpv symbol not found: $name") },
-                descriptor,
-            )
-
-        mpvCreate = bind("mpv_create", FunctionDescriptor.of(C_POINTER))
+            mpvCreate = bind("mpv_create", FunctionDescriptor.of(C_POINTER))
         mpvInitialize = bind("mpv_initialize", FunctionDescriptor.of(C_INT, C_POINTER))
         mpvCommand = bind("mpv_command", FunctionDescriptor.of(C_INT, C_POINTER, C_POINTER))
         mpvTerminateDestroy = bind("mpv_terminate_destroy", FunctionDescriptor.ofVoid(C_POINTER))
@@ -92,6 +105,10 @@ object MpvLib {
         )
         mpvWaitEvent = bind("mpv_wait_event", FunctionDescriptor.of(C_POINTER, C_POINTER, C_DOUBLE))
         mpvWakeup = bind("mpv_wakeup", FunctionDescriptor.ofVoid(C_POINTER))
+        } catch (e: Throwable) {
+            loadError = e
+            log.severe("MpvLib: no se pudo inicializar libmpv: ${e.message} — verifica que libmpv-2.dll no esté corrupto/bloqueado y reinstala si hace falta")
+        }
     }
 
     /**
@@ -121,13 +138,34 @@ object MpvLib {
                 possibleDirs.add(File(resProp, "windows"))
             }
 
-            val dll = possibleDirs.map { File(it, "libmpv-2.dll") }.firstOrNull { it.exists() }
-            if (dll != null) {
-                log.info("MpvLib: cargando libmpv (FFM) desde ${dll.absolutePath}")
-                return SymbolLookup.libraryLookup(dll.absolutePath, arena)
+            for (dir in possibleDirs) {
+                val dll = File(dir, "libmpv-2.dll")
+                if (!dll.isFile || !dll.canRead()) continue
+                // libmpv real pesa ~120 MB (120_987_648). Un puntero LFS o DLL corrupta pesa <1 MB / 4 KB.
+                if (dll.length() < 50_000_000L) {
+                    log.warning("MpvLib: ${dll.absolutePath} parece corrupto/incompleto (size=${dll.length()}), saltando")
+                    continue
+                }
+                try {
+                    log.info("MpvLib: cargando libmpv (FFM) desde ${dll.absolutePath} (${dll.length()} bytes)")
+                    return SymbolLookup.libraryLookup(dll.absolutePath, arena)
+                } catch (e: IllegalArgumentException) {
+                    log.warning("MpvLib: no se pudo cargar ${dll.absolutePath}: ${e.message}")
+                    continue
+                } catch (e: UnsatisfiedLinkError) {
+                    log.warning("MpvLib: UnsatisfiedLinkError en ${dll.absolutePath}: ${e.message}")
+                    continue
+                }
             }
-            log.warning("MpvLib: no se encontró libmpv-2.dll en: ${possibleDirs.joinToString { it.absolutePath }}")
-            return SymbolLookup.libraryLookup("libmpv-2", arena)
+            log.warning("MpvLib: no se encontró libmpv-2.dll válido en: ${possibleDirs.joinToString { it.absolutePath }}")
+            // Fallback por nombre (depende de PATH / System32). En GraalVM native-image fallará con IllegalArgumentException
+            // si la DLL no está en el PATH, pero lo intentamos para no romper instalaciones con libmpv del sistema.
+            return try {
+                SymbolLookup.libraryLookup("libmpv-2", arena)
+            } catch (e: Exception) {
+                log.severe("MpvLib: fallback SymbolLookup('libmpv-2') falló: ${e.message}")
+                throw e
+            }
         }
 
         // Linux/macOS: libmpv del sistema.
@@ -170,61 +208,75 @@ object MpvLib {
     }
 
     fun mpv_create(): MemorySegment? {
-        val seg = mpvCreate.invokeWithArguments() as MemorySegment
+        ensureAvailable()
+        val seg = mpvCreate!!.invokeWithArguments() as MemorySegment
         return if (seg.address() == 0L) null else seg
     }
 
-    fun mpv_initialize(handle: MemorySegment): Int =
-        mpvInitialize.invokeWithArguments(handle) as Int
+    fun mpv_initialize(handle: MemorySegment): Int {
+        ensureAvailable()
+        return mpvInitialize!!.invokeWithArguments(handle) as Int
+    }
 
     /** [args] es una lista de argumentos terminada en null (el array se copia en una arena confinada). */
     fun mpv_command(handle: MemorySegment, args: Array<String?>) {
+        ensureAvailable()
         Arena.ofConfined().use { a ->
             val arr = a.allocate(C_POINTER, (args.size + 1).toLong())
             args.forEachIndexed { i, s ->
                 val p: MemorySegment = if (s != null) a.utf8(s) else MemorySegment.NULL
                 arr.set(C_POINTER, (i * C_POINTER.byteSize()).toLong(), p)
             }
-            mpvCommand.invokeWithArguments(handle, arr)
+            mpvCommand!!.invokeWithArguments(handle, arr)
         }
     }
 
     fun mpv_terminate_destroy(handle: MemorySegment) {
-        mpvTerminateDestroy.invokeWithArguments(handle)
+        ensureAvailable()
+        mpvTerminateDestroy!!.invokeWithArguments(handle)
     }
 
-    fun mpv_set_property_string(handle: MemorySegment, name: String, value: String): Int =
-        Arena.ofConfined().use { a ->
-            mpvSetPropertyString.invokeWithArguments(
+    fun mpv_set_property_string(handle: MemorySegment, name: String, value: String): Int {
+        ensureAvailable()
+        return Arena.ofConfined().use { a ->
+            mpvSetPropertyString!!.invokeWithArguments(
                 handle,
                 a.utf8(name),
                 a.utf8(value),
             ) as Int
         }
-
-    /** Devuelve un segmento apuntando a la cadena nativa; hay que liberarlo con [mpv_free]. */
-    fun mpv_get_property_string(handle: MemorySegment, name: String): MemorySegment? =
-        Arena.ofConfined().use { a ->
-            val seg = mpvGetPropertyString.invokeWithArguments(handle, a.utf8(name)) as MemorySegment
-            if (seg.address() == 0L) null else seg
-        }
-
-    fun mpv_free(data: MemorySegment) {
-        mpvFree.invokeWithArguments(data)
     }
 
-    fun mpv_observe_property(handle: MemorySegment, replyUserdata: Long, name: String, format: Int): Int =
-        Arena.ofConfined().use { a ->
-            mpvObserveProperty.invokeWithArguments(handle, replyUserdata, a.utf8(name), format) as Int
+    /** Devuelve un segmento apuntando a la cadena nativa; hay que liberarlo con [mpv_free]. */
+    fun mpv_get_property_string(handle: MemorySegment, name: String): MemorySegment? {
+        ensureAvailable()
+        return Arena.ofConfined().use { a ->
+            val seg = mpvGetPropertyString!!.invokeWithArguments(handle, a.utf8(name)) as MemorySegment
+            if (seg.address() == 0L) null else seg
         }
+    }
+
+    fun mpv_free(data: MemorySegment) {
+        ensureAvailable()
+        mpvFree!!.invokeWithArguments(data)
+    }
+
+    fun mpv_observe_property(handle: MemorySegment, replyUserdata: Long, name: String, format: Int): Int {
+        ensureAvailable()
+        return Arena.ofConfined().use { a ->
+            mpvObserveProperty!!.invokeWithArguments(handle, replyUserdata, a.utf8(name), format) as Int
+        }
+    }
 
     /** Bloquea hasta [timeout] segundos (negativo = indefinidamente). Devuelve null en error/fin. */
     fun mpv_wait_event(handle: MemorySegment, timeout: Double): MemorySegment? {
-        val seg = mpvWaitEvent.invokeWithArguments(handle, timeout) as MemorySegment
+        ensureAvailable()
+        val seg = mpvWaitEvent!!.invokeWithArguments(handle, timeout) as MemorySegment
         return if (seg.address() == 0L) null else seg
     }
 
     fun mpv_wakeup(handle: MemorySegment) {
-        mpvWakeup.invokeWithArguments(handle)
+        ensureAvailable()
+        mpvWakeup!!.invokeWithArguments(handle)
     }
 }

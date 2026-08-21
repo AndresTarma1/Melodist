@@ -20,12 +20,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import example.nucleus.ui.themes.AppShapes
+import example.nucleus.ui.themes.mediaItemTitle
 
 /**
  * Tarjeta estilo YouTube Music: fondo de la tarjeta + una franja vertical de color en el borde
@@ -38,14 +36,13 @@ fun CustomLabeledCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val cornerRadius = 16.dp
+    val shape = AppShapes.large
 
     Surface(
         onClick = onClick,
         color = MaterialTheme.colorScheme.surfaceContainerHighest,
-        shape = RoundedCornerShape(cornerRadius),
+        shape = shape,
         modifier = modifier
-            // REEMPLAZO: Cambiamos fillMaxWidth por un ancho fijo ideal para escritorio
             .width(260.dp)
             .height(80.dp)
             .pointerHoverIcon(PointerIcon.Hand),
@@ -54,17 +51,13 @@ fun CustomLabeledCard(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxSize(),
         ) {
-            // Franja vertical de color en el borde izquierdo.
             Box(
                 modifier = Modifier
                     .fillMaxHeight()
-                    .width(10.dp)
+                    .width(8.dp)
                     .background(
                         color = borderColor,
-                        shape = RoundedCornerShape(
-                            topStart = cornerRadius,
-                            bottomStart = cornerRadius,
-                        ),
+                        shape = RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp),
                     ),
             )
 
@@ -72,9 +65,8 @@ fun CustomLabeledCard(
 
             Text(
                 text = text,
+                style = MaterialTheme.typography.mediaItemTitle,
                 color = MaterialTheme.colorScheme.onSurface,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(end = 16.dp),

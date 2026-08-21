@@ -59,6 +59,8 @@ class DatabaseDao(private val database: MusicPlayerDatabase) {
     suspend fun insertSong(song: SongEntity) = songs.insertSong(song)
     suspend fun updateSong(song: SongEntity) = songs.updateSong(song)
     suspend fun updateSongMetadata(song: SongEntity) = songs.updateSongMetadata(song)
+    suspend fun updateSongLyricsOffset(songId: String, offsetMs: Int) =
+        songs.updateSongLyricsOffset(songId, offsetMs)
     suspend fun deleteSong(id: String) = songs.deleteSong(id)
 
     fun allArtists(): Flow<List<ArtistEntity>> = artists.allArtists()
@@ -130,6 +132,7 @@ class DatabaseDao(private val database: MusicPlayerDatabase) {
 
     suspend fun insertLyrics(id: String, lyricsText: String, provider: String = "Unknown") = lyrics.insertLyrics(id, lyricsText, provider)
     suspend fun getLyrics(id: String) = lyrics.getLyrics(id)
+    suspend fun deleteLyrics(id: String) = lyrics.deleteLyrics(id)
     fun downloadedSongs(): Flow<List<SongEntity>> = songs.downloadedSongs()
     fun downloadedSongsCount(): Flow<Long> = songs.downloadedSongsCount()
     suspend fun updateSongDownloadStatus(songId: String, isDownloaded: Boolean, dateDownload: Long?) = songs.updateSongDownloadStatus(songId, isDownloaded, dateDownload)

@@ -30,9 +30,13 @@ fun BackgroundStyle(
     backgroundStyle: BackgroundStyle?,
     content: @Composable BoxScope.() -> Unit
 ) {
-
-
-    val artworkColors = rememberArtworkColors(imageUrl)
+    // Solo extrae paleta cuando realmente se necesita (GRADIENT). Evita decode+quantization
+    // en cada cambio de cancion cuando el fondo es SOLID/BLURRED (SOLID es el default tras el fix).
+    val artworkColors = if (backgroundStyle == BackgroundStyle.GRADIENT) {
+        rememberArtworkColors(imageUrl)
+    } else {
+        ArtworkColors.Default
+    }
 
     when(backgroundStyle){
         BackgroundStyle.GRADIENT -> BackgroundWithGradient(
@@ -124,10 +128,9 @@ fun BackgroundWithBlur(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    // Rectangle (no Unbounded): acota el layer del blur a la ventana. Con Unbounded
-                    // Skia renderiza sin límites de clipping (capa infinita) y el blur de 99dp a
-                    // pantalla completa recalcula cada frame -> lag al abrir NowPlaying.
-                    .blur(radius = 99.dp, edgeTreatment = BlurredEdgeTreatment.Rectangle)
+                    // Rectangle acota el layer; 32.dp mantiene el ambiente sin el costo de 99.dp
+                    // (offscreen render-target del tamaño de la ventana por frame).
+                    .blur(radius = 32.dp, edgeTreatment = BlurredEdgeTreatment.Rectangle)
                     .alpha(0.25f)
             ) {
                 MusicPlayerImage(

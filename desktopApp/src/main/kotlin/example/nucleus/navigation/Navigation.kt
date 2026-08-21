@@ -116,10 +116,15 @@ fun NavigationDesktop(rootComponent: RootComponent, userPreferences: UserPrefere
     val currentSong = playerState.currentSong
     val queueWidth = 420.dp
     val floatingMiniPlayer = miniPlayerStyle == MiniPlayerStyle.FLOATING && currentSong != null
+    val dockedMiniPlayer = miniPlayerStyle == MiniPlayerStyle.DOCKED && currentSong != null
+    val barMiniPlayer = miniPlayerStyle == MiniPlayerStyle.BAR && currentSong != null
 
     val dimens = LocalDimens.current
-    val floatingBottomInset =
-        if (floatingMiniPlayer) dimens.miniPlayerHeight + dimens.miniPlayerFloatingMargin * 2 else 0.dp
+    val floatingBottomInset = when {
+        floatingMiniPlayer -> dimens.miniPlayerHeight + dimens.miniPlayerFloatingMargin * 2
+        dockedMiniPlayer -> dimens.miniPlayerHeight
+        else -> 0.dp
+    }
 
     // Nos permite entender o mostrar los errores de reproducción en un Snackbar, sin bloquear la UI principal.
     LaunchedEffect(playerViewModel) {
@@ -152,6 +157,7 @@ fun NavigationDesktop(rootComponent: RootComponent, userPreferences: UserPrefere
                     modifier = m,
                     sharedTransitionScope = sharedTransitionScope,
                     floating = floatingMiniPlayer,
+                    isDocked = dockedMiniPlayer,
                     backgroundStyle = miniPlayerBackgroundStyle,
                     hazeState = hazeState,
                 )
@@ -237,7 +243,7 @@ fun NavigationDesktop(rootComponent: RootComponent, userPreferences: UserPrefere
                                             // una capa cada frame tiene coste (GPU), así que en modo
                                             // barra u otros fondos se omite.
                                             .then(
-                                                if (floatingMiniPlayer && miniPlayerBackgroundStyle == MiniPlayerBackgroundStyle.TRANSLUCENT) {
+                                                if ((floatingMiniPlayer || dockedMiniPlayer) && miniPlayerBackgroundStyle == MiniPlayerBackgroundStyle.TRANSLUCENT) {
                                                     Modifier.hazeSource(hazeState)
                                                 } else Modifier
                                             )
@@ -278,6 +284,13 @@ fun NavigationDesktop(rootComponent: RootComponent, userPreferences: UserPrefere
                                     ) {
                                         AnimatedVisibility(
                                             visible = floatingMiniPlayer,
+                                            enter = if (animationsEnabled) fadeIn(expressiveFadeTween()) + slideInVertically(animationSpec = expressiveLayoutTween(), initialOffsetY = { it / 4 }) else EnterTransition.None,
+                                            exit = if (animationsEnabled) fadeOut(expressiveFadeTween()) + slideOutVertically(animationSpec = expressiveLayoutTween(), targetOffsetY = { it / 4 }) else ExitTransition.None,
+                                        ) {
+                                            miniPlayerSlot(Modifier.fillMaxWidth())
+                                        }
+                                        AnimatedVisibility(
+                                            visible = dockedMiniPlayer,
                                             enter = if (animationsEnabled) fadeIn(expressiveFadeTween()) + slideInVertically(animationSpec = expressiveLayoutTween(), initialOffsetY = { it / 4 }) else EnterTransition.None,
                                             exit = if (animationsEnabled) fadeOut(expressiveFadeTween()) + slideOutVertically(animationSpec = expressiveLayoutTween(), targetOffsetY = { it / 4 }) else ExitTransition.None,
                                         ) {
@@ -326,7 +339,7 @@ fun NavigationDesktop(rootComponent: RootComponent, userPreferences: UserPrefere
                         }
                     }
 
-                    if (!floatingMiniPlayer) {
+                    if (barMiniPlayer) {
                         AnimatedVisibility(
                             visible = currentSong != null,
                             enter = if (animationsEnabled) fadeIn() else EnterTransition.None,
@@ -364,6 +377,7 @@ private fun MiniPlayerHost(
     modifier: Modifier = Modifier,
     sharedTransitionScope: SharedTransitionScope? = null,
     floating: Boolean = false,
+    isDocked: Boolean = false,
     backgroundStyle: MiniPlayerBackgroundStyle = MiniPlayerBackgroundStyle.TRANSLUCENT,
     hazeState: HazeState? = null,
 ) {
@@ -377,6 +391,7 @@ private fun MiniPlayerHost(
         modifier = modifier,
         sharedTransitionScope = sharedTransitionScope,
         floating = floating,
+        isDocked = isDocked,
         backgroundStyle = backgroundStyle,
         hazeState = hazeState,
     )

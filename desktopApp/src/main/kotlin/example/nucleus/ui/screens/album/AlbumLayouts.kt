@@ -5,6 +5,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -27,22 +28,35 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import example.nucleus.ui.components.dialogs.DownloadConfirmationDialog
 import example.nucleus.navigation.Route
+import example.nucleus.ui.components.layout.AppScrollbarGutter
 import example.nucleus.ui.components.layout.AppVerticalScrollbar
+import example.nucleus.ui.components.layout.appScrollContentPadding
 import example.nucleus.ui.components.LoadingMoreSongsItem
 import example.nucleus.ui.components.images.MusicPlayerImage
 import example.nucleus.ui.components.images.PlaceholderType
 import example.nucleus.ui.utils.circleAwareShape
 import example.nucleus.ui.screens.playlist.MultiSongSelectionBar
 import example.nucleus.ui.screens.playlist.SongListItem
+import example.nucleus.ui.screens.shared.CollectionCompactCoverSize
+import example.nucleus.ui.screens.shared.CollectionHeroActionRow
+import example.nucleus.ui.screens.shared.CollectionStickyHeaderBar
+import example.nucleus.ui.screens.shared.CollectionWideCoverSize
+import example.nucleus.ui.screens.shared.CollectionWideGap
+import example.nucleus.ui.screens.shared.CollectionWideHeroWidth
+import example.nucleus.ui.screens.shared.CollectionWidePaddingBottom
+import example.nucleus.ui.screens.shared.CollectionWidePaddingStart
+import example.nucleus.ui.screens.shared.CollectionWidePaddingTop
 import example.nucleus.ui.screens.shared.calculateTotalDuration
+import example.nucleus.ui.themes.AppShapes
 import example.nucleus.ui.themes.LocalMiniPlayerInset
+import example.nucleus.ui.themes.collectionTitle
+import example.nucleus.ui.themes.ctaLabel
 import example.nucleus.utils.LocalDownloadViewModel
 import example.nucleus.utils.LocalPlayerViewModel
 import com.metrolist.innertube.models.SongItem
@@ -190,46 +204,66 @@ internal fun AlbumWideLayout(
     showDeleteDialog: () -> Unit,
     onNavigate: (Route) -> Unit,
 ) {
-    Row(modifier = Modifier.fillMaxSize().padding(start = 48.dp, end = 24.dp, top = 16.dp)) {
-        Column(
+    val listState = rememberLazyListState()
+
+    // Scrollbar al borde derecho de la pantalla (misma geometría que playlist).
+    Box(Modifier.fillMaxSize()) {
+        Row(
             modifier = Modifier
-                .width(320.dp)
-                .fillMaxHeight()
-                .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally,
+                .fillMaxSize()
+                .padding(
+                    start = CollectionWidePaddingStart,
+                    end = AppScrollbarGutter,
+                    top = CollectionWidePaddingTop,
+                    bottom = CollectionWidePaddingBottom,
+                ),
+            horizontalArrangement = Arrangement.spacedBy(CollectionWideGap),
         ) {
-            AlbumInfoPanel(
-                albumPage = albumPage,
+            Column(
+                modifier = Modifier
+                    .width(CollectionWideHeroWidth)
+                    .fillMaxHeight()
+                    .verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                AlbumInfoPanel(
+                    albumPage = albumPage,
+                    songs = songs,
+                    onSurfaceColor = onSurfaceColor,
+                    onSurfaceVariant = onSurfaceVariant,
+                    coverSize = CollectionWideCoverSize,
+                    controls = controls,
+                    isAnyDownloading = isAnyDownloading,
+                    isFullyDownloaded = isFullyDownloaded,
+                    onToggleSave = onToggleSave,
+                    onPlayAll = onPlayAll,
+                    onShuffle = onShuffle,
+                    showDeleteDialog = showDeleteDialog,
+                    onNavigate = onNavigate,
+                )
+            }
+
+            AlbumSongList(
+                modifier = Modifier.weight(1f),
+                listState = listState,
                 songs = songs,
-                onSurfaceColor = onSurfaceColor,
-                onSurfaceVariant = onSurfaceVariant,
-                coverSize = 240.dp,
-                controls = controls,
-                isAnyDownloading = isAnyDownloading,
-                isFullyDownloaded = isFullyDownloaded,
-                onToggleSave = onToggleSave,
-                onPlayAll = onPlayAll,
-                onShuffle = onShuffle,
-                showDeleteDialog = showDeleteDialog,
-                onNavigate = onNavigate,
+                hasMore = hasMore,
+                selectedSongIds = selectedSongIds,
+                onSelectionChange = onSelectionChange,
+                onClearSelection = onClearSelection,
+                selectedSongs = selectedSongs,
+                isLocalPlaylist = false,
+                onRemoveFromPlaylist = null,
+                onLoadMore = onLoadMore,
+                onSongClick = onSongClick,
             )
         }
 
-        Spacer(Modifier.width(32.dp))
-
-        // Lista de canciones con scroll propio
-        AlbumSongList(
-            modifier = Modifier.weight(1f),
-            songs = songs,
-            hasMore = hasMore,
-            selectedSongIds = selectedSongIds,
-            onSelectionChange = onSelectionChange,
-            onClearSelection = onClearSelection,
-            selectedSongs = selectedSongs,
-            isLocalPlaylist = false,
-            onRemoveFromPlaylist = null,
-            onLoadMore = onLoadMore,
-            onSongClick = onSongClick,
+        AppVerticalScrollbar(
+            state = listState,
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .fillMaxHeight(),
         )
     }
 }
@@ -257,8 +291,9 @@ internal fun AlbumCompactLayout(
     showDeleteDialog: () -> Unit,
     onNavigate: (Route) -> Unit,
 ) {
-    Box {
+    Box(Modifier.fillMaxSize()) {
         val lazyColumnState = rememberLazyListState()
+        val downloadViewModel = LocalDownloadViewModel.current
 
         val showStickHeader by remember {
             derivedStateOf { lazyColumnState.firstVisibleItemIndex > 0 }
@@ -267,35 +302,29 @@ internal fun AlbumCompactLayout(
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             state = lazyColumnState,
-            contentPadding = PaddingValues(bottom = LocalMiniPlayerInset.current),
+            contentPadding = appScrollContentPadding(
+                bottom = maxOf(
+                    if (selectedSongIds.isNotEmpty()) 72.dp else 0.dp,
+                    LocalMiniPlayerInset.current,
+                ),
+            ),
         ) {
             if (showStickHeader) {
                 stickyHeader {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.surface)
-                            .padding(start = 56.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = albumPage.album.title,
-                            style = MaterialTheme.typography.titleMedium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f)
-                        )
-                        IconButton(onClick = { showDeleteDialog() }) {
-                            Icon(
-                                imageVector = if (isFullyDownloaded) Icons.Filled.Delete else Icons.Default.Download,
-                                contentDescription = if (isFullyDownloaded) stringResource(Res.string.cd_delete_downloads) else stringResource(Res.string.cd_download_album)
-                            )
-                        }
-                        IconButton(onClick = onPlayAll) {
-                            Icon(imageVector = Icons.Default.PlayArrow, contentDescription = stringResource(Res.string.cd_play))
-                        }
-                    }
+                    CollectionStickyHeaderBar(
+                        title = albumPage.album.title,
+                        isDownloading = isAnyDownloading,
+                        isFullyDownloaded = isFullyDownloaded,
+                        onDownloadClick = {
+                            if (isFullyDownloaded) {
+                                showDeleteDialog()
+                            } else if (!isAnyDownloading) {
+                                downloadViewModel.downloadAll(songs)
+                            }
+                        },
+                        onPlayClick = onPlayAll,
+                        playContentDescription = stringResource(Res.string.cd_play),
+                    )
                 }
             }
 
@@ -303,7 +332,7 @@ internal fun AlbumCompactLayout(
             item {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Spacer(Modifier.height(16.dp))
                     AlbumInfoPanel(
@@ -311,7 +340,7 @@ internal fun AlbumCompactLayout(
                         songs = songs,
                         onSurfaceColor = onSurfaceColor,
                         onSurfaceVariant = onSurfaceVariant,
-                        coverSize = 190.dp,
+                        coverSize = CollectionCompactCoverSize,
                         controls = controls,
                         isAnyDownloading = isAnyDownloading,
                         isFullyDownloaded = isFullyDownloaded,
@@ -356,8 +385,10 @@ internal fun AlbumCompactLayout(
         }
 
         AppVerticalScrollbar(
-            modifier = Modifier.align(Alignment.CenterEnd),
-            state = lazyColumnState
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .fillMaxHeight(),
+            state = lazyColumnState,
         )
 
         MultiSongSelectionBar(
@@ -376,6 +407,7 @@ internal fun AlbumCompactLayout(
 @Composable
 private fun AlbumSongList(
     modifier: Modifier,
+    listState: LazyListState,
     songs: List<SongItem>,
     hasMore: Boolean,
     selectedSongIds: Set<String>,
@@ -387,15 +419,16 @@ private fun AlbumSongList(
     onLoadMore: () -> Unit,
     onSongClick: (index: Int) -> Unit,
 ) {
-    Box(modifier = modifier) {
-        val lazyListState = rememberLazyListState()
-
+    Box(modifier = modifier.fillMaxSize()) {
         LazyColumn(
-            state = lazyListState,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(end = 16.dp),
-            contentPadding = PaddingValues(bottom = LocalMiniPlayerInset.current),
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                bottom = maxOf(
+                    if (selectedSongIds.isNotEmpty()) 72.dp else 0.dp,
+                    LocalMiniPlayerInset.current,
+                ),
+            ),
         ) {
             itemsIndexed(songs, key = { _, song -> song.id }) { index, song ->
                 SongListItem(
@@ -412,26 +445,20 @@ private fun AlbumSongList(
                     modifier = Modifier.animateItem(
                         placementSpec = spring(
                             dampingRatio = Spring.DampingRatioNoBouncy,
-                            stiffness = Spring.StiffnessMediumLow
-                        )
-                    )
+                            stiffness = Spring.StiffnessMediumLow,
+                        ),
+                    ),
                 )
                 if (index < songs.lastIndex) {
                     HorizontalDivider(
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f),
-                        modifier = Modifier.padding(start = 48.dp)
+                        modifier = Modifier.padding(start = 48.dp),
                     )
                 }
             }
 
             if (hasMore) item { LoadingMoreSongsItem(onLoadMore = onLoadMore) }
         }
-
-        AppVerticalScrollbar(
-            state = lazyListState,
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-        )
 
         MultiSongSelectionBar(
             selectedSongs = selectedSongs,
@@ -440,7 +467,7 @@ private fun AlbumSongList(
             onClearSelection = onClearSelection,
             onSelectAll = { songs.forEach { onSelectionChange(it.id, true) } },
             onRemoveFromPlaylist = onRemoveFromPlaylist,
-            modifier = Modifier.align(Alignment.BottomCenter)
+            modifier = Modifier.align(Alignment.BottomCenter),
         )
     }
 }
@@ -482,10 +509,10 @@ internal fun AlbumInfoPanel(
     val firstArtist = albumPage.album.artists?.firstOrNull()
 
     Surface(
-        shape = RoundedCornerShape(20.dp),
+        shape = AppShapes.large,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         modifier = Modifier
-            .clip(RoundedCornerShape(20.dp))
+            .clip(AppShapes.large)
             .clickable(enabled = firstArtist?.id != null) {
                 firstArtist?.id?.let { onNavigate(Route.Artist(it)) }
             }
@@ -493,18 +520,21 @@ internal fun AlbumInfoPanel(
     ) {
         Text(
             text = "${stringResource(Res.string.author_label)} • ${firstArtist?.name ?: stringResource(Res.string.item_artist)}",
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.SemiBold,
+            style = MaterialTheme.typography.ctaLabel,
             color = onSurfaceColor,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
         )
     }
 
-    Spacer(Modifier.height(20.dp))
+    Spacer(Modifier.height(16.dp))
 
     Card(
-        modifier = Modifier.size(coverSize).shadow(24.dp, RoundedCornerShape(8.dp)),
-        shape = RoundedCornerShape(8.dp)
+        modifier = Modifier
+            .size(coverSize)
+            .shadow(16.dp, AppShapes.xLarge, clip = false),
+        shape = AppShapes.xLarge,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         MusicPlayerImage(
             url = albumPage.album.thumbnail,
@@ -516,12 +546,11 @@ internal fun AlbumInfoPanel(
         )
     }
 
-    Spacer(Modifier.height(24.dp))
+    Spacer(Modifier.height(22.dp))
 
     Text(
         text = albumPage.album.title,
-        style = MaterialTheme.typography.headlineMedium,
-        fontWeight = FontWeight.Bold,
+        style = MaterialTheme.typography.collectionTitle,
         textAlign = TextAlign.Center,
         maxLines = 2,
         overflow = TextOverflow.Ellipsis,
@@ -551,94 +580,23 @@ internal fun AlbumInfoPanel(
         color = onSurfaceVariant.copy(alpha = 0.7f)
     )
 
-    Spacer(Modifier.height(24.dp))
+    Spacer(Modifier.height(28.dp))
 
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        IconButton(
-            onClick = { if (!controls.isSaving) onToggleSave() },
-            modifier = Modifier
-                .size(44.dp)
-                .clip(circleAwareShape())
-                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                .pointerHoverIcon(if (controls.isSaving) PointerIcon.Default else PointerIcon.Hand)
-        ) {
-            if (controls.isSaving) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(18.dp),
-                    strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            } else {
-                Icon(
-                    if (controls.isSaved) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                    null,
-                    tint = if (controls.isSaved) MaterialTheme.colorScheme.primary else onSurfaceColor,
-                    modifier = Modifier.size(20.dp)
-                )
+    CollectionHeroActionRow(
+        isSaved = controls.isSaved,
+        isSaving = controls.isSaving,
+        onToggleSave = onToggleSave,
+        isLoadingForPlay = controls.isLoadingForPlay,
+        onPlay = onPlayAll,
+        onShuffle = onShuffle,
+        isDownloading = isDownloading,
+        isFullyDownloaded = isFullyDownloaded,
+        onDownloadClick = {
+            if (isFullyDownloaded) {
+                showDeleteDialog()
+            } else if (!isDownloading) {
+                downloadViewModel.downloadAll(songs)
             }
-        }
-
-        FloatingActionButton(
-            onClick = { if (!controls.isLoadingForPlay) onPlayAll() },
-            shape = circleAwareShape(),
-            containerColor = MaterialTheme.colorScheme.primary,
-            contentColor = MaterialTheme.colorScheme.onPrimary,
-            modifier = Modifier.size(56.dp)
-                .pointerHoverIcon(if (controls.isLoadingForPlay) PointerIcon.Default else PointerIcon.Hand)
-        ) {
-            if (controls.isLoadingForPlay) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(22.dp),
-                    strokeWidth = 2.5.dp,
-                    color = MaterialTheme.colorScheme.onPrimary
-                )
-            } else {
-                Icon(Icons.Default.PlayArrow, null, modifier = Modifier.size(28.dp))
-            }
-        }
-
-        IconButton(
-            onClick = { if (!controls.isLoadingForPlay) onShuffle() },
-            modifier = Modifier
-                .size(44.dp)
-                .clip(circleAwareShape())
-                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                .pointerHoverIcon(PointerIcon.Hand)
-        ) {
-            Icon(Icons.Default.Shuffle, null, tint = onSurfaceColor, modifier = Modifier.size(20.dp))
-        }
-
-        IconButton(
-            onClick = {
-                if (isFullyDownloaded) {
-                    showDeleteDialog()
-                } else if (!isDownloading) {
-                    downloadViewModel.downloadAll(songs)
-                }
-            },
-            modifier = Modifier
-                .size(44.dp)
-                .clip(circleAwareShape())
-                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                .pointerHoverIcon(PointerIcon.Hand)
-        ) {
-            if (isDownloading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(18.dp),
-                    strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            } else {
-                Icon(
-                    if (isFullyDownloaded) Icons.Default.DownloadDone else Icons.Default.Download,
-                    null,
-                    tint = if (isFullyDownloaded) MaterialTheme.colorScheme.primary else onSurfaceColor,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-        }
-    }
+        },
+    )
 }

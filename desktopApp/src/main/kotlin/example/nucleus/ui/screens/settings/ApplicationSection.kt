@@ -36,7 +36,12 @@ fun ApplicationSettingsGroup() {
     var showRegionDropdown by remember { mutableStateOf(false) }
 
     SettingsGroup(
-        title = { Text(stringResource(Res.string.section_application)) },
+        title = {
+            Text(
+                stringResource(Res.string.section_application),
+                style = MaterialTheme.typography.titleMediumEmphasized,
+            )
+        },
         colors = colors
     ) {
         DropdownSelector(

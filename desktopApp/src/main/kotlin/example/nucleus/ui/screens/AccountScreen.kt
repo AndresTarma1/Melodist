@@ -10,8 +10,8 @@ import org.jetbrains.compose.resources.stringResource
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -36,15 +36,21 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import example.nucleus.navigation.Route
 import com.metrolist.innertube.YouTube
+import example.nucleus.ui.components.ExpressiveEmptyState
 import example.nucleus.ui.components.images.MusicPlayerImage
 import example.nucleus.ui.components.images.PlaceholderType
+import example.nucleus.ui.helpers.desktopClickableCursor
+import example.nucleus.ui.helpers.desktopInteractiveSurface
 import example.nucleus.ui.utils.circleAwareShape
+import example.nucleus.ui.themes.AppShapes
 import example.nucleus.ui.themes.LocalMiniPlayerInset
+import example.nucleus.ui.themes.ctaLabel
 import example.nucleus.ui.themes.expressiveFadeTween
 import example.nucleus.ui.themes.expressiveTween
+import example.nucleus.ui.themes.mediaItemTitle
+import example.nucleus.ui.themes.screenTitle
 import example.nucleus.utils.LocalPlayerViewModel
 import example.nucleus.utils.LocalAnimationsEnabled
 import example.nucleus.viewmodels.AccountState
@@ -147,20 +153,21 @@ fun AccountScreen(
                 title = {
                     Text(
                         stringResource(Res.string.account_title),
-                        fontWeight = FontWeight.Black,
-                        style = MaterialTheme.typography.displaySmall.copy(fontSize = 32.sp)
+                        style = MaterialTheme.typography.screenTitle,
                     )
                 },
                 actions = {
                     if (state.uiState is AccountState.LoggedIn) {
-                        IconButton(
+                        FilledTonalIconButton(
                             onClick = actions.onLogout,
-                            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)
+                            modifier = Modifier.desktopClickableCursor(),
+                            colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                contentColor = MaterialTheme.colorScheme.error,
+                            ),
                         ) {
                             Icon(
                                 Icons.AutoMirrored.Filled.Logout,
                                 contentDescription = stringResource(Res.string.logout),
-                                tint = MaterialTheme.colorScheme.error
                             )
                         }
                     }
@@ -267,11 +274,20 @@ private fun LoginSection(
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Spacer(Modifier.height(8.dp))
-            Box(
-                modifier = Modifier.size(84.dp).clip(circleAwareShape()).background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center
+            Surface(
+                modifier = Modifier.size(88.dp),
+                shape = circleAwareShape(),
+                color = MaterialTheme.colorScheme.primaryContainer,
+                tonalElevation = 1.dp,
             ) {
-                Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(44.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Default.Person,
+                        contentDescription = null,
+                        modifier = Modifier.size(44.dp),
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
+                }
             }
             Text(stringResource(Res.string.login_title), style = MaterialTheme.typography.headlineSmallEmphasized)
             Text(
@@ -283,6 +299,7 @@ private fun LoginSection(
 
             // ── Browser sign in ─────────────────────────────────────────
             if (hasBrowser) {
+                val browserSignInInteraction = remember { MutableInteractionSource() }
                 Card(
                     onClick = {
                         scope.launch {
@@ -293,7 +310,14 @@ private fun LoginSection(
                             handleCookieResult(result)
                         }
                     },
-                    modifier = Modifier.fillMaxWidth().pointerHoverIcon(PointerIcon.Hand),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .desktopInteractiveSurface(
+                            shape = AppShapes.xLarge,
+                            interactionSource = browserSignInInteraction,
+                        ),
+                    shape = AppShapes.xLarge,
+                    interactionSource = browserSignInInteraction,
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer
                     )
@@ -303,7 +327,7 @@ private fun LoginSection(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Surface(
-                            shape = MaterialTheme.shapes.small,
+                            shape = AppShapes.medium,
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(48.dp)
                         ) {
@@ -318,9 +342,9 @@ private fun LoginSection(
                         }
                         Spacer(Modifier.width(16.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                                Text(
+                            Text(
                                 stringResource(Res.string.sign_in_with_browser),
-                                style = MaterialTheme.typography.titleMedium,
+                                style = MaterialTheme.typography.titleMediumEmphasized,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
                             Text(
@@ -341,6 +365,7 @@ private fun LoginSection(
             if (browserLoginStep != null) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
+                    shape = AppShapes.large,
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
                     )
@@ -358,13 +383,20 @@ private fun LoginSection(
 
             // ── Import from browser ─────────────────────────────────────
             if (browsers.isNotEmpty()) {
-                TextButton(onClick = { showAdvanced = !showAdvanced }) {
+                TextButton(
+                    onClick = { showAdvanced = !showAdvanced },
+                    modifier = Modifier.desktopClickableCursor(),
+                    shape = AppShapes.extraLarge,
+                ) {
                     Icon(
                         if (showAdvanced) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                         null, Modifier.size(18.dp)
                     )
                     Spacer(Modifier.width(4.dp))
-                    Text(stringResource(Res.string.import_from_browser))
+                    Text(
+                        stringResource(Res.string.import_from_browser),
+                        style = MaterialTheme.typography.labelLargeEmphasized,
+                    )
                 }
 
                 AnimatedVisibility(
@@ -379,6 +411,7 @@ private fun LoginSection(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         browsers.forEach { browser ->
+                            val browserInteraction = remember(browser.name) { MutableInteractionSource() }
                             Card(
                                 onClick = {
                                     scope.launch {
@@ -389,14 +422,24 @@ private fun LoginSection(
                                         handleCookieResult(result)
                                     }
                                 },
-                                modifier = Modifier.fillMaxWidth().pointerHoverIcon(PointerIcon.Hand)
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .desktopInteractiveSurface(
+                                        shape = AppShapes.large,
+                                        interactionSource = browserInteraction,
+                                    ),
+                                shape = AppShapes.large,
+                                interactionSource = browserInteraction,
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                ),
                             ) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth().padding(16.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Surface(
-                                        shape = MaterialTheme.shapes.small,
+                                        shape = AppShapes.medium,
                                         color = MaterialTheme.colorScheme.primaryContainer,
                                         modifier = Modifier.size(40.dp)
                                     ) {
@@ -410,7 +453,7 @@ private fun LoginSection(
                                     }
                                     Spacer(Modifier.width(16.dp))
                                     Column(modifier = Modifier.weight(1f)) {
-                                        Text(browser.name, style = MaterialTheme.typography.titleMedium)
+                                        Text(browser.name, style = MaterialTheme.typography.titleMediumEmphasized)
                                         Text(
                                             browser.userDataDir.absolutePath,
                                             style = MaterialTheme.typography.bodySmall,
@@ -447,14 +490,17 @@ private fun LoginSection(
             // ── Manual cookie paste (existing) ─────────────────────────
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
-                shape = RoundedCornerShape(16.dp)
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                shape = AppShapes.xLarge,
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.Info, null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
                         Spacer(Modifier.width(8.dp))
-                        Text(stringResource(Res.string.need_metrolist), fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.titleSmall)
+                        Text(
+                            stringResource(Res.string.need_metrolist),
+                            style = MaterialTheme.typography.titleSmallEmphasized,
+                        )
                     }
 
                     HelpStep("1", stringResource(Res.string.step1))
@@ -465,12 +511,12 @@ private fun LoginSection(
                     Spacer(Modifier.height(4.dp))
                     Text(stringResource(Res.string.token_example), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Surface(
-                        shape = RoundedCornerShape(10.dp),
+                        shape = AppShapes.medium,
                         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)
                     ) {
                         Text(
                             stringResource(Res.string.token_example_value),
-                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                            style = MaterialTheme.typography.bodySmall,
                             fontFamily = FontFamily.Monospace,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(12.dp)
@@ -489,11 +535,14 @@ private fun LoginSection(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(onDone = { if (cookieInput.isNotBlank()) onLogin() }),
                 trailingIcon = {
-                    IconButton(onClick = { showCookie = !showCookie }, modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)) {
+                    IconButton(
+                        onClick = { showCookie = !showCookie },
+                        modifier = Modifier.desktopClickableCursor(),
+                    ) {
                         Icon(if (showCookie) Icons.Default.VisibilityOff else Icons.Default.Visibility, contentDescription = if (showCookie) stringResource(Res.string.hide_label) else stringResource(Res.string.show_label))
                     }
                 },
-                shape = RoundedCornerShape(14.dp),
+                shape = AppShapes.large,
                 minLines = 2,
                 maxLines = 3,
                 supportingText = {
@@ -509,10 +558,10 @@ private fun LoginSection(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.65f)),
-                    shape = RoundedCornerShape(14.dp)
+                    shape = AppShapes.large,
                 ) {
                     Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(stringResource(Res.string.warnings_title), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onErrorContainer)
+                        Text(stringResource(Res.string.warnings_title), style = MaterialTheme.typography.labelMediumEmphasized, color = MaterialTheme.colorScheme.onErrorContainer)
                         cookieWarnings.take(3).forEach { warning ->
                             Text("• $warning", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
                         }
@@ -526,17 +575,20 @@ private fun LoginSection(
             Button(
                 onClick = onLogin,
                 enabled = cookieInput.isNotBlank(),
-                modifier = Modifier.fillMaxWidth().height(52.dp).pointerHoverIcon(PointerIcon.Hand),
-                shape = RoundedCornerShape(14.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+                    .desktopClickableCursor(enabled = cookieInput.isNotBlank()),
+                shape = AppShapes.extraLarge,
             ) {
                 Icon(Icons.AutoMirrored.Filled.Login, contentDescription = null, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
-                Text(stringResource(Res.string.login_title), fontWeight = FontWeight.SemiBold)
+                Text(stringResource(Res.string.login_title), style = MaterialTheme.typography.ctaLabel)
             }
 
             Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
-                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
+                shape = AppShapes.large,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -606,50 +658,35 @@ private fun ErrorSection(message: String, onRetry: () -> Unit, onReset: () -> Un
         modifier = Modifier.fillMaxSize().padding(24.dp),
         contentAlignment = Alignment.Center
     ) {
-        Card(
-            modifier = Modifier.fillMaxWidth().widthIn(max = 560.dp),
-            shape = RoundedCornerShape(20.dp)
+        Column(
+            modifier = Modifier.fillMaxWidth().widthIn(max = 480.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                Icon(
-                    Icons.Default.ErrorOutline,
-                    contentDescription = null,
-                    modifier = Modifier.size(56.dp),
-                    tint = MaterialTheme.colorScheme.error
-                )
-                Text(
-                    stringResource(Res.string.could_not_load_account),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    textAlign = TextAlign.Center
-                )
-                Text(
-                    message,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedButton(
-                        onClick = onReset,
-                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)
-                    ) {
-                        Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text(stringResource(Res.string.back_to_login))
-                    }
-                    Button(
-                        onClick = onRetry,
-                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)
-                    ) {
-                        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text(stringResource(Res.string.retry))
-                    }
+            ExpressiveEmptyState(
+                icon = Icons.Default.ErrorOutline,
+                title = stringResource(Res.string.could_not_load_account),
+                subtitle = message,
+                modifier = Modifier.heightIn(max = 280.dp),
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedButton(
+                    onClick = onReset,
+                    shape = AppShapes.extraLarge,
+                    modifier = Modifier.desktopClickableCursor(),
+                ) {
+                    Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text(stringResource(Res.string.back_to_login), style = MaterialTheme.typography.ctaLabel)
+                }
+                Button(
+                    onClick = onRetry,
+                    shape = AppShapes.extraLarge,
+                    modifier = Modifier.desktopClickableCursor(),
+                ) {
+                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text(stringResource(Res.string.retry), style = MaterialTheme.typography.ctaLabel)
                 }
             }
         }
@@ -699,7 +736,7 @@ private fun AccountProfileHeader(accountInfo: com.metrolist.innertube.models.Acc
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow
         ),
-        shape = RoundedCornerShape(20.dp)
+        shape = AppShapes.xLarge,
     ) {
         Column {
             Row(
@@ -726,8 +763,7 @@ private fun AccountProfileHeader(accountInfo: com.metrolist.innertube.models.Acc
                     ) {
                         Text(
                             accountInfo.name.firstOrNull()?.uppercaseChar()?.toString() ?: "?",
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.headlineMediumEmphasized,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                     }
@@ -765,7 +801,12 @@ private fun AccountProfileHeader(accountInfo: com.metrolist.innertube.models.Acc
                 // Badge de sesión activa
                 AssistChip(
                     onClick = {},
-                    label = { Text(stringResource(Res.string.connected), style = MaterialTheme.typography.labelSmall) },
+                    label = {
+                        Text(
+                            stringResource(Res.string.connected),
+                            style = MaterialTheme.typography.labelMediumEmphasized,
+                        )
+                    },
                     leadingIcon = {
                         Icon(
                             Icons.Default.CheckCircle,
@@ -774,6 +815,7 @@ private fun AccountProfileHeader(accountInfo: com.metrolist.innertube.models.Acc
                             tint = MaterialTheme.colorScheme.primary
                         )
                     },
+                    shape = AppShapes.extraLarge,
                     colors = AssistChipDefaults.assistChipColors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
                     ),
@@ -834,10 +876,10 @@ private fun PlaylistsSection(
                 stringResource(Res.string.your_playlists),
                 style = MaterialTheme.typography.titleLargeEmphasized,
             )
-            IconButton(
+            FilledTonalIconButton(
                 onClick = onRefresh,
                 enabled = !isLoading,
-                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)
+                modifier = Modifier.desktopClickableCursor(enabled = !isLoading),
             ) {
                 if (isLoading) {
                     CircularProgressIndicator(
@@ -865,29 +907,13 @@ private fun PlaylistsSection(
                 }
             }
             playlists.isEmpty() -> {
-                Box(
+                ExpressiveEmptyState(
+                    icon = Icons.AutoMirrored.Filled.QueueMusic,
+                    title = stringResource(Res.string.no_playlists_found),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(32.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.QueueMusic,
-                            contentDescription = null,
-                            modifier = Modifier.size(48.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                        )
-                        Text(
-                            stringResource(Res.string.no_playlists_found),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
+                        .heightIn(max = 240.dp),
+                )
             }
             else -> {
                 Column(
@@ -911,19 +937,21 @@ private fun PlaylistAccountItem(
     playlist: PlaylistItem,
     onClick: () -> Unit
 ) {
-    var isHovered by remember { mutableStateOf(false) }
+    val interaction = remember { MutableInteractionSource() }
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(
-                if (isHovered) MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.6f)
-                else Color.Transparent
+            .desktopInteractiveSurface(
+                shape = AppShapes.large,
+                interactionSource = interaction,
             )
-            .clickable(onClick = onClick)
-            .pointerHoverIcon(PointerIcon.Hand)
-            .padding(8.dp),
+            .clickable(
+                interactionSource = interaction,
+                indication = null,
+                onClick = onClick,
+            )
+            .padding(10.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -932,7 +960,7 @@ private fun PlaylistAccountItem(
             url = playlist.thumbnail,
             contentDescription = playlist.title,
             modifier = Modifier.size(52.dp),
-            shape = RoundedCornerShape(10.dp),
+            shape = AppShapes.medium,
             placeholderType = PlaceholderType.PLAYLIST,
         )
 
@@ -940,8 +968,7 @@ private fun PlaylistAccountItem(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 playlist.title,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium,
+                style = MaterialTheme.typography.mediaItemTitle,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -1001,7 +1028,7 @@ private fun PlaylistSkeletonItem() {
         Box(
             modifier = Modifier
                 .size(52.dp)
-                .clip(RoundedCornerShape(10.dp))
+                .clip(AppShapes.medium)
                 .background(shimmerColor)
         )
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -1009,14 +1036,14 @@ private fun PlaylistSkeletonItem() {
                 modifier = Modifier
                     .fillMaxWidth(0.6f)
                     .height(14.dp)
-                    .clip(RoundedCornerShape(7.dp))
+                    .clip(AppShapes.small)
                     .background(shimmerColor)
             )
             Box(
                 modifier = Modifier
                     .fillMaxWidth(0.35f)
                     .height(10.dp)
-                    .clip(RoundedCornerShape(5.dp))
+                    .clip(AppShapes.extraSmall)
                     .background(shimmerColor)
             )
         }
@@ -1066,7 +1093,7 @@ private fun CookieExpiredSection(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f)),
-                shape = RoundedCornerShape(16.dp)
+                shape = AppShapes.xLarge,
             ) {
                 Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(stringResource(Res.string.renew_cookie), style = MaterialTheme.typography.labelMediumEmphasized)
@@ -1082,11 +1109,14 @@ private fun CookieExpiredSection(
                 placeholder = { Text(stringResource(Res.string.cookie_placeholder), style = MaterialTheme.typography.bodySmall) },
                 visualTransformation = if (showCookie) VisualTransformation.None else PasswordVisualTransformation(),
                 trailingIcon = {
-                    IconButton(onClick = { showCookie = !showCookie }, modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)) {
+                    IconButton(
+                        onClick = { showCookie = !showCookie },
+                        modifier = Modifier.desktopClickableCursor(),
+                    ) {
                         Icon(if (showCookie) Icons.Default.VisibilityOff else Icons.Default.Visibility, contentDescription = null)
                     }
                 },
-                shape = RoundedCornerShape(14.dp),
+                shape = AppShapes.large,
                 minLines = 2,
                 maxLines = 3,
                 supportingText = {
@@ -1102,10 +1132,10 @@ private fun CookieExpiredSection(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.65f)),
-                    shape = RoundedCornerShape(14.dp)
+                    shape = AppShapes.large,
                 ) {
                     Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(stringResource(Res.string.warnings_title), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onErrorContainer)
+                        Text(stringResource(Res.string.warnings_title), style = MaterialTheme.typography.labelMediumEmphasized, color = MaterialTheme.colorScheme.onErrorContainer)
                         cookieWarnings.take(3).forEach { warning ->
                             Text("• $warning", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
                         }
@@ -1116,24 +1146,29 @@ private fun CookieExpiredSection(
             Button(
                 onClick = onRenew,
                 enabled = cookieInput.isNotBlank(),
-                modifier = Modifier.fillMaxWidth().height(52.dp).pointerHoverIcon(PointerIcon.Hand),
-                shape = RoundedCornerShape(14.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+                    .desktopClickableCursor(enabled = cookieInput.isNotBlank()),
+                shape = AppShapes.extraLarge,
             ) {
                 Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
-                Text(stringResource(Res.string.renew_session), fontWeight = FontWeight.SemiBold)
+                Text(stringResource(Res.string.renew_session), style = MaterialTheme.typography.ctaLabel)
             }
- 
+
             OutlinedButton(
                 onClick = onLogout,
-                modifier = Modifier.fillMaxWidth().pointerHoverIcon(PointerIcon.Hand),
-                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .desktopClickableCursor(),
+                shape = AppShapes.extraLarge,
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f))
             ) {
                 Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
-                Text(stringResource(Res.string.logout))
+                Text(stringResource(Res.string.logout), style = MaterialTheme.typography.ctaLabel)
             }
         }
     }

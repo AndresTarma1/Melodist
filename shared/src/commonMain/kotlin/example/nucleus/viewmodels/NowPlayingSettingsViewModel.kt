@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import example.nucleus.data.repository.BackgroundStyle
 import example.nucleus.data.repository.LyricsAnimationStyle
+import example.nucleus.data.repository.NowPlayingDesign
 import example.nucleus.data.repository.UserPreferencesRepository
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -28,7 +29,10 @@ class NowPlayingSettingsViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val nowPlayingBackground: StateFlow<BackgroundStyle> = preferencesRepository.nowPlayingBackground
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), BackgroundStyle.GRADIENT)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), BackgroundStyle.SOLID_COLOR)
+
+    val nowPlayingDesign: StateFlow<NowPlayingDesign> = preferencesRepository.nowPlayingDesign
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), NowPlayingDesign.YOUTUBE_MUSIC)
 
     val lyricsTextSize: StateFlow<Float> = preferencesRepository.lyricsTextSize
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 40f)
@@ -86,5 +90,13 @@ class NowPlayingSettingsViewModel(
 
     fun setQueuePersistenceEnabled(enabled: Boolean) {
         viewModelScope.launch { preferencesRepository.setQueuePersistenceEnabled(enabled) }
+    }
+
+    fun setNowPlayingDesign(design: NowPlayingDesign) {
+        viewModelScope.launch { preferencesRepository.setNowPlayingDesign(design) }
+    }
+
+    fun setNowPlayingBackground(style: BackgroundStyle) {
+        viewModelScope.launch { preferencesRepository.setNowPlayingBackground(style) }
     }
 }

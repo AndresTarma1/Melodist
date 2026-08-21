@@ -40,6 +40,9 @@ class PlayerService(
     private var _previousVolume = 100
 
     private var initAttempted = false
+    private val _mpvError = MutableStateFlow<String?>(null)
+    val mpvError: StateFlow<String?> = _mpvError.asStateFlow()
+    fun clearMpvError() { _mpvError.value = null }
 
     /** ¿Hay un medio cargado en mpv? Falso tras arrancar o tras [stop]. */
     @Volatile
@@ -66,9 +69,9 @@ class PlayerService(
 
     private companion object {
         const val TICK_MS = 400L
-        /** ~3.2 s de posición congelada con intención de play → recovery. */
-        const val STALL_TICKS = 8
-        const val RECOVERY_COOLDOWN_MS = 12_000L
+        /** ~4.8 s de posición congelada con intención de play → recovery (evita re-resolve temprano). */
+        const val STALL_TICKS = 12
+        const val RECOVERY_COOLDOWN_MS = 15_000L
         const val MIN_POS_FOR_STALL_MS = 1_500L
     }
 
@@ -79,7 +82,20 @@ class PlayerService(
             log.warning("mpv disabled via -Dmusicplayer.disableMpv=true")
             return
         }
-        mpvPlayer.init()
+        if (!MpvLib.isAvailable) {
+            val msg = MpvLib.getLoadError()?.message ?: "libmpv no disponible"
+            _mpvError.value = "No se pudo cargar libmpv-2.dll. $msg — Reinstala la aplicación y verifica tu antivirus."
+            log.severe("mpv init skipped: $msg")
+            return
+        }
+        try {
+            mpvPlayer.init()
+        } catch (e: Throwable) {
+            val msg = e.message ?: "desconocido"
+            _mpvError.value = "Error al inicializar audio (libmpv): $msg — Reinstala la aplicación."
+            log.severe("mpv init failed: $msg")
+            return
+        }
         startPositionTicker()
 
         loadSavedVolume()
@@ -129,10 +145,13 @@ class PlayerService(
      */
     fun play(url: String) {
         init()
-        if (isMpvDisabled) {
+        if (isMpvDisabled || !MpvLib.isAvailable) {
             _playbackState.value = PlaybackState.ERROR
             _position.value = 0L
             _duration.value = 0L
+            if (!MpvLib.isAvailable && _mpvError.value == null) {
+                _mpvError.value = "libmpv no disponible — reinstala la aplicación."
+            }
             return
         }
         try {

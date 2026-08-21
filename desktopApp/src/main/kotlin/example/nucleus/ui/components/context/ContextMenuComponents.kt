@@ -158,6 +158,7 @@ fun CollectionContextMenuPopup(
     onPlay: (() -> Unit)? = null,
     onShuffle: (() -> Unit)? = null,
     onRemoveFromLibrary: (() -> Unit)? = null,
+    onExport: (() -> Unit)? = null,
 ) {
     ContextMenuPopup(expanded = expanded, onDismiss = onDismiss) {
         CollectionContextMenuContent(
@@ -167,6 +168,7 @@ fun CollectionContextMenuPopup(
             onPlay = onPlay.withDismiss(onDismiss),
             onShuffle = onShuffle.withDismiss(onDismiss),
             onRemoveFromLibrary = onRemoveFromLibrary.withDismiss(onDismiss),
+            onExport = onExport?.withDismiss(onDismiss),
         )
     }
 }

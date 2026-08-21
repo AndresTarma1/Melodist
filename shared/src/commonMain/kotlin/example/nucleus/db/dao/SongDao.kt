@@ -150,6 +150,13 @@ class SongDao(private val database: MusicPlayerDatabase) {
             )
         }
 
+    suspend fun updateSongLyricsOffset(songId: String, offsetMs: Int) = withContext(Dispatchers.IO) {
+        database.songQueries.updateSongLyricsOffset(
+            lyricsOffset = offsetMs.coerceIn(-10_000, 10_000).toLong(),
+            id = songId,
+        )
+    }
+
     fun quickPicks(now: Long = System.currentTimeMillis()): Flow<List<SongEntity>> =
         database.songQueries.quickPicks(now, ::buildSongEntity)
             .asFlow()

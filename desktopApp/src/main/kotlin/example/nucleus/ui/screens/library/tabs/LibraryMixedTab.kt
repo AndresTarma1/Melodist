@@ -34,13 +34,19 @@ import example.nucleus.ui.components.layout.AppVerticalScrollbar
 import example.nucleus.ui.screens.library.LibraryScreenState
 import example.nucleus.ui.themes.LocalMiniPlayerInset
 import example.nucleus.utils.LocalDownloadViewModel
+import example.nucleus.utils.LocalPlaylistsViewModel
+import example.nucleus.utils.LocalSnackbarHostState
+import example.nucleus.utils.LocalSnackbarScope
 import example.nucleus.viewmodels.YtmLibraryState
 import example.nucleus.viewmodels.PlayerViewModel
 import com.metrolist.innertube.models.WatchEndpoint
 import com.metrolist.innertube.models.YTItem
+import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.getString
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyGridState
 import example.nucleus.ui.utils.circleAwareShape
+import org.koin.compose.koinInject
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -56,6 +62,9 @@ fun LibraryMixedTab(
 ) {
     val ytm = state.ytmState as? YtmLibraryState.Success
     val downloadViewModel = LocalDownloadViewModel.current
+    val playlistsViewModel = koinInject<example.nucleus.viewmodels.LibraryPlaylistsViewModel>()
+    val snackbar = LocalSnackbarHostState.current
+    val scope = LocalSnackbarScope.current
     val downloadedSongs by downloadViewModel.downloadedSongs.collectAsState()
     val downloadedCount by downloadViewModel.downloadedCount.collectAsState()
     val fullyDownloadedAlbums by downloadViewModel.fullyDownloadedAlbums.collectAsState()
@@ -88,6 +97,7 @@ fun LibraryMixedTab(
         val onShuffle: (() -> Unit)? = null,
         val isRemovable: Boolean = false,
         val onRemove: () -> Unit = {},
+        val onExport: (() -> Unit)? = null,
     )
 
     val items = remember(
@@ -181,6 +191,27 @@ fun LibraryMixedTab(
                         },
                         isRemovable = !isYtm,
                         onRemove = { onRemovePlaylist(playlist.id) },
+                        onExport = {
+                            playlistsViewModel.exportPlaylist(playlist.id) { success, msg ->
+                                scope.launch {
+                                    if (success) {
+                                        val result = snackbar.showSnackbar(
+                                            message = getString(Res.string.export_playlist_success, msg),
+                                            actionLabel = "Abrir carpeta",
+                                            duration = androidx.compose.material3.SnackbarDuration.Long
+                                        )
+                                        if (result == androidx.compose.material3.SnackbarResult.ActionPerformed) {
+                                            try {
+                                                val file = java.io.File(msg)
+                                                example.nucleus.platform.NativeDesktop.openFolder(file.parentFile ?: file)
+                                            } catch (_: Exception) {}
+                                        }
+                                    } else {
+                                        snackbar.showSnackbar(getString(Res.string.export_playlist_error, msg))
+                                    }
+                                }
+                            }
+                        },
                     )
                 )
             }
@@ -286,7 +317,7 @@ fun LibraryMixedTab(
         Box(modifier = Modifier.fillMaxSize()) {
             LazyVerticalGrid(
                 state = gridState,
-                columns = GridCells.Adaptive(minSize = 200.dp),
+                columns = GridCells.Adaptive(minSize = 150.dp),
                 contentPadding = PaddingValues(
                     start = 20.dp,
                     end = 20.dp,
@@ -305,7 +336,8 @@ fun LibraryMixedTab(
                             onShuffle = entry.onShuffle,
                             onRemove = entry.onRemove,
                             isRemovable = entry.isRemovable,
-                            source = entry.source
+                            source = entry.source,
+                            onExport = entry.onExport
                         )
                     } else {
                         MediaGridItem(
@@ -319,7 +351,8 @@ fun LibraryMixedTab(
                             onShuffle = entry.onShuffle,
                             onRemove = entry.onRemove,
                             isRemovable = entry.isRemovable,
-                            source = entry.source
+                            source = entry.source,
+                            onExport = entry.onExport
                         )
                     }
                 }

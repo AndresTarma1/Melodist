@@ -1,5 +1,8 @@
 package example.nucleus.ui.components.player
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -8,6 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PlaylistRemove
+import androidx.compose.material.icons.rounded.DragIndicator
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -46,6 +50,8 @@ import org.jetbrains.jewel.foundation.modifier.onHover
 fun QueueItem(
     song: MediaMetadata,
     isCurrent: Boolean,
+    isPlaying: Boolean = false,
+    queueLocked: Boolean = false,
     isDragging: Boolean = false,
     dragModifier: Modifier = Modifier,
     onClick: () -> Unit,
@@ -57,123 +63,155 @@ fun QueueItem(
 
     var isHovered by remember { mutableStateOf(false) }
 
-    val currentBg = if (isCurrent && !isDragging)
-        MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.15f)
-    else Color.Transparent
+    val itemShape = RoundedCornerShape(12.dp)
+    val currentBg = when {
+        isDragging -> MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.6f)
+        isCurrent -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.22f)
+        isHovered -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
+        else -> Color.Transparent
+    }
+
+    val itemBorderModifier = if (isCurrent && !isDragging) {
+        Modifier.border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f), itemShape)
+    } else Modifier
 
     var showMenu by remember { mutableStateOf(false) }
+
     Surface(
         color = currentBg,
-        shape = MaterialTheme.shapes.medium,
+        shape = itemShape,
         modifier = modifier
             .fillMaxWidth()
-            .clip(MaterialTheme.shapes.medium)
-            .then(dragModifier)
+            .clip(itemShape)
+            .then(itemBorderModifier)
             .clickable(onClick = onClick)
             .onPointerEvent(PointerEventType.Press) { event ->
-                when {
-                    event.buttons.isSecondaryPressed -> {
-                        showMenu = true
-                    }
+                if (event.buttons.isSecondaryPressed) {
+                    showMenu = true
                 }
             }
             .onHover { isHovered = it }
             .pointerHoverIcon(if (isDragging) PointerIcon.Crosshair else PointerIcon.Hand),
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Box {
+            // Indicador de arrastre para reordenar (visible cuando la cola no está bloqueada)
+            if (!queueLocked) {
                 Box(
                     modifier = Modifier
-                        .size(48.dp)
-                        .then(
-                            if (isCurrent) Modifier.border(
-                                2.dp,
-                                MaterialTheme.colorScheme.primary,
-                                RoundedCornerShape(8.dp)
-                            ) else Modifier
-                        )
+                        .then(dragModifier)
+                        .padding(end = 2.dp)
+                        .pointerHoverIcon(PointerIcon.Hand),
+                    contentAlignment = Alignment.Center
                 ) {
-                    MusicPlayerImage(
-                        url = song.thumbnailUrl,
-                        contentDescription = song.title,
-                        modifier = Modifier.fillMaxSize(),
-                        shape = RoundedCornerShape(8.dp),
-                        isLowRes = true,
-                        placeholderType = PlaceholderType.SONG,
-                        iconSize = 22.dp,
-                        contentScale = ContentScale.Crop,
+                    Icon(
+                        imageVector = Icons.Rounded.DragIndicator,
+                        contentDescription = null,
+                        tint = if (isHovered || isDragging) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+                        modifier = Modifier.size(18.dp)
                     )
+                }
+            }
 
-                    if (isCurrent) {
-                        Box(
-                            modifier = Modifier.matchParentSize().background(
-                                Color.Black.copy(alpha = 0.35f), shape = RoundedCornerShape(8.dp)
-                            )
-                        ) {
-                            AnimatedEqualizer(
-                                isPlaying = true,
-                                modifier = Modifier.size(20.dp).align(Alignment.Center)
-                            )
-                        }
-                    } else if (isHovered && !isDragging) {
-                        Box(
-                            modifier = Modifier.matchParentSize().background(
-                                Color.Black.copy(alpha = 0.3f), shape = RoundedCornerShape(8.dp)
-                            )
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.PlayArrow,
-                                contentDescription = stringResource(Res.string.play_item),
-                                tint = Color.White,
-                                modifier = Modifier.size(24.dp).align(Alignment.Center)
-                            )
-                        }
+            // Portada de la canción con indicador de reproducción / hover
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(8.dp))
+            ) {
+                MusicPlayerImage(
+                    url = song.thumbnailUrl,
+                    contentDescription = song.title,
+                    modifier = Modifier.fillMaxSize(),
+                    shape = RoundedCornerShape(8.dp),
+                    isLowRes = true,
+                    placeholderType = PlaceholderType.SONG,
+                    iconSize = 20.dp,
+                    contentScale = ContentScale.Crop,
+                )
+
+                if (isCurrent) {
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .background(Color.Black.copy(alpha = 0.4f), shape = RoundedCornerShape(8.dp))
+                    ) {
+                        AnimatedEqualizer(
+                            isPlaying = isPlaying,
+                            modifier = Modifier.size(18.dp).align(Alignment.Center)
+                        )
+                    }
+                } else if (isHovered && !isDragging) {
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .background(Color.Black.copy(alpha = 0.3f), shape = RoundedCornerShape(8.dp))
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.PlayArrow,
+                            contentDescription = stringResource(Res.string.play_item),
+                            tint = Color.White,
+                            modifier = Modifier.size(22.dp).align(Alignment.Center)
+                        )
                     }
                 }
             }
 
-            Column(modifier = Modifier.weight(1f)) {
+            // Información: Título y Artistas
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.Center
+            ) {
                 Text(
-                    song.title,
+                    text = song.title,
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Medium
+                        fontWeight = if (isCurrent) FontWeight.SemiBold else FontWeight.Medium
                     ),
-                    color = if (isCurrent) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.onSurface,
+                    color = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+                Spacer(Modifier.height(2.dp))
                 Text(
-                    song.artists.joinToString(", ") { it.name },
+                    text = song.artists.joinToString(", ") { it.name }.ifEmpty { "—" },
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
 
+            // Estado de descarga
             DownloadIndicator(state = downloadState)
 
-            if (isHovered && !isDragging) {
-                IconButton(onClick = onRemove, modifier = Modifier.size(34.dp)) {
-                    Icon(
-                        Icons.Default.PlaylistRemove,
-                        stringResource(Res.string.remove_from_queue),
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(19.dp)
-                    )
-                }
-            } else {
-                if (song.duration > 0) {
-                    Text(
-                        formatPlayerTimeValue(song.duration * 1000L),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                    )
+            // Duración o botón de eliminar al hacer hover
+            Box(
+                modifier = Modifier.widthIn(min = 36.dp),
+                contentAlignment = Alignment.CenterEnd
+            ) {
+                if (isHovered && !isDragging) {
+                    IconButton(
+                        onClick = onRemove,
+                        modifier = Modifier.size(30.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PlaylistRemove,
+                            contentDescription = stringResource(Res.string.remove_from_queue),
+                            tint = MaterialTheme.colorScheme.error.copy(alpha = 0.85f),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                } else {
+                    if (song.duration > 0) {
+                        Text(
+                            text = formatPlayerTimeValue(song.duration * 1000L),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        )
+                    }
                 }
             }
         }

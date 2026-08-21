@@ -1,7 +1,7 @@
 package example.nucleus.ui.screens.settings
 
+import example.nucleus.platform.NativeDesktop
 import example.nucleus.viewmodels.AppViewModel
-import java.awt.Desktop
 import java.net.URI
 import java.net.URLEncoder
 
@@ -11,5 +11,5 @@ internal fun openReportBugPage() {
     val url = "https://github.com/AndresTarma1/PaltaSound/issues/new" +
         "?title=${URLEncoder.encode("[Bug] ", "UTF-8")}" +
         "&body=${URLEncoder.encode(body, "UTF-8")}"
-    runCatching { Desktop.getDesktop().browse(URI(url)) }
+    NativeDesktop.browse(URI(url))
 }

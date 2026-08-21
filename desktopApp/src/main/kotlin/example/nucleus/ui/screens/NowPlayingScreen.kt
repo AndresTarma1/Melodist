@@ -9,7 +9,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import example.nucleus.navigation.Route
-import example.nucleus.ui.components.background.BackgroundStyle
 import example.nucleus.ui.components.player.NowPlayingLayout
 import example.nucleus.ui.components.player.NowPlayingTab
 import example.nucleus.viewmodels.PlayerViewModel

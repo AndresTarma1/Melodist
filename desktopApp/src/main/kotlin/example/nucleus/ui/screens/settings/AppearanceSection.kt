@@ -39,7 +39,12 @@ fun AppearanceSettingsGroup() {
     var showUiScaleDropdown by remember { mutableStateOf(false) }
 
     SettingsGroup(
-        title = { Text(stringResource(Res.string.section_appearance)) },
+        title = {
+            Text(
+                stringResource(Res.string.section_appearance),
+                style = MaterialTheme.typography.titleMediumEmphasized,
+            )
+        },
         colors = colors,
     ) {
         SettingsSwitch(

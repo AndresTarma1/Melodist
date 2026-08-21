@@ -189,21 +189,16 @@ object YTPlayerutils {
         return YouTube.player(videoId, playlistId, client = FallbackClients.mainClient)
     }
 
-    private var cachedSignatureTimestamp: Int? = null
-
     /**
-     * Calcula y almacena en caché el timestamp de firma para el reproductor de YouTube.
-     *
-     * @return El timestamp de firma en días desde la época de Unix.
+     * `sts` real del player.js de YouTube asociado al [videoId], vía NewPipe.
+     * Si no se puede obtener, devuelve null y [InnerTube] omite `playbackContext`
+     * (mejor que inventar un valor tipo "días desde epoch").
      */
-    private fun getSignatureTimestampOrNull(videoId: String): Int {
-        // signatureTimestamp = días desde la época de Unix (enfoque de SimpMusic)
-        // El reproductor de YouTube usa esto para verificar que el cliente está actualizado
-        cachedSignatureTimestamp?.let { return it }
-        val ts = (System.currentTimeMillis() / 86400000L).toInt()
-        cachedSignatureTimestamp = ts
-        Napier.d("Computed signatureTimestamp=$ts for $videoId (days since epoch)")
-        return ts
+    private fun getSignatureTimestampOrNull(videoId: String): Int? {
+        return com.metrolist.innertube.NewPipeExtractor.getSignatureTimestamp(videoId)
+            .onSuccess { Napier.d("Resolved signatureTimestamp=$it for $videoId from player.js") }
+            .onFailure { Napier.d("No signatureTimestamp for $videoId: ${it.message}") }
+            .getOrNull()
     }
 
     /**

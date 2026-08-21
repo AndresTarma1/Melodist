@@ -216,7 +216,7 @@ private fun OverlayContent(
                         )
                         Text(
                             stringResource(Res.string.overlay_title),
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            style = MaterialTheme.typography.titleMediumEmphasized,
                             color = MaterialTheme.colorScheme.onSurface,
                         )
                     }
@@ -235,7 +235,7 @@ private fun OverlayContent(
                 url = song?.thumbnailUrl,
                 contentDescription = song?.title,
                 modifier = Modifier.size(52.dp),
-                shape = RoundedCornerShape(8.dp),
+                shape = example.nucleus.ui.themes.AppShapes.medium,
                 contentScale = ContentScale.Crop,
                 placeholderType = PlaceholderType.SONG,
                 iconSize = 22.dp,
@@ -243,7 +243,7 @@ private fun OverlayContent(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     song?.title ?: stringResource(Res.string.overlay_nothing_playing),
-                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
+                    style = MaterialTheme.typography.titleSmallEmphasized,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )

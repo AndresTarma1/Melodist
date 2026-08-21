@@ -9,8 +9,8 @@ name: Build & Release
 #   https://github.com/AndresTarma1/PaltaSound/releases/download/v<version>/<archivo>
 # así que tag y versión tienen que coincidir exactamente (el job `release` lo valida).
 #
-# Los instaladores de Windows se compilan como binario GraalVM nativo (sin JVM) con las tareas
-# packageGraalvmNsis/packageGraalvmMsi. En Linux se usa la distribución JVM (packageDistributionForCurrentOS):
+# Los instaladores de Windows se compilan como binario GraalVM nativo (sin JVM) con la tarea
+# packageGraalvmNsis. En Linux se usa la distribución JVM (packageDistributionForCurrentOS):
 # el native-image de GraalVM falla en runners de GitHub (memoria) y Linux queda en alpha.
 
 on:
@@ -39,7 +39,7 @@ jobs:
             # yt-dlp solo se empaqueta en Windows (en Linux se usa el del sistema).
             needs_yt_dlp: true
             python_cmd: python
-            gradle_tasks: ":desktopApp:packageGraalvmNsis :desktopApp:packageGraalvmMsi"
+            gradle_tasks: ":desktopApp:packageGraalvmNsis"
           - os: ubuntu-latest
             dist_name: linux
             needs_yt_dlp: false
@@ -108,7 +108,7 @@ jobs:
         run: |
           set -eux
           mkdir -p dist
-          # Une los manifests latest*.yml (Exe + Msi comparten latest.yml en Windows;
+          # Une los manifests latest*.yml (en Windows solo existe latest.yml para el NSIS;
           # en Linux solo existe latest-linux.yml) y copia a dist/ exactamente los archivos
           # que referencia cada manifest (instaladores + blockmaps), evitando arrastrar
           # binarios del app-image (launcher .exe, java.exe, yt-dlp empaquetado, ...).
@@ -128,6 +128,9 @@ jobs:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     steps:
+      - name: Checkout (for CHANGELOG.md)
+        uses: actions/checkout@v4
+
       - name: Download artifacts (windows + linux)
         uses: actions/download-artifact@v4
         with:
@@ -147,9 +150,32 @@ jobs:
             exit 1
           fi
 
+      - name: Extract changelog section for this version
+        shell: bash
+        run: |
+          set -eu
+          VER="${GITHUB_REF_NAME#v}"
+          python3 - "$VER" CHANGELOG.md release-notes.md <<'PY'
+          import re, sys
+          ver, changelog, out = sys.argv[1], sys.argv[2], sys.argv[3]
+          text = open(changelog, encoding="utf-8").read()
+          pat = re.compile(r'^##\s+\[?' + re.escape(ver) + r'\]?(?:\s+-.*)?$', re.M)
+          m = pat.search(text)
+          if not m:
+              print(f"::error::No section for version {ver} found in {changelog}. "
+                    f"Add '## [{ver}] - YYYY-MM-DD' to CHANGELOG.md before tagging.")
+              sys.exit(1)
+          start = m.end()
+          nxt = re.search(r'^##\s', text[start:], re.M)
+          section = text[start:nxt.start()+start] if nxt else text[start:]
+          open(out, "w", encoding="utf-8").write(section.strip("\n") + "\n")
+          PY
+        env:
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           files: release/*
-          generate_release_notes: true
+          body_path: release-notes.md
           fail_on_unmatched_files: true

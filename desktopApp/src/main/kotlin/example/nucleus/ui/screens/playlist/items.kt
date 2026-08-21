@@ -19,7 +19,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -32,8 +31,11 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.AddBox
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -67,6 +69,7 @@ import example.nucleus.ui.helpers.rememberSongDownloadState
 import example.nucleus.ui.helpers.rememberSongLikedState
 import example.nucleus.ui.screens.shared.formatDuration
 import example.nucleus.ui.themes.AppShapes
+import example.nucleus.ui.themes.mediaItemTitle
 import example.nucleus.utils.LocalSnackbarHostState
 import example.nucleus.utils.LocalSnackbarScope
 import com.metrolist.innertube.models.SongItem
@@ -76,7 +79,7 @@ import org.jetbrains.jewel.foundation.modifier.onHover
 
 val ListItemHeight = 72.dp
 val ListThumbnailSize = 56.dp
-val ThumbnailCornerRadius = 8.dp
+val ThumbnailCornerRadius = 12.dp
 
 @Composable
 inline fun ListItem(
@@ -89,29 +92,27 @@ inline fun ListItem(
     isActive: Boolean = false,
     isAvailable: Boolean = true,
 ) {
+    val rowShape = AppShapes.medium
+    val rowModifier = modifier
+        .height(ListItemHeight)
+        .padding(horizontal = 8.dp)
+        .clip(rowShape)
+        .then(
+            when {
+                isActive && isSelected == true -> Modifier.background(
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.28f),
+                )
+                isActive -> Modifier.background(MaterialTheme.colorScheme.secondaryContainer)
+                isSelected == true -> Modifier.background(
+                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
+                )
+                else -> Modifier
+            },
+        )
+
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = if (isActive) {
-            modifier
-                .height(ListItemHeight)
-                .padding(horizontal = 8.dp)
-                .clip(MaterialTheme.shapes.small)
-                .background(
-                    color = // selected active
-                        if (isSelected == true) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
-                        else MaterialTheme.colorScheme.secondaryContainer
-                )
-        } else if (isSelected == true) {
-            modifier // inactive selected
-                .height(ListItemHeight)
-                .padding(horizontal = 8.dp)
-                .clip(MaterialTheme.shapes.small)
-                .background(color = MaterialTheme.colorScheme.inversePrimary.copy(alpha = 0.4f))
-        } else {
-            modifier // default
-                .height(ListItemHeight)
-                .padding(horizontal = 8.dp)
-        }
+        modifier = rowModifier,
     ) {
         Box(
             modifier = Modifier.padding(6.dp),
@@ -127,10 +128,14 @@ inline fun ListItem(
         ) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.mediaItemTitle,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
+                color = if (isAvailable) {
+                    MaterialTheme.colorScheme.onSurface
+                } else {
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
+                },
             )
 
             if (subtitle != null) {
@@ -150,6 +155,7 @@ inline fun ListItem(
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun MultiSongSelectionBar(
     selectedSongs: List<SongItem>,
@@ -188,44 +194,67 @@ internal fun MultiSongSelectionBar(
 
     Surface(
         tonalElevation = 0.dp,
-        shadowElevation = 8.dp,
+        shadowElevation = 6.dp,
         shape = AppShapes.xLarge,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         modifier = modifier.padding(16.dp)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Text(
                 stringResource(Res.string.selected_count, selectedSongs.size),
-                style = MaterialTheme.typography.titleSmall,
-                modifier = Modifier.padding(horizontal = 8.dp)
+                style = MaterialTheme.typography.labelLargeEmphasized,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(horizontal = 10.dp)
             )
             if (onSelectAll != null && allSongIds.isNotEmpty()) {
                 if (allSelected) {
-                    IconButton(onClick = onClearSelection) {
+                    FilledTonalIconButton(
+                        onClick = onClearSelection,
+                        modifier = Modifier.size(40.dp),
+                    ) {
                         Icon(Icons.Default.Clear, stringResource(Res.string.cd_deselect_all))
                     }
                 } else {
-                    IconButton(onClick = onSelectAll) {
+                    FilledTonalIconButton(
+                        onClick = onSelectAll,
+                        modifier = Modifier.size(40.dp),
+                    ) {
                         Icon(Icons.Default.AddBox, stringResource(Res.string.cd_select_all))
                     }
                 }
             }
-            IconButton(onClick = { showPlaylistDialog = true }) {
+            FilledTonalIconButton(
+                onClick = { showPlaylistDialog = true },
+                modifier = Modifier.size(40.dp),
+            ) {
                 Icon(Icons.AutoMirrored.Filled.PlaylistAdd, stringResource(Res.string.cd_add_to_playlist))
             }
-            IconButton(onClick = { downloadViewModel.downloadAll(selectedSongs) }) {
+            FilledTonalIconButton(
+                onClick = { downloadViewModel.downloadAll(selectedSongs) },
+                modifier = Modifier.size(40.dp),
+            ) {
                 Icon(Icons.Default.Download, stringResource(Res.string.cd_download))
             }
             if (isLocalPlaylist && onRemoveFromPlaylist != null) {
-                IconButton(onClick = { showRemoveConfirm = true }) {
-                    Icon(Icons.Default.Delete, stringResource(Res.string.cd_remove_from_playlist), tint = MaterialTheme.colorScheme.error)
+                FilledTonalIconButton(
+                    onClick = { showRemoveConfirm = true },
+                    modifier = Modifier.size(40.dp),
+                    colors = IconButtonDefaults.filledTonalIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                    ),
+                ) {
+                    Icon(Icons.Default.Delete, stringResource(Res.string.cd_remove_from_playlist))
                 }
             }
-            IconButton(onClick = onClearSelection) {
+            FilledTonalIconButton(
+                onClick = onClearSelection,
+                modifier = Modifier.size(40.dp),
+            ) {
                 Icon(Icons.Default.Close, stringResource(Res.string.btn_cancel))
             }
         }

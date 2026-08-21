@@ -32,7 +32,12 @@ fun OverlaySettingsGroup(
     val defaultHotkeyLabel = remember { DEFAULT.label() }
 
     SettingsGroup(
-        title = { Text(stringResource(Res.string.section_overlay)) },
+        title = {
+            Text(
+                stringResource(Res.string.section_overlay),
+                style = MaterialTheme.typography.titleMediumEmphasized,
+            )
+        },
         colors = colors,
     ) {
         SettingsSwitch(

@@ -66,7 +66,7 @@ fun SongInfoContent(
                 start = 16.dp,
                 end = 16.dp,
                 top = 12.dp,
-                bottom = 12.dp + LocalMiniPlayerInset.current
+                bottom = 12.dp
             ),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {

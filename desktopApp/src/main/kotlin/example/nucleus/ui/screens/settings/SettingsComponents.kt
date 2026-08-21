@@ -26,6 +26,7 @@ import example.nucleus.data.repository.SeekBarStyle
 import example.nucleus.data.repository.ThemePalette
 import example.nucleus.ui.components.PlayerSeekBar
 import example.nucleus.ui.screens.shared.displayName
+import example.nucleus.ui.themes.AppShapes
 import example.nucleus.ui.themes.systemFontFamily
 import example.nucleus.ui.themes.systemFontNames
 import example.nucleus.shared.generated.resources.*
@@ -39,41 +40,48 @@ val LocalSettingsColors = staticCompositionLocalOf<ListItemColors> {
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun rememberSettingsListItemColors(): ListItemColors = ListItemDefaults.segmentedColors(
-    // Estado base (sin seleccionar)
-    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-    contentColor = MaterialTheme.colorScheme.onSurface,
-    leadingContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-    trailingContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-    overlineContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-    supportingContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+fun rememberSettingsListItemColors(): ListItemColors {
+    val scheme = MaterialTheme.colorScheme
+    // Contenedor activo sólido (sin alpha): el tinte al 55% sobre surface hacía
+    // que onPrimaryContainer quedara oscuro/apagado y el subtítulo ilegible.
+    val selectedContainer = scheme.secondaryContainer
+    val onSelected = scheme.onSecondaryContainer
+    val selectedAccent = scheme.secondary
 
-    // Estado seleccionado — contenedor SÓLIDO (sin alpha), no un tinte débil.
-    // El salto de "surfaceContainerLow" a "primaryContainer" ya es visible por sí solo.
-    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
-    selectedContentColor = MaterialTheme.colorScheme.onSurface,
-    selectedLeadingContentColor = MaterialTheme.colorScheme.primary,
-    selectedTrailingContentColor = MaterialTheme.colorScheme.primary,
-    selectedOverlineContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-    selectedSupportingContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+    return ListItemDefaults.segmentedColors(
+        // Estado base
+        containerColor = scheme.surfaceContainerLow,
+        contentColor = scheme.onSurface,
+        leadingContentColor = scheme.onSurfaceVariant,
+        trailingContentColor = scheme.onSurfaceVariant,
+        overlineContentColor = scheme.onSurfaceVariant,
+        supportingContentColor = scheme.onSurfaceVariant,
 
-    // Estado "dragged" — usa un color DISTINTO al seleccionado (tertiary),
-    // para que arrastrar y estar seleccionado no se confundan visualmente.
-    draggedContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
-    draggedContentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-    draggedLeadingContentColor = MaterialTheme.colorScheme.tertiary,
-    draggedTrailingContentColor = MaterialTheme.colorScheme.tertiary,
-    draggedOverlineContentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-    draggedSupportingContentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+        // Activo / checked — secondaryContainer M3 sólido + onSecondaryContainer opaco
+        selectedContainerColor = selectedContainer,
+        selectedContentColor = onSelected,
+        selectedLeadingContentColor = selectedAccent,
+        selectedTrailingContentColor = selectedAccent,
+        selectedOverlineContentColor = onSelected,
+        selectedSupportingContentColor = onSelected,
 
-    // Estado deshabilitado — sigue el estándar de Material (38% de opacidad sobre onSurface)
-    disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-    disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
-    disabledLeadingContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
-    disabledTrailingContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
-    disabledOverlineContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
-    disabledSupportingContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
-)
+        // Dragged — tertiary, distinto del seleccionado
+        draggedContainerColor = scheme.tertiaryContainer,
+        draggedContentColor = scheme.onTertiaryContainer,
+        draggedLeadingContentColor = scheme.tertiary,
+        draggedTrailingContentColor = scheme.tertiary,
+        draggedOverlineContentColor = scheme.onTertiaryContainer,
+        draggedSupportingContentColor = scheme.onTertiaryContainer,
+
+        // Deshabilitado — contenedor opaco; texto al 38% (estándar M3)
+        disabledContainerColor = scheme.surfaceContainerLow,
+        disabledContentColor = scheme.onSurface.copy(alpha = 0.38f),
+        disabledLeadingContentColor = scheme.onSurface.copy(alpha = 0.38f),
+        disabledTrailingContentColor = scheme.onSurface.copy(alpha = 0.38f),
+        disabledOverlineContentColor = scheme.onSurface.copy(alpha = 0.38f),
+        disabledSupportingContentColor = scheme.onSurface.copy(alpha = 0.38f),
+    )
+}
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -247,49 +255,50 @@ internal fun ActionRow(
 internal fun AboutCard() {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        shape = AppShapes.xLarge,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(20.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Box(
                 modifier = Modifier
-                    .size(48.dp)
-                    .clip(RoundedCornerShape(12.dp))
+                    .size(52.dp)
+                    .clip(AppShapes.large)
                     .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     Icons.Rounded.MusicNote, null,
                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(26.dp),
                 )
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = stringResource(Res.string.about_title),
-                    style = MaterialTheme.typography.titleMediumEmphasized,
-                    color = MaterialTheme.colorScheme.onSurface
+                    style = MaterialTheme.typography.titleLargeEmphasized,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
                     text = stringResource(Res.string.about_subtitle),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             Surface(
-                shape = example.nucleus.ui.utils.circleAwareShape(),
-                color = MaterialTheme.colorScheme.primaryContainer
+                shape = AppShapes.extraLarge,
+                color = MaterialTheme.colorScheme.primaryContainer,
+                tonalElevation = 1.dp,
             ) {
                 Text(
                     text = stringResource(Res.string.version_prefix) + AppViewModel.CURRENT_VERSION,
-                    style = MaterialTheme.typography.labelMediumEmphasized,
+                    style = MaterialTheme.typography.labelLargeEmphasized,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
                 )
             }
         }

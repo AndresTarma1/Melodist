@@ -126,8 +126,11 @@ class MpvAudioPlayer {
             if (lastLoudnessLufs > 0) setLoudness(lastLoudnessLufs)
             lastGapless?.let { enabled -> setGaplessAudio(enabled) }
             lastSpeed?.let { speed -> setSpeed(speed) }
-        } catch (e: Exception) {
-            log.severe("MpvAudioPlayer init failed: ${e.message}")
+        } catch (e: Throwable) {
+            // ExceptionInInitializerError (MpvLib.<clinit> falló) es un Error, no Exception — hay que atrapar Throwable
+            // para no dejar la app en estado crash y poder mostrar un diálogo amigable.
+            val cause = (e as? ExceptionInInitializerError)?.cause ?: e
+            log.severe("MpvAudioPlayer init failed: ${cause.message} — verifica que libmpv-2.dll no esté corrupto/bloqueado y reinstala si hace falta")
             throw e
         }
     }

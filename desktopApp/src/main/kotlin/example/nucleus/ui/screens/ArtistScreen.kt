@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -30,19 +31,20 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import example.nucleus.navigation.Route
 import example.nucleus.ui.components.*
 import example.nucleus.ui.components.images.MusicPlayerImage
 import example.nucleus.ui.components.images.PlaceholderType
+import example.nucleus.ui.components.layout.AppScreenContentHorizontal
 import example.nucleus.ui.components.layout.AppVerticalScrollbar
 import example.nucleus.ui.components.layout.HorizontalScrollableRow
+import example.nucleus.ui.components.layout.appScrollContentPadding
 import example.nucleus.ui.screens.shared.SectionGridItem
 import example.nucleus.ui.screens.shared.SectionListItem
 import example.nucleus.ui.utils.circleAwareShape
+import example.nucleus.ui.themes.AppShapes
 import example.nucleus.ui.themes.LocalMiniPlayerInset
 import example.nucleus.ui.themes.ctaLabel
 import example.nucleus.ui.themes.expressiveFadeDuration
@@ -137,9 +139,11 @@ fun ArtistScreen(
         when (uiState) {
             is ArtistState.Loading -> ArtistScreenSkeleton()
             is ArtistState.Success -> ArtistScreenContent(uiState.artistPage, onNavigate, isSaved, actions, playerViewModel)
-            is ArtistState.Error -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(uiState.message, color = MaterialTheme.colorScheme.error)
-            }
+            is ArtistState.Error -> ExpressiveEmptyState(
+                icon = Icons.Default.ErrorOutline,
+                title = stringResource(Res.string.something_went_wrong),
+                subtitle = uiState.message,
+            )
         }
     }
 }
@@ -163,7 +167,7 @@ private fun ArtistScreenContent(
         LazyColumn(
             state = lazyListState,
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = LocalMiniPlayerInset.current),
+            contentPadding = appScrollContentPadding(bottom = LocalMiniPlayerInset.current),
         ) {
             item(key = "banner") {
                 ArtistBanner(
@@ -181,17 +185,22 @@ private fun ArtistScreenContent(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 10.dp, bottom = 10.dp, end = 12.dp))
-                {
+                        .padding(vertical = 10.dp)
+                ) {
 
                     Text(
                         text = section.title,
                         style = MaterialTheme.typography.headlineSmallEmphasized,
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+                        modifier = Modifier.padding(
+                            horizontal = AppScreenContentHorizontal,
+                            vertical = 4.dp,
+                        ),
                     )
 
                     if (index == 0) {
-                        Column {
+                        Column(
+                            modifier = Modifier.padding(horizontal = AppScreenContentHorizontal - 8.dp),
+                        ) {
                             section.items.forEach { item ->
                                 SectionListItem(
                                     item = item,
@@ -203,7 +212,9 @@ private fun ArtistScreenContent(
 
                     } else {
                         HorizontalScrollableRow(
-                            state = rememberLazyListState()
+                            state = rememberLazyListState(),
+                            contentPadding = PaddingValues(horizontal = AppScreenContentHorizontal),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
 
                             items(
@@ -315,9 +326,9 @@ fun ArtistBanner(
         ) {
             Text(
                 text = artistPage.artist.title,
-                style = MaterialTheme.typography.displayLargeEmphasized,
+                style = MaterialTheme.typography.displayMediumEmphasized,
                 color = Color.White,
-                maxLines = 1,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
 
@@ -374,45 +385,66 @@ fun ArtistBanner(
                 }
             }
 
-            // Fila de botones (sin cambios lógicos, pero ahora dentro de un contenedor más seguro)
+            // M3E hero actions: primary play pill + tonal shuffle/radio + outlined subscribe
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Button(
+                ExtendedFloatingActionButton(
+                    text = {
+                        Text(
+                            text = stringResource(Res.string.play_item),
+                            style = MaterialTheme.typography.ctaLabel,
+                            maxLines = 1,
+                        )
+                    },
+                    icon = {
+                        Icon(Icons.Rounded.PlayArrow, null, modifier = Modifier.size(24.dp))
+                    },
+                    onClick = { if (hasPlayable) actions.onPlayArtist() },
+                    expanded = true,
+                    containerColor = Color.White,
+                    contentColor = Color.Black,
+                    elevation = FloatingActionButtonDefaults.elevation(2.dp, 4.dp),
+                    shape = AppShapes.extraLarge,
+                    modifier = Modifier
+                        .height(52.dp)
+                        .defaultMinSize(minWidth = 112.dp)
+                        .pointerHoverIcon(if (hasPlayable) PointerIcon.Hand else PointerIcon.Default),
+                )
+
+                FilledTonalIconButton(
                     onClick = { if (hasPlayable) actions.onShuffleArtist() },
                     enabled = hasPlayable,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.White,
-                        contentColor = Color.Black,
-                        disabledContainerColor = Color.White.copy(alpha = 0.3f),
-                        disabledContentColor = Color.White.copy(alpha = 0.5f)
-                    ),
+                    modifier = Modifier
+                        .size(48.dp)
+                        .pointerHoverIcon(if (hasPlayable) PointerIcon.Hand else PointerIcon.Default),
                     shape = circleAwareShape(),
-                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp),
-                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)
+                    colors = IconButtonDefaults.filledTonalIconButtonColors(
+                        containerColor = Color.White.copy(alpha = 0.22f),
+                        contentColor = Color.White,
+                        disabledContainerColor = Color.White.copy(alpha = 0.08f),
+                        disabledContentColor = Color.White.copy(alpha = 0.35f),
+                    ),
                 ) {
-                    Icon(Icons.Rounded.Shuffle, null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(stringResource(Res.string.shuffle), style = MaterialTheme.typography.ctaLabel)
+                    Icon(Icons.Rounded.Shuffle, stringResource(Res.string.shuffle), modifier = Modifier.size(22.dp))
                 }
 
-                Button(
+                FilledTonalIconButton(
                     onClick = { if (hasPlayable) actions.onRadioArtist() },
                     enabled = hasPlayable,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.White,
-                        contentColor = Color.Black,
-                        disabledContainerColor = Color.White.copy(alpha = 0.3f),
-                        disabledContentColor = Color.White.copy(alpha = 0.5f)
-                    ),
+                    modifier = Modifier
+                        .size(48.dp)
+                        .pointerHoverIcon(if (hasPlayable) PointerIcon.Hand else PointerIcon.Default),
                     shape = circleAwareShape(),
-                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp),
-                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)
+                    colors = IconButtonDefaults.filledTonalIconButtonColors(
+                        containerColor = Color.White.copy(alpha = 0.22f),
+                        contentColor = Color.White,
+                        disabledContainerColor = Color.White.copy(alpha = 0.08f),
+                        disabledContentColor = Color.White.copy(alpha = 0.35f),
+                    ),
                 ) {
-                    Icon(Icons.Rounded.Radio, null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(stringResource(Res.string.radio_text), style = MaterialTheme.typography.ctaLabel)
+                    Icon(Icons.Rounded.Radio, stringResource(Res.string.radio_text), modifier = Modifier.size(22.dp))
                 }
 
                 val subscribedText = stringResource(Res.string.subscribed)
@@ -426,33 +458,23 @@ fun ArtistBanner(
                     onClick = actions.onToggleSave,
                     colors = ButtonDefaults.outlinedButtonColors(
                         contentColor = Color.White,
-                        containerColor = if (isSaved) Color.White.copy(alpha = 0.15f) else Color.Transparent
+                        containerColor = if (isSaved) Color.White.copy(alpha = 0.18f) else Color.Transparent,
                     ),
                     border = BorderStroke(
                         width = 1.5.dp,
-                        color = Color.White.copy(alpha = if (isSaved) 0.6f else 0.85f)
+                        color = Color.White.copy(alpha = if (isSaved) 0.65f else 0.88f),
                     ),
-                    shape = circleAwareShape(),
-                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp),
-                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)
+                    shape = AppShapes.extraLarge,
+                    contentPadding = PaddingValues(horizontal = 18.dp, vertical = 12.dp),
+                    modifier = Modifier
+                        .height(48.dp)
+                        .pointerHoverIcon(PointerIcon.Hand),
                 ) {
                     if (isSaved) {
-                        Icon(Icons.Rounded.Check, null, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Rounded.Check, null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
                     }
-                    Text(subLabel, fontWeight = FontWeight.Medium)
-                }
-
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(circleAwareShape())
-                        .background(Color.White.copy(alpha = 0.12f))
-                        .clickable { /* TODO */ }
-                        .pointerHoverIcon(PointerIcon.Hand),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(Icons.Rounded.MoreVert, stringResource(Res.string.more_options), tint = Color.White, modifier = Modifier.size(20.dp))
+                    Text(subLabel, style = MaterialTheme.typography.ctaLabel, maxLines = 1)
                 }
             }
         }

@@ -44,16 +44,14 @@ object CoilSetup {
             .memoryCachePolicy(CachePolicy.ENABLED)
             .memoryCache {
                 MemoryCache.Builder()
-                    // Caché en disco agresiva (256 MB) pero bitmaps decodificados en RAM acotados.
-                    // 16 MB ≈ ~16 portadas a 512px; el disco evita re-descargar.
-                    .maxSizeBytes(1024 * 1024 * 16)
+                    .maxSizeBytes(1024 * 1024 * 12)
                     .build()
             }
             .diskCachePolicy(CachePolicy.ENABLED)
             .diskCache {
                 DiskCache.Builder()
                     .directory(cacheDir.absolutePath.toPath())
-                    .maxSizeBytes(256L * 1024 * 1024)
+                    .maxSizeBytes(128L * 1024 * 1024)
                     .build()
             }
             .crossfade(200)

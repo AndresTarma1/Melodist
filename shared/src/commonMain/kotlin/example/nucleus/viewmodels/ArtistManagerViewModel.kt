@@ -1,6 +1,7 @@
 package example.nucleus.viewmodels
 
 import androidx.lifecycle.viewModelScope
+import example.nucleus.data.account.AccountManager
 import example.nucleus.data.repository.ArtistRepository
 import example.nucleus.data.repository.UserPreferencesRepository
 import example.nucleus.utils.PendingAction
@@ -77,16 +78,22 @@ class ArtistManagerViewModel(
                 )
             }
 
-            // Push the follow/unfollow to the real YouTube account — gated behind "Sincronizar
-            // con YouTube Music" like the other pushes, since it writes to the user's account.
-            // Some YTM-only artists don't expose a real channel id; skip the push for those.
+            // Solo local si no hay sesión o sync YTM off. Sin login no hay request remoto ni WARN.
+            // Algunos artistas YTM no exponen channelId real; ahí tampoco se empuja.
             val channelId = artist.channelId
-            if (channelId != null && userPreferences.ytmSyncEnabled.first()) {
+            val canPushRemote = channelId != null &&
+                AccountManager.isLoggedIn &&
+                userPreferences.ytmSyncEnabled.first()
+            if (canPushRemote && channelId != null) {
                 retryWithBackoff { YouTube.subscribeChannel(channelId, subscribe = !wasSaved) }
                     .onFailure {
                         Napier.w("Failed to push subscribe state for $channelId: ${it.message}")
-                        pendingSyncQueue.enqueue(PendingAction.SubscribeArtist(channelId, subscribed = !wasSaved))
+                        pendingSyncQueue.enqueue(
+                            PendingAction.SubscribeArtist(channelId, subscribed = !wasSaved),
+                        )
                     }
+            } else if (channelId != null && !AccountManager.isLoggedIn) {
+                Napier.d("Artist follow kept local only (not logged in): ${artist.id}")
             }
         }
     }
