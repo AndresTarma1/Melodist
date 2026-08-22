@@ -36,10 +36,14 @@ object YtDlpResolver {
      * @param quality El nivel de calidad de audio deseado.
      * @return Un selector de formato `-f` de yt-dlp.
      */
+    // El fallback final /best (o /worst) es obligatorio: con sesión iniciada, YouTube exige un
+    // GVS PO Token para los formatos de solo-audio y yt-dlp los omite; sin ese fallback la
+    // selección queda vacía ("Requested format is not available") aunque el itag 18 muxed
+    // (con audio) sí sea servible.
     private fun formatSelector(quality: AudioQuality): String = when (quality) {
-        AudioQuality.LOW -> "worstaudio/bestaudio[abr<=70]/bestaudio"
-        AudioQuality.NORMAL -> "bestaudio[abr<=128]/bestaudio"
-        AudioQuality.HIGH -> "bestaudio"
+        AudioQuality.LOW -> "worstaudio/bestaudio[abr<=70]/bestaudio/worst/best"
+        AudioQuality.NORMAL -> "bestaudio[abr<=128]/bestaudio/best"
+        AudioQuality.HIGH -> "bestaudio/best"
     }
 
     /**

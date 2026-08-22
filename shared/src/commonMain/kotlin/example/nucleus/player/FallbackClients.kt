@@ -7,9 +7,11 @@ object FallbackClients {
     // because, with poTokens disabled, web streams 403 and would needlessly load player.js.
     val mainClient: YouTubeClient = YouTubeClient.WEB_REMIX
 
-    // Only non-web clients: they return direct/NewPipe URLs (no poToken, no player.js/cipher).
-    // VISIONOS first (no `spc` throttle gate). Anything none of these can play falls back to yt-dlp.
+    // WEB_REMIX sirve como cliente principal (metadatos + primer intento de stream con
+    // PoToken + pot=). TVHTML5 entra como primer fallback explícito (requiere sesión; si
+    // no está logueado se salta solo y se pasa a los clientes no-web).
     val streamFallbackClients: Array<YouTubeClient> = arrayOf(
+        YouTubeClient.TVHTML5,
         YouTubeClient.VISIONOS,
         YouTubeClient.ANDROID_VR_1_43_32,
         YouTubeClient.ANDROID_VR_1_61_48,

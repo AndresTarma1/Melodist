@@ -5,7 +5,7 @@ import example.nucleus.overlay.GlobalHotkeyManager
 import example.nucleus.player.PlayerService
 import example.nucleus.player.WindowsMediaSession
 import example.nucleus.utils.SyncUtils
-import example.nucleus.utils.cipher.JcefBotGuardExecutor
+import example.nucleus.utils.cipher.PoTokenManager
 
 class AppLifecycleManager(
     private val mediaSession: WindowsMediaSession,
@@ -26,7 +26,12 @@ class AppLifecycleManager(
         runCatching { downloadService.release() }
         runCatching { mediaSession.release() }
         runCatching { playerService.release() }
-        runCatching { JcefBotGuardExecutor.dispose() }
+        // Cierre acotado: liberar QuickJS es rápido; si colgara igualmente, halt(0) está abajo.
+        runCatching {
+            kotlinx.coroutines.runBlocking {
+                kotlinx.coroutines.withTimeout(2_000) { PoTokenManager.reset() }
+            }
+        }
         // Runtime.halt() omite los shutdown hooks del JVM (los nuestros ya se ejecutaron arriba;
         // cualquier hook de biblioteca de terceros también se omite). Aquí es seguro: nuestro estado
         // ya fue guardado y liberado; cualquier cosa que un hook "libere elegantemente" (archivos

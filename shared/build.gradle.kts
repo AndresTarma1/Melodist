@@ -66,18 +66,20 @@ kotlin {
             // Media controls del sistema (SMTC/MPRIS/Now Playing) vía Nucleus.
             implementation("dev.nucleusframework:nucleus.media-control:2.4.7")
 
-            // GraalJS (cipher `n`/`s` de player.js) EXCLUIDO en la rama experimental de GraalVM:
-            // truffle-runtime es un módulo JPMS incompatible con native-image dentro del uber JAR.
-            // Sin él, el cipher degrada al fallback de yt-dlp (código ya lo maneja). Re-add si
-            // se abandona el experimento y se vuelve a JVM-only.
-            // implementation("org.graalvm.js:js-scriptengine:25.0.3")
-            // implementation("org.graalvm.js:js:25.0.3")
+            // PoTokens web: desde julio 2026 los programas de BotGuard solo entregan el
+            // minter con un entorno tipo JSDOM, fuera del alcance de un QuickJS embebido.
+            // Se delega al sidecar rustypipe-botguard (RustyPipeBotGuardSidecar, binario en
+            // mpv-resources/windows). Ver PoTokenGenerator.jvm para el historial.
+            // implementation("io.github.dokar3:quickjs-kt:1.0.14")
 
-            // API de JCEF (Chromium) solo — usada para generar poTokens de BotGuard. La implementación
-            // nativa real es proporcionada en tiempo de ejecución por el módulo `jcef` de JetBrains Runtime
-            // (ver --add-modules=jcef en composeApp), así que esto se mantiene compileOnly para evitar
-            // enviar/binarios nativos en conflicto.
-            compileOnly("me.friwi:jcef-api:jcef-1770317+cef-132.3.1+g144febe+chromium-132.0.6834.83")
+            // GraalJS (cipher `n`/`s` de player.js) — motor JS del solucionador EJS de los
+            // formatos web. Sin él, WEB_REMIX/TVHTML5 devuelven sigCipher pero no se puede
+            // deobfuscar y la calidad web no se recupera.
+            // NOTA: truffle-runtime es un módulo JPMS incompatible con el uber JAR de
+            // GraalVM native-image; si reactivas `buildGraalvmNative`, hay que excluirlo o
+            // comentar estas dos líneas (como estaba antes).
+            implementation("org.graalvm.js:js-scriptengine:25.0.3")
+            implementation("org.graalvm.js:js:25.0.3")
         }
     }
 }

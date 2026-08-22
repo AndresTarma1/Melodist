@@ -1,6 +1,7 @@
 package example.nucleus.player
 
 import example.nucleus.data.repository.AudioQuality
+import example.nucleus.utils.cipher.PoTokenManager
 import example.nucleus.utils.cipher.PoTokenResult
 import com.metrolist.innertube.YouTube
 import com.metrolist.innertube.models.response.PlayerResponse
@@ -34,11 +35,17 @@ object YTPlayerutils {
             }
         }
 
-        // La generación de PoToken/JCEF está intencionalmente DESHABILITADA: el Chromium embebido (JCEF) consumía
-        // mucha RAM y provocaba tirones en el hilo de UI, y el fallback con yt-dlp ya cubre los
-        // videos que de otro modo necesitarían un poToken de streaming. Resolvemos con clientes sin
-        // poToken y dejamos que YtDlpResolver maneje cualquier cosa que falle al reproducir.
-        val poTokenResult: PoTokenResult? = null
+        // PoToken vía sidecar rustypipe-botguard (ver RustyPipeBotGuardSidecar): el runtime
+        // de BotGuard corre en un proceso externo con entorno JSDOM (desde 2026 el minter
+        // WebPO no se entrega a runtimes embebidos con shims stub).
+        //  - playerRequestPoToken va en el body del /player del cliente principal.
+        //  - streamingDataPoToken se agrega como pot= a las URLs de los clientes web,
+        //    lo que re-habilita sus formatos de solo-audio de alta calidad.
+        // Si visitorData aún no está listo o la generación falla/excede el timeout,
+        // seguimos sin poToken: los clientes no-web + yt-dlp cubren el playback.
+        val poTokenResult: PoTokenResult? = YouTube.visitorData?.let { vd ->
+            PoTokenManager.getWebClientPoToken(videoId, vd)
+        }
 
         val mainPlayerResponse =
             YouTube.player(
@@ -46,7 +53,7 @@ object YTPlayerutils {
                 playlistId,
                 FallbackClients.mainClient,
                 signatureTimestamp,
-                null,
+                poTokenResult?.playerRequestPoToken,
             ).getOrThrow()
         Napier.d("Resolving playback stream for $videoId with quality=$audioQuality signatureTimestamp=$signatureTimestamp")
         val audioConfig = mainPlayerResponse.playerConfig?.audioConfig
@@ -72,7 +79,7 @@ object YTPlayerutils {
                     continue
                 }
                 val clientPoToken =
-                    if (fallbackClient.useWebPoTokens) null else null
+                    if (fallbackClient.useWebPoTokens) poTokenResult?.playerRequestPoToken else null
                 val result = YouTube.player(videoId, playlistId, fallbackClient, signatureTimestamp, clientPoToken)
                 streamPlayerResponse = result.getOrNull()
                 if (streamPlayerResponse == null) {
@@ -81,10 +88,11 @@ object YTPlayerutils {
                 fallbackClient
             }
 
-            // Con los poTokens deshabilitados, los clientes web (useWebPoTokens) dan error 403 en el CDN y cargarían
-            // player.js para sig/n. Se omite completamente su resolución de stream — WEB_REMIX sigue sirviendo
-            // como fuente de metadatos arriba; los clientes no-web + yt-dlp cubren la reproducción.
-            if ((client ?: FallbackClients.mainClient).useWebPoTokens) {
+            // Sin poToken, los clientes web (useWebPoTokens) dan error 403 en el CDN y cargarían
+            // player.js para sig/n: se omite su resolución de stream. CON poToken válido pasan a
+            // ser candidatos (formatos de solo-audio de alta calidad); WEB_REMIX sigue sirviendo
+            // como fuente de metadatos arriba.
+            if ((client ?: FallbackClients.mainClient).useWebPoTokens && poTokenResult == null) {
                 continue
             }
 
@@ -128,7 +136,7 @@ object YTPlayerutils {
 
                 // Agregar pot=streamingDataPoToken para clientes con PoToken habilitado (WEB_REMIX, WEB, TVHTML5).
                 val effectiveClient = client ?: FallbackClients.mainClient
-                val streamingPot = null
+                val streamingPot = poTokenResult?.streamingDataPoToken
 
                 // Transformación de n solo para clientes web (igual que Metrolist). Los clientes no-web (VISIONOS,
                 // IOS, ANDROID_VR, ...) obtienen URLs cuya n está ausente o ya es manejada por NewPipe;
@@ -136,7 +144,12 @@ object YTPlayerutils {
                 val needsNTransform = effectiveClient.useWebPoTokens ||
                     effectiveClient.clientName in listOf("WEB", "WEB_REMIX", "WEB_CREATOR", "TVHTML5")
                 if (needsNTransform) {
-                    streamUrl = StreamUrlResolver.applyNTransform(streamUrl)
+                    streamUrl = StreamUrlResolver.applyNTransform(streamUrl!!)
+                }
+                if (effectiveClient.useWebPoTokens && streamingPot != null && streamUrl != null) {
+                    val separator = if (streamUrl.contains('?')) "&" else "?"
+                    // El token es base64url ([A-Za-z0-9_-]); solo el padding '=' requiere escape.
+                    streamUrl = streamUrl + separator + "pot=" + streamingPot.replace("=", "%3D")
                 }
 
                 streamExpiresInSeconds = streamPlayerResponse.streamingData?.expiresInSeconds
@@ -190,16 +203,14 @@ object YTPlayerutils {
     }
 
     /**
-     * `sts` real del player.js de YouTube asociado al [videoId], vía NewPipe.
-     * Si no se puede obtener, devuelve null y [InnerTube] omite `playbackContext`
+     * `sts` real del player.js de YouTube asociado al [videoId], extraído del mismo base.js
+     * que usa el solucionador EJS para sig/n ([PlayerJsFetcher]). Es el canal que usa Metrolist
+     * (leer `signatureTimestamp` del player.js), funciona sin sesión y es estable frente a
+     * cambios de layout. Si no se puede obtener, devuelve null y [InnerTube] omite `playbackContext`
      * (mejor que inventar un valor tipo "días desde epoch").
      */
-    private fun getSignatureTimestampOrNull(videoId: String): Int? {
-        return com.metrolist.innertube.NewPipeExtractor.getSignatureTimestamp(videoId)
-            .onSuccess { Napier.d("Resolved signatureTimestamp=$it for $videoId from player.js") }
-            .onFailure { Napier.d("No signatureTimestamp for $videoId: ${it.message}") }
-            .getOrNull()
-    }
+    private suspend fun getSignatureTimestampOrNull(videoId: String): Int? =
+        example.nucleus.utils.cipher.PlayerJsFetcher.getSignatureTimestamp()
 
     /**
      * Invalida las URLs de stream en caché para un video.

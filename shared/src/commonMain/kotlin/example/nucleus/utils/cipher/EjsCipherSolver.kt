@@ -1,6 +1,8 @@
 package example.nucleus.utils.cipher
 
+import example.nucleus.platform.AppPaths
 import io.github.aakira.napier.Napier
+import java.io.File
 import javax.script.ScriptEngine
 import javax.script.ScriptEngineManager
 
@@ -51,6 +53,21 @@ object EjsCipherSolver {
     fun prepare(playerJs: String, hash: String) {
         ensureLoaded()
         if (preparedHash == hash) return
+
+        // Si ya pre-procesamos este player.js en una ejecución anterior, cargamos el resultado
+        // desde disco y nos ahorramos el parse de meriyah/astring (~20s por sesión en intérprete).
+        val cacheFile = ppCacheFile(hash)
+        if (cacheFile.exists()) {
+            val cachedPp = runCatching { cacheFile.readText() }.getOrNull()
+            if (!cachedPp.isNullOrEmpty()) {
+                engine.put("__ppCached", cachedPp)
+                engine.eval("this.__pp = __ppCached;")
+                preparedHash = hash
+                Napier.i("[EJS] Preprocessed player cargado desde disco (hash=${hash.take(8)}, ppLen=${cachedPp.length})")
+                return
+            }
+        }
+
         engine.put("__playerJs", playerJs)
         val status = engine.eval(
             """
@@ -64,8 +81,19 @@ object EjsCipherSolver {
             """.trimIndent()
         ).toString()
         if (status != "OK") throw CipherException("EJS prepare failed: $status")
+
+        // Persistimos el player pre-procesado para saltarnos el parse en próximas ejecuciones.
+        runCatching { cacheFile.writeText(engine.eval("this.__pp").toString()) }
+            .onFailure { Napier.w("[EJS] No se pudo persistir el preprocessed player: ${it.message}") }
+
         preparedHash = hash
         Napier.i("[EJS] Prepared player hash=$hash")
+    }
+
+    private fun ppCacheFile(hash: String): File {
+        val base = File(AppPaths.cacheDir, "cipher_cache")
+        if (!base.exists()) base.mkdirs()
+        return File(base, "pp_$hash.txt")
     }
 
     /**

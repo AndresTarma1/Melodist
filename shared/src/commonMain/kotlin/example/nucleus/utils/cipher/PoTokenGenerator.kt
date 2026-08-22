@@ -25,3 +25,22 @@ expect object PoTokenGenerator {
  */
     suspend fun getWebClientPoToken(videoId: String, sessionId: String): PoTokenResult?
 }
+
+/**
+ * Orquestador de poTokens con cache de sesión y timeout: la fachada que consume el
+ * player (ver [PoTokenGenerator] para la mecánica de generación por plataforma).
+ */
+expect object PoTokenManager {
+    /**
+     * Tokens para [videoId]: sesión ligada al /player + video ligado al pot= de la URL.
+     *
+     * @return El resultado, o `null` si la generación falló o excedió el timeout.
+     */
+    suspend fun getWebClientPoToken(videoId: String, sessionId: String): PoTokenResult?
+
+    /** Calienta el pipeline BotGuard para esconder el cold-start de la primera reproducción. */
+    suspend fun prewarm(sessionId: String)
+
+    /** Invalida la sesión cacheada y libera el motor. */
+    suspend fun reset()
+}

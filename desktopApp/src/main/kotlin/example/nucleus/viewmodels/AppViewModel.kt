@@ -181,7 +181,7 @@ class AppViewModel : ViewModel() {
         viewModelScope.launch {
             _showInstallPrompt.value = false
             val ok = withContext(Dispatchers.IO) {
-                runCatching { updater.installAndQuit(ready.file) }
+                runCatching { updater.installAndRestart(ready.file) }
                     .onFailure { Napier.e("Update launch failed: ${it.message}") }
                     .isSuccess
             }

@@ -143,6 +143,14 @@ fun NucleusApplicationScope.App(
         }
     }
 
+    // Precalienta el pipeline WEB (solucionador EJS + PoToken sidecar) en background para que
+    // la primera reproducción web no pague el cold-start (~20-25s de prepare). Nunca bloquea la UI.
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+            example.nucleus.utils.cipher.PlayerPipelineWarmup.warmup()
+        }
+    }
+
     // Estado del overlay
     val hotkeyManager: GlobalHotkeyManager = koinInject()
     val overlayEnabled by remember(userPreferences) { userPreferences.overlayHotkeyEnabled }.collectAsState(true)

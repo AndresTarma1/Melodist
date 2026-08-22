@@ -82,6 +82,37 @@ object PlayerJsFetcher {
         }
     }
 
+    /** Memoización del sts por hash: evita releer/escannear el player.js en cada video. */
+    private var cachedStsHash: String? = null
+    private var cachedSts: Int? = null
+
+    /**
+     * Extrae `signatureTimestamp` (sts) del player.js ya descargado — el mismo canal que usa
+     * el solucionador EJS para sig/n. El hash del player.js se resuelve desde el iframe_api
+     * y es el mismo que referencia la página del video, así que el sts es el correcto para el
+     * `/player` (playbackContext). Funciona sin sesión y se memoiza por hash.
+     *
+     * @return El valor de `signatureTimestamp`, o `null` si el player.js o el token no están.
+     */
+    @Suppress("SynchronizedMethod")
+    suspend fun getSignatureTimestamp(): Int? {
+        val playerJs = getPlayerJs() ?: run {
+            Napier.e("getSignatureTimestamp: player.js no disponible")
+            return null
+        }
+        if (playerJs.second == cachedStsHash) return cachedSts
+        val match = Regex("signatureTimestamp[=:]\\s*(\\d+)").find(playerJs.first)
+            ?: run {
+                Napier.e("getSignatureTimestamp: no se encontró signatureTimestamp en el player.js")
+                return null
+            }
+        val value = match.groupValues[1].toIntOrNull() ?: return null
+        cachedStsHash = playerJs.second
+        cachedSts = value
+        Napier.d("getSignatureTimestamp: sts=$value (hash=${playerJs.second.take(8)})")
+        return value
+    }
+
     private fun readFromCache(): Pair<String, String>? {
         try {
             val hashFile = getHashFile()

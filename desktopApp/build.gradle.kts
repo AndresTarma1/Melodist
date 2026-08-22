@@ -144,6 +144,14 @@ nucleus.application {
         "-Xss768k",
         // Pool IO de coroutines: default real es 64 hilos (~1MB stack c/u).
         "-Dkotlinx.coroutines.io.parallelism=16",
+        // Silencia el warning de Truffle del solver EJS (corre en intérprete si no hay
+        // compilador Graal; opción 2 del perfil de rendimiento).
+        "-Dpolyglot.engine.WarnInterpreterOnly=false",
+        // JVMCI: habilita el JIT de Truffle/GraalJS si la JVM trae el compilador Graal
+        // (p. ej. corriendo sobre GraalVM JDK). En un JDK sin compilador Graal no acelera
+        // (sigue en intérprete) pero es inofensivo. Inofensivo también si el JVM lo ignora.
+        "-XX:+UnlockExperimentalVMOptions",
+        "-XX:+EnableJVMCI",
         // Skiko: render en GPU (Direct3D) pero con caché de recursos acotada (default ilimitada).
         "-Dskiko.gpu.resourceCacheLimit=128M",
 //        "-Dskiko.buffering=DOUBLE",
@@ -214,7 +222,7 @@ nucleus.application {
     tasks.register<Copy>("copyWindowsRuntimeResourcesGraalvm") {
         description = "Copiamos el runtime de windows necesario para un perfecto funcionamiento en GraalVM"
         from(windowsRuntimeResources) {
-            include("libmpv-2.dll", "smtc_bridge.dll", "yt-dlp.exe")
+            include("libmpv-2.dll", "smtc_bridge.dll", "yt-dlp.exe", "rustypipe-botguard.exe")
         }
         into(graalvmOutputDir)
     }

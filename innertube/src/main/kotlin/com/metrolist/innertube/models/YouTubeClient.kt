@@ -78,11 +78,10 @@ data class YouTubeClient(
 
         val TVHTML5 = YouTubeClient(
             clientName = "TVHTML5",
-            clientVersion = "7.20260213.00.00",
+            clientVersion = "7.20260707.07.00",
             clientId = "7",
-            userAgent = "Mozilla/5.0(SMART-TV; Linux; Tizen 4.0.0.2) AppleWebkit/605.1.15 (KHTML, like Gecko) SamsungBrowser/9.2 TV Safari/605.1.15",
+            userAgent = "Mozilla/5.0 (ChromiumStylePlatform) Cobalt/25.lts.30.1034943-gold (unlike Gecko), Unknown_TV_Unknown_0/Unknown (Unknown, Unknown)",
             loginSupported = true,
-            loginRequired = true,
             useSignatureTimestamp = true,
             useWebPoTokens = true,
         )
