@@ -8,6 +8,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.RestartAlt
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material3.*
@@ -37,6 +38,7 @@ fun NowPlayingTopActions(
     showMenu: Boolean,
     onMenuToggle: (Boolean) -> Unit,
     onOpenEqualizer: () -> Unit,
+    onOpenVideoSettings: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val playerViewModel = LocalPlayerViewModel.current
@@ -51,6 +53,16 @@ fun NowPlayingTopActions(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
+        IconButton(
+            onClick = onOpenVideoSettings,
+            modifier = Modifier.size(40.dp).pointerHoverIcon(PointerIcon.Hand),
+        ) {
+            Icon(
+                Icons.Rounded.Settings,
+                contentDescription = stringResource(Res.string.video_mode),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         Box {
             TextButton(
                 onClick = { showSpeedMenu = true },

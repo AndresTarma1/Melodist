@@ -43,6 +43,7 @@ fun NowPlayingScreen(
                 mediaInfo = currentSongMediaInfo,
                 sharedTransitionScope = sharedTransitionScope,
                 animatedVisibilityScope = animatedVisibilityScope,
+                videoRenderer = viewModel.videoRenderer,
             )
         }
 

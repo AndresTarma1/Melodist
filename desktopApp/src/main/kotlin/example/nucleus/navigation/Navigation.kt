@@ -8,9 +8,11 @@ import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
@@ -34,6 +36,7 @@ import com.arkivanov.decompose.ExperimentalDecomposeApi
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
+import kotlinx.coroutines.delay
 
 // Ahora (ojo: paquete "experimental", no se pueden mezclar con los anteriores)
 import com.arkivanov.decompose.extensions.compose.experimental.stack.ChildStack
@@ -49,6 +52,7 @@ import example.nucleus.data.repository.UserPreferencesRepository
 import example.nucleus.ui.components.MiniPlayer
 import example.nucleus.ui.components.dialogs.SnackBar
 import example.nucleus.ui.components.player.PlaybackQueuePanel
+import example.nucleus.ui.components.player.VideoFullscreenOverlay
 import example.nucleus.ui.screens.library.CsvImportProgressOverlay
 import example.nucleus.ui.screens.library.StatsScreen
 import example.nucleus.viewmodels.LibraryPlaylistsViewModel
@@ -67,6 +71,7 @@ import example.nucleus.ui.themes.LocalChromeSurface
 import example.nucleus.ui.themes.LocalIsSolidBackground
 import example.nucleus.ui.themes.LocalLayoutMode
 import example.nucleus.ui.themes.LocalMiniPlayerInset
+import example.nucleus.utils.LocalAppFullscreen
 import example.nucleus.utils.LocalPlayerViewModel
 import example.nucleus.utils.LocalSnackbarHostState
 import example.nucleus.utils.LocalAnimationsEnabled
@@ -109,9 +114,44 @@ fun NavigationDesktop(rootComponent: RootComponent, userPreferences: UserPrefere
     var isQueueVisible by remember { mutableStateOf(false) }
 
     val fullScreenPlayer by userPreferences.fullScreenPlayer.collectAsState(false)
-    val animationsEnabled = LocalAnimationsEnabled.current
+    val videoEnabled by userPreferences.videoEnabled.collectAsState(false)
+    val showVideo by playerViewModel.showVideo.collectAsState(true)
+    val videoFullscreenSetting by userPreferences.videoFullscreen.collectAsState(false)
 
     val isOnNowPlaying = activeConfig is ScreenConfig.NowPlaying
+
+    // Latch "sticky": una vez que el video fullscreen está activo, se mantiene durante el cambio
+    // de canción (videoSize se pone null brevemente al cargar la siguiente) para no mostrar el
+    // NowPlaying anterior. Se reinicia si se desactiva el video o se sale de NowPlaying, o si tras
+    // 2s sigue sin video (canción solo-audio).
+    var videoFullscreenSticky by remember { mutableStateOf(false) }
+    val videoFullscreen = isOnNowPlaying &&
+        videoEnabled &&
+        playerViewModel.videoRenderer != null &&
+        showVideo &&
+        (playerState.videoSize != null || videoFullscreenSticky)
+    LaunchedEffect(playerState.videoSize, showVideo, isOnNowPlaying) {
+        if (isOnNowPlaying && videoEnabled && showVideo && playerState.videoSize != null) {
+            videoFullscreenSticky = true
+        }
+        if (!showVideo || !isOnNowPlaying) {
+            videoFullscreenSticky = false
+        }
+        if (playerState.videoSize == null) {
+            delay(2000)
+            if (playerState.videoSize == null && isOnNowPlaying && videoEnabled && showVideo) {
+                videoFullscreenSticky = false
+            }
+        }
+    }
+    val animationsEnabled = LocalAnimationsEnabled.current
+
+    // El fullscreen de video lleva la ventana completa (oculta title bar + barra de tareas) solo
+    // si el usuario lo habilitó en ajustes.
+    val appFullscreenState = LocalAppFullscreen.current
+    LaunchedEffect(videoFullscreen, videoFullscreenSetting) {
+        appFullscreenState.value = videoFullscreen && videoFullscreenSetting
+    }
 
     val currentSong = playerState.currentSong
     val queueWidth = 420.dp
@@ -172,8 +212,8 @@ fun NavigationDesktop(rootComponent: RootComponent, userPreferences: UserPrefere
                 Column(modifier = Modifier.fillMaxSize()) {
                     Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
 
-                        AnimatedVisibility(
-                            visible = !isOnNowPlaying || !fullScreenPlayer,
+                                AnimatedVisibility(
+                                    visible = (!isOnNowPlaying || !fullScreenPlayer) && !videoFullscreen,
                             enter = if (animationsEnabled) fadeIn(expressiveFadeTween()) + expandHorizontally(expressiveLayoutTween()) else EnterTransition.None,
                             exit = if (animationsEnabled) fadeOut(expressiveFadeTween()) + shrinkHorizontally(expressiveLayoutTween()) else ExitTransition.None,
                         ) {
@@ -283,16 +323,9 @@ fun NavigationDesktop(rootComponent: RootComponent, userPreferences: UserPrefere
                                             .align(Alignment.BottomCenter)
                                     ) {
                                         AnimatedVisibility(
-                                            visible = floatingMiniPlayer,
-                                            enter = if (animationsEnabled) fadeIn(expressiveFadeTween()) + slideInVertically(animationSpec = expressiveLayoutTween(), initialOffsetY = { it / 4 }) else EnterTransition.None,
-                                            exit = if (animationsEnabled) fadeOut(expressiveFadeTween()) + slideOutVertically(animationSpec = expressiveLayoutTween(), targetOffsetY = { it / 4 }) else ExitTransition.None,
-                                        ) {
-                                            miniPlayerSlot(Modifier.fillMaxWidth())
-                                        }
-                                        AnimatedVisibility(
-                                            visible = dockedMiniPlayer,
-                                            enter = if (animationsEnabled) fadeIn(expressiveFadeTween()) + slideInVertically(animationSpec = expressiveLayoutTween(), initialOffsetY = { it / 4 }) else EnterTransition.None,
-                                            exit = if (animationsEnabled) fadeOut(expressiveFadeTween()) + slideOutVertically(animationSpec = expressiveLayoutTween(), targetOffsetY = { it / 4 }) else ExitTransition.None,
+                                            visible = dockedMiniPlayer || floatingMiniPlayer && !videoFullscreen,
+                                            enter = if (animationsEnabled) fadeIn(expressiveFadeTween()) + expandHorizontally(animationSpec = expressiveLayoutTween()) else EnterTransition.None,
+                                            exit = if (animationsEnabled) fadeOut(expressiveFadeTween()) + shrinkHorizontally(animationSpec = expressiveLayoutTween()) else ExitTransition.None,
                                         ) {
                                             miniPlayerSlot(Modifier.fillMaxWidth())
                                         }
@@ -341,7 +374,7 @@ fun NavigationDesktop(rootComponent: RootComponent, userPreferences: UserPrefere
 
                     if (barMiniPlayer) {
                         AnimatedVisibility(
-                            visible = currentSong != null,
+                            visible = !videoFullscreen,
                             enter = if (animationsEnabled) fadeIn() else EnterTransition.None,
                             exit = if (animationsEnabled) fadeOut() else ExitTransition.None,
                         ) {
@@ -361,6 +394,15 @@ fun NavigationDesktop(rootComponent: RootComponent, userPreferences: UserPrefere
                     onCancel = { playlistsViewModel.cancelCsvImport() },
                     onDismiss = { playlistsViewModel.dismissCsvImportResult() },
                 )
+
+                if (videoFullscreen) {
+                    VideoFullscreenOverlay(
+                        renderer = playerViewModel.videoRenderer,
+                        state = playerState,
+                        onHideVideo = { playerViewModel.setShowVideo(false) },
+                        onCloseNowPlaying = { rootComponent.onBack() },
+                    )
+                }
             }
         }
     }

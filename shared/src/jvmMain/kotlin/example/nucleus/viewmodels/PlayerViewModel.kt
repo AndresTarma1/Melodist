@@ -79,6 +79,15 @@ class PlayerViewModel(
     val mpvError: StateFlow<String?> = playerService.mpvError
     fun clearMpvError() = playerService.clearMpvError()
 
+    /** Renderer de video de mpv (frames crudos BGRA); la UI lo envuelve en ImageBitmap. */
+    val videoRenderer = playerService.videoRenderer
+
+    /** True cuando el usuario quiere ver el video en lugar de la carátula (modo fullscreen). */
+    private val _showVideo = MutableStateFlow(true)
+    val showVideo: StateFlow<Boolean> = _showVideo.asStateFlow()
+    fun setShowVideo(value: Boolean) { _showVideo.value = value }
+    fun toggleShowVideo() { _showVideo.value = !_showVideo.value }
+
     /**
      * Emite la posición objetivo (ms) cada vez que el usuario realiza un salto. Se usa en Listen Together
      * para transmitir los saltos del anfitrión; es inofensivo cuando la función no está en uso.
@@ -301,6 +310,14 @@ class PlayerViewModel(
                 .collect { (pos, dur) ->
                     _progressState.update { it.copy(positionMs = pos, durationMs = dur) }
                 }
+        }
+
+        // Tamaño del video activo (null = modo solo-audio) para la superficie de video en
+        // NowPlaying.
+        viewModelScope.launch {
+            playerService.videoSize.collect { size ->
+                _uiState.update { it.copy(videoSize = size) }
+            }
         }
 
         // Registro de reproducción en YouTube estilo Metrolist: el tick se envía solo cuando la
@@ -1113,8 +1130,12 @@ class PlayerViewModel(
                     return@launch
                 }
 
-                fun startUrl(url: String) {
-                    if (isResume) playerService.playFrom(url, resumeMs) else playerService.play(url)
+                fun startUrl(url: String, videoUrl: String?) {
+                    if (isResume) {
+                        playerService.playFrom(url, resumeMs, videoUrl)
+                    } else {
+                        playerService.play(url, videoUrl)
+                    }
                 }
 
                 // videostatsPlaybackUrl de la pista resuelta — se guarda para registrar la
@@ -1123,7 +1144,7 @@ class PlayerViewModel(
                 // reportar también las canciones reproducidas desde caché/offline.
                 val played: Boolean = when {
                     cachedFile != null -> {
-                        startUrl(cachedFile.absolutePath)
+                        startUrl(cachedFile.absolutePath, null)
                         true
                     }
                     YtDlpResolver.needsYtDlp(song.id) -> {
@@ -1150,7 +1171,7 @@ class PlayerViewModel(
                         if (requestId != playRequestId) return@launch
 
                         if (!streamUrl.isNullOrEmpty()) {
-                            startUrl(streamUrl)
+                            startUrl(streamUrl, playbackData?.videoUrl)
                             // El stream resuelto puede pasar la validación HTTP pero dar 403 en mpv
                             // (por ejemplo, URLs IOS con restricción spc). Si la reproducción no
                             // inicia realmente, recurrir a yt-dlp, que maneja los videos difíciles
@@ -1315,8 +1336,9 @@ class PlayerViewModel(
 
     /**
      * Resuelve [song] mediante yt-dlp y la reproduce; mantiene el mini-reproductor en LOADING
-     * mientras tanto. Retorna verdadero si la reproducción se inició, falso si la URL no pudo
-     * resolverse (el llamador maneja el fallo/salto).
+     * mientras tanto. Con el modo video habilitado intenta el par video+audio separados y, si
+     * yt-dlp no los resuelve, cae de vuelta a solo-audio. Retorna verdadero si la reproducción
+     * se inició, falso si la URL no pudo resolverse (el llamador maneja el fallo/salto).
      */
     private suspend fun playViaYtDlp(
         song: MediaMetadata,
@@ -1329,19 +1351,40 @@ class PlayerViewModel(
                 error = null,
             )
         }
-        val ytUrl = withContext(Dispatchers.IO) {
-            YtDlpResolver.resolveAudioUrl(song.id, streamResolver.currentAudioQuality())
-        }
-        return requestId != playRequestId || if (ytUrl != null) {
-            if (resumePositionMs > 500L) {
-                playerService.playFrom(ytUrl, resumePositionMs)
-            } else {
-                playerService.play(ytUrl)
-            }
-            true
+        val videoQuality = if (userPreferences.videoEnabled.first()) {
+            userPreferences.videoQuality.first()
         } else {
-            false
-        } // superseded — not a failure
+            null
+        }
+        val resolved = withContext(Dispatchers.IO) {
+            if (videoQuality != null) {
+                val pair = YtDlpResolver.resolveVideoUrls(song.id, videoQuality.maxHeight)
+                if (pair != null) {
+                    // resolveVideoUrls devuelve (videoUrl, audioUrl)
+                    pair.second to pair.first
+                } else {
+                    // yt-dlp no pudo el par A/V: intentar solo-audio antes de rendirse.
+                    val audio = YtDlpResolver.resolveAudioUrl(song.id, streamResolver.currentAudioQuality())
+                    if (audio != null) audio to null else null
+                }
+            } else {
+                val audio = YtDlpResolver.resolveAudioUrl(song.id, streamResolver.currentAudioQuality())
+                if (audio != null) audio to null else null
+            }
+        }
+        if (resolved == null) {
+            return requestId != playRequestId
+        }
+        val (ytUrl, ytVideoUrl) = resolved
+        if (requestId != playRequestId) {
+            return true
+        }
+        if (resumePositionMs > 500L) {
+            playerService.playFrom(ytUrl, resumePositionMs, ytVideoUrl)
+        } else {
+            playerService.play(ytUrl, ytVideoUrl)
+        }
+        return true
     }
 
     private suspend fun cacheSongMetadata(song: MediaMetadata) {

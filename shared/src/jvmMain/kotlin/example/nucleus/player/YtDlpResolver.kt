@@ -47,6 +47,72 @@ object YtDlpResolver {
     }
 
     /**
+     * Selector para el modo video: prioriza separados (`bv*+ba`) acotado a [maxHeight]
+     * para respetar la calidad pedida; si no hay par separado a esa altura, cae a muxed
+     * (`b`) del mismo tope. El fallback final es obligatorio (igual que en audio): sin
+     * él, la selección puede quedar vacía. Nota: el resolver en-proceso (`YTPlayerutils`)
+     * hace la comparación muxed vs separado por altura y prefiere muxed solo cuando
+     * no degrada (ej. no baja 1080p separado a 720p muxed).
+     */
+    private fun videoFormatSelector(maxHeight: Int): String =
+        "bv*[height<=$maxHeight]+ba/b[height<=$maxHeight]/bv*+ba/b"
+
+    /**
+     * Resuelve un par (video, audio) de URLs directas vía yt-dlp para el modo video.
+     * Con `bv*+ba` yt-dlp imprime dos líneas (video y audio); con el fallback muxed una sola
+     * (se usa como ambas).
+     *
+     * @return Pair(videoUrl, audioUrl) o null si yt-dlp no está disponible o falla.
+     */
+    suspend fun resolveVideoUrls(
+        videoId: String,
+        maxHeight: Int = 720,
+    ): Pair<String, String>? = withContext(Dispatchers.IO) {
+        val exe = ytDlpPath ?: run {
+            log.warning("yt-dlp not found (not bundled and not on PATH); cannot fall back")
+            return@withContext null
+        }
+        val watchUrl = "https://music.youtube.com/watch?v=$videoId"
+        try {
+            log.info("yt-dlp fallback: resolving video+audio $videoId (maxHeight=$maxHeight) via $exe")
+            val args = buildList {
+                add(exe); add("--no-warnings"); add("--no-playlist")
+                add("-f"); add(videoFormatSelector(maxHeight))
+                cookiesFile()?.let { add("--cookies"); add(it.absolutePath) }
+                add("-g"); add(watchUrl)
+            }
+            val proc = ProcessBuilder(args).start()
+
+            val stdout = proc.inputStream.bufferedReader().readText()
+            val stderr = proc.errorStream.bufferedReader().readText()
+            if (!proc.waitFor(45, TimeUnit.SECONDS)) {
+                proc.destroyForcibly()
+                log.warning("yt-dlp timed out for $videoId")
+                return@withContext null
+            }
+            val urls = stdout.lineSequence().map { it.trim() }.filter { it.startsWith("http") }.toList()
+            when {
+                urls.size >= 2 -> {
+                    log.info("yt-dlp fallback resolved video+audio for $videoId")
+                    urls[0] to urls[1]
+                }
+                urls.size == 1 -> {
+                    // Formato muxed (una sola URL con audio y video): se usa para ambos.
+                    log.info("yt-dlp fallback resolved muxed stream for $videoId")
+                    urls[0] to urls[0]
+                }
+                else -> {
+                    log.warning("yt-dlp returned no URL for $videoId: ${stderr.take(300)}")
+                    null
+                }
+            }
+        } catch (e: Exception) {
+            log.warning("yt-dlp invocation failed for $videoId: ${e.message}")
+            null
+        }
+    }
+
+    /**
      * Resuelve una URL de stream de audio directa para el ID de video dado.
      *
      * Requiere que yt-dlp esté disponible como ejecutable incluido o en el PATH del sistema.

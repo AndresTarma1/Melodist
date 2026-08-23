@@ -18,6 +18,9 @@ class PlayerService(
     private val mpvPlayer = MpvAudioPlayer()
     private val isMpvDisabled = false
 
+    /** Hilo de render de video (frames BGRA crudos para la superficie de Compose). */
+    val videoRenderer = MpvVideoRenderer(mpvPlayer)
+
     private val _playbackState = MutableStateFlow(PlaybackState.IDLE)
     val playbackState: StateFlow<PlaybackState> = _playbackState.asStateFlow()
 
@@ -29,6 +32,14 @@ class PlayerService(
 
     private val _volume = MutableStateFlow(100)
     val volume: StateFlow<Int> = _volume.asStateFlow()
+
+    /**
+     * Tamaño del video activo (ancho x alto en píxeles) mientras hay un track de video en
+     * reproducción; null en modo solo-audio. Lo alimenta el ticker de posición vía
+     * [MpvAudioPlayer.getVideoSize].
+     */
+    private val _videoSize = MutableStateFlow<Pair<Int, Int>?>(null)
+    val videoSize: StateFlow<Pair<Int, Int>?> = _videoSize.asStateFlow()
 
     /**
      * Emite la posición (ms) en la que se detectó un stall / stream muerto para que el
@@ -66,13 +77,16 @@ class PlayerService(
     private var lastPolledPos = -1L
     private var frozenTicks = 0
     private var lastRecoveryAtMs = 0L
+    @Volatile private var lastSeekAtMs = 0L
 
     private companion object {
         const val TICK_MS = 400L
         /** ~4.8 s de posición congelada con intención de play → recovery (evita re-resolve temprano). */
         const val STALL_TICKS = 12
+        const val STALL_TICKS_VIDEO = 25 // ~10 s para video (rebuffer tras seek tarda más)
         const val RECOVERY_COOLDOWN_MS = 15_000L
         const val MIN_POS_FOR_STALL_MS = 1_500L
+        const val SEEK_STALL_GRACE_MS = 8_000L
     }
 
     fun init() {
@@ -90,6 +104,7 @@ class PlayerService(
         }
         try {
             mpvPlayer.init()
+            videoRenderer.start()
         } catch (e: Throwable) {
             val msg = e.message ?: "desconocido"
             _mpvError.value = "Error al inicializar audio (libmpv): $msg — Reinstala la aplicación."
@@ -106,6 +121,8 @@ class PlayerService(
                     endNotified = true
                     userWantsPlay = false
                     frozenTicks = 0
+                    _videoSize.value = null
+                    videoRenderer.onVideoSize(null)
                     _playbackState.value = PlaybackState.ENDED
                 }
             }
@@ -142,8 +159,14 @@ class PlayerService(
 
     /**
      * Carga e inicia la reproducción de la URL de audio especificada.
+     *
+     * @param url URL del stream de audio.
+     * @param videoUrl URL del stream de video (solo-video). Cuando no es null, el archivo
+     *                 principal de mpv es EL VIDEO (para que decodifique su pista de video) y
+     *                 el audio se enlaza como pista externa (`audio-add`). Si [videoUrl] es
+     *                 igual a [url] (stream muxed), solo se carga [url] con video activo.
      */
-    fun play(url: String) {
+    fun play(url: String, videoUrl: String? = null) {
         init()
         if (isMpvDisabled || !MpvLib.isAvailable) {
             _playbackState.value = PlaybackState.ERROR
@@ -163,8 +186,19 @@ class PlayerService(
             lastPolledPos = -1L
             _position.value = 0L
             _duration.value = 0L
+            _videoSize.value = null
+            videoRenderer.onVideoSize(null)
             hasMedia = true
-            mpvPlayer.openUri(url)
+            if (videoUrl != null) {
+                // El video es el archivo principal; el audio entra como pista externa.
+                mpvPlayer.openUri(
+                    videoUrl,
+                    audioUrl = url.takeIf { it != videoUrl },
+                    videoMode = true,
+                )
+            } else {
+                mpvPlayer.openUri(url, audioUrl = null, videoMode = false)
+            }
         } catch (e: Exception) {
             _playbackState.value = PlaybackState.ERROR
             log.severe("Error al reproducir: ${e.message}")
@@ -174,8 +208,8 @@ class PlayerService(
     /**
      * Reanuda un stream re-resuelto en [seekMs] (anti-stall mid-track).
      */
-    fun playFrom(url: String, seekMs: Long) {
-        play(url)
+    fun playFrom(url: String, seekMs: Long, videoUrl: String? = null) {
+        play(url, videoUrl)
         if (seekMs > 500L) {
             scope.launch {
                 val started = awaitPlaybackStarted(timeoutMs = 12_000)
@@ -229,6 +263,8 @@ class PlayerService(
         _playbackState.value = PlaybackState.IDLE
         _position.value = 0L
         _duration.value = 0L
+        _videoSize.value = null
+        videoRenderer.onVideoSize(null)
         if (isMpvDisabled) return
         mpvPlayer.stop()
     }
@@ -236,6 +272,7 @@ class PlayerService(
     fun seekTo(millis: Long) {
         if (isMpvDisabled) return
         val dur = _duration.value
+        val isVideo = mpvPlayer.videoActive.value
         if (dur > 0) {
             val endThresholdMs = 1000L
             if (millis < dur - endThresholdMs) {
@@ -243,9 +280,16 @@ class PlayerService(
             }
             frozenTicks = 0
             lastPolledPos = millis
-            mpvPlayer.seekTo(millis.toFloat() / dur.toFloat())
+            lastSeekAtMs = System.currentTimeMillis()
+            // En video usar seek absoluto es más fiable con pista externa (audio-add).
+            if (isVideo) {
+                mpvPlayer.seekToMs(millis)
+            } else {
+                mpvPlayer.seekTo(millis.toFloat() / dur.toFloat())
+            }
         } else if (millis >= 0) {
             frozenTicks = 0
+            lastSeekAtMs = System.currentTimeMillis()
             mpvPlayer.seekToMs(millis)
         }
     }
@@ -288,6 +332,7 @@ class PlayerService(
 
     fun release() {
         tickJob?.cancel()
+        videoRenderer.stop()
         if (!isMpvDisabled) {
             mpvPlayer.dispose()
         }
@@ -320,6 +365,11 @@ class PlayerService(
                         _duration.value = mpvPlayer.getDuration()
                         val pos = mpvPlayer.getCurrentPosition()
                         _position.value = pos
+                        val vSize = mpvPlayer.getVideoSize()
+                        _videoSize.value = vSize
+                        // El hilo de render no puede llamar APIs mpv no-render_*: el tamaño
+                        // se cachea aquí (ticker) y el renderer solo lo consume.
+                        videoRenderer.onVideoSize(vSize)
 
                         if (!isTransitioning && hasMedia) {
                             val buffering = mpvPlayer.refreshBufferingState(userWantsPlay)
@@ -357,9 +407,15 @@ class PlayerService(
                                 state != PlaybackState.LOADING &&
                                 state != PlaybackState.ENDED
                             ) {
-                                if (lastPolledPos >= 0 && kotlin.math.abs(pos - lastPolledPos) < 200L) {
+                                // Gracia tras un seek del usuario: el rebuffer de red (sobre todo en video)
+                                // congela pos varios segundos sin ser un stall real.
+                                if (System.currentTimeMillis() - lastSeekAtMs < SEEK_STALL_GRACE_MS) {
+                                    frozenTicks = 0
+                                    lastPolledPos = pos
+                                } else if (lastPolledPos >= 0 && kotlin.math.abs(pos - lastPolledPos) < 200L) {
                                     frozenTicks++
-                                    if (frozenTicks >= STALL_TICKS) {
+                                    val stallTicks = if (mpvPlayer.videoActive.value) STALL_TICKS_VIDEO else STALL_TICKS
+                                    if (frozenTicks >= stallTicks) {
                                         log.warning("position stall @${pos}ms (${frozenTicks} ticks) — recovery")
                                         requestRecovery(pos)
                                     }
@@ -389,6 +445,8 @@ class PlayerService(
         lastPolledPos = -1L
         _position.value = 0L
         _duration.value = 0L
+        _videoSize.value = null
+        videoRenderer.onVideoSize(null)
         if (isMpvDisabled) return
         scope.launch {
             try {

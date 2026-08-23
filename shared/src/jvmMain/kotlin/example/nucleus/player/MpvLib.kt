@@ -45,6 +45,18 @@ object MpvLib {
     const val MPV_FORMAT_INT64 = 4
     const val MPV_FORMAT_DOUBLE = 5
 
+    // mpv_render_param_type (render.h) — tipos de parámetro del render API
+    const val MPV_RENDER_PARAM_INVALID = 0
+    const val MPV_RENDER_PARAM_API_TYPE = 1
+    const val MPV_RENDER_PARAM_SW_SIZE = 17
+    const val MPV_RENDER_PARAM_SW_FORMAT = 18
+    const val MPV_RENDER_PARAM_SW_STRIDE = 19
+    const val MPV_RENDER_PARAM_SW_POINTER = 20
+    const val MPV_RENDER_API_TYPE_SW = "sw"
+
+    // Flags devueltos por mpv_render_context_update (render.h)
+    const val MPV_RENDER_UPDATE_FRAME = 1L
+
     private val log = Logger.getLogger("MpvLib")
 
     // Arena global que mantiene viva la biblioteca cargada durante toda la vida de la app.
@@ -66,6 +78,11 @@ object MpvLib {
     private var mpvObserveProperty: MethodHandle? = null
     private var mpvWaitEvent: MethodHandle? = null
     private var mpvWakeup: MethodHandle? = null
+    private var mpvRenderContextCreate: MethodHandle? = null
+    private var mpvRenderContextUpdate: MethodHandle? = null
+    private var mpvRenderContextRender: MethodHandle? = null
+    private var mpvRenderContextReportSwap: MethodHandle? = null
+    private var mpvRenderContextFree: MethodHandle? = null
 
     private var loadError: Throwable? = null
     val isAvailable: Boolean get() = loadError == null && mpvCreate != null
@@ -105,6 +122,20 @@ object MpvLib {
         )
         mpvWaitEvent = bind("mpv_wait_event", FunctionDescriptor.of(C_POINTER, C_POINTER, C_DOUBLE))
         mpvWakeup = bind("mpv_wakeup", FunctionDescriptor.ofVoid(C_POINTER))
+        mpvRenderContextCreate = bind(
+            "mpv_render_context_create",
+            FunctionDescriptor.of(C_INT, C_POINTER, C_POINTER, C_POINTER),
+        )
+        mpvRenderContextUpdate = bind("mpv_render_context_update", FunctionDescriptor.of(C_LONG, C_POINTER))
+        mpvRenderContextRender = bind(
+            "mpv_render_context_render",
+            FunctionDescriptor.of(C_INT, C_POINTER, C_POINTER),
+        )
+        mpvRenderContextReportSwap = bind(
+            "mpv_render_context_report_swap",
+            FunctionDescriptor.ofVoid(C_POINTER),
+        )
+        mpvRenderContextFree = bind("mpv_render_context_free", FunctionDescriptor.ofVoid(C_POINTER))
         } catch (e: Throwable) {
             loadError = e
             log.severe("MpvLib: no se pudo inicializar libmpv: ${e.message} — verifica que libmpv-2.dll no esté corrupto/bloqueado y reinstala si hace falta")
@@ -278,5 +309,50 @@ object MpvLib {
     fun mpv_wakeup(handle: MemorySegment) {
         ensureAvailable()
         mpvWakeup!!.invokeWithArguments(handle)
+    }
+
+    // ── Render API (render.h) ───────────────────────────────────────────────
+
+    /**
+     * Crea un contexto de renderizado para [handle]. [params] es un array NUL-terminado de
+     * `mpv_render_param {type, data}` que solo necesita ser válido durante la llamada.
+     * Devuelve el puntero opaco `mpv_render_context*` (propiedad de mpv; liberar con
+     * [mpv_render_context_free]) o null si el código de retorno fue negativo.
+     */
+    fun mpv_render_context_create(handle: MemorySegment, params: MemorySegment): MemorySegment? {
+        ensureAvailable()
+        val outPtr = arena.allocate(C_POINTER)
+        val rc = mpvRenderContextCreate!!.invokeWithArguments(outPtr, handle, params) as Int
+        if (rc < 0) return null
+        val ctx = outPtr.get(C_POINTER, 0)
+        return if (ctx.address() == 0L) null else ctx
+    }
+
+    /** Consulta flags de actualización de frames (bitmask [MPV_RENDER_UPDATE_FRAME], etc.). */
+    fun mpv_render_context_update(ctx: MemorySegment): Long {
+        ensureAvailable()
+        return mpvRenderContextUpdate!!.invokeWithArguments(ctx) as Long
+    }
+
+    /**
+     * Renderiza el siguiente frame. [params] es un array NUL-terminado de `mpv_render_param`
+     * (válido solo durante la llamada; los datos apuntados — p. ej. el buffer de píxeles SW —
+     * también deben permanecer válidos durante la llamada).
+     */
+    fun mpv_render_context_render(ctx: MemorySegment, params: MemorySegment): Int {
+        ensureAvailable()
+        return mpvRenderContextRender!!.invokeWithArguments(ctx, params) as Int
+    }
+
+    /** Informa a mpv de que el frame renderizado fue presentado (timing de video). */
+    fun mpv_render_context_report_swap(ctx: MemorySegment) {
+        ensureAvailable()
+        mpvRenderContextReportSwap!!.invokeWithArguments(ctx)
+    }
+
+    /** Libera el contexto de renderizado. Debe llamarse antes de mpv_terminate_destroy. */
+    fun mpv_render_context_free(ctx: MemorySegment) {
+        ensureAvailable()
+        mpvRenderContextFree!!.invokeWithArguments(ctx)
     }
 }

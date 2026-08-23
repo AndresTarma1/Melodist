@@ -27,6 +27,27 @@ enum class AudioQuality {
     LOW, NORMAL, HIGH
 }
 
+/**
+ * Calidad máxima del modo video (altura en píxeles). AUTO usa el tope seguro por defecto
+ * (720p) para mantener el coste de CPU del render por software acotado; FULL permite 1080p
+ * (experimental). El valor lo consume [example.nucleus.player.FormatSelector.findVideoFormat].
+ */
+enum class VideoQuality(val maxHeight: Int) {
+    AUTO(720),
+    LOW(360),
+    MEDIUM(480),
+    HIGH(720),
+    FULL(1080),
+}
+
+/** Ajuste del video a pantalla completa: cómo ocupa el área. */
+enum class VideoScale {
+    /** Mantiene el aspecto (letterbox / pillarbox con barras). */
+    FIT,
+    /** Llena toda la pantalla recortando el desbordamiento. */
+    CROP,
+}
+
 enum class ThemeMode {
     SYSTEM, DARK, LIGHT
 }
@@ -195,6 +216,10 @@ class UserPreferencesRepository(private val dataStore: DataStore<Preferences>) {
         val LYRICS_OFFSET_MS = intPreferencesKey("lyrics_offset_ms")
         val LOG_TO_FILE = booleanPreferencesKey("log_to_file")
         val LOG_VERBOSE = booleanPreferencesKey("log_verbose")
+        val VIDEO_ENABLED = booleanPreferencesKey("video_enabled")
+        val VIDEO_QUALITY = stringPreferencesKey("video_quality")
+        val VIDEO_FULLSCREEN = booleanPreferencesKey("video_fullscreen")
+        val VIDEO_SCALE = stringPreferencesKey("video_scale")
     }
 
 
@@ -698,6 +723,44 @@ class UserPreferencesRepository(private val dataStore: DataStore<Preferences>) {
 
     suspend fun setOfflineModeEnabled(enabled: Boolean) {
         dataStore.edit { it[PreferencesKeys.OFFLINE_MODE] = enabled }
+    }
+
+    // ── Modo video ──
+
+    /** ¿Reproducir videos (cuando la pista los tenga) en lugar de solo el audio? Por defecto no. */
+    val videoEnabled: Flow<Boolean> = dataStore.data.map { it[PreferencesKeys.VIDEO_ENABLED] ?: false }
+
+    suspend fun setVideoEnabled(enabled: Boolean) {
+        dataStore.edit { it[PreferencesKeys.VIDEO_ENABLED] = enabled }
+    }
+
+    /** Calidad máxima del modo video. */
+    val videoQuality: Flow<VideoQuality> = dataStore.data.map { pref ->
+        try {
+            VideoQuality.valueOf(pref[PreferencesKeys.VIDEO_QUALITY] ?: VideoQuality.AUTO.name)
+        } catch (_: Exception) { VideoQuality.AUTO }
+    }
+
+    suspend fun setVideoQuality(quality: VideoQuality) {
+        dataStore.edit { it[PreferencesKeys.VIDEO_QUALITY] = quality.name }
+    }
+
+    /** ¿Llevar la ventana a pantalla completa del SO (oculta titlebar y barra de tareas) en el modo video? Por defecto no. */
+    val videoFullscreen: Flow<Boolean> = dataStore.data.map { it[PreferencesKeys.VIDEO_FULLSCREEN] ?: false }
+
+    suspend fun setVideoFullscreen(enabled: Boolean) {
+        dataStore.edit { it[PreferencesKeys.VIDEO_FULLSCREEN] = enabled }
+    }
+
+    /** Cómo ocupa el video el área en pantalla completa (FIT = con barras, CROP = llena recortando). Por defecto CROP. */
+    val videoScale: Flow<VideoScale> = dataStore.data.map { pref ->
+        try {
+            VideoScale.valueOf(pref[PreferencesKeys.VIDEO_SCALE] ?: VideoScale.CROP.name)
+        } catch (_: Exception) { VideoScale.CROP }
+    }
+
+    suspend fun setVideoScale(scale: VideoScale) {
+        dataStore.edit { it[PreferencesKeys.VIDEO_SCALE] = scale.name }
     }
 
     // ── Acciones de sincronización remota diferidas (cola offline) ────────────────────────

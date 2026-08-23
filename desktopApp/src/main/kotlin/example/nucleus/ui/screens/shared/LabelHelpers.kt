@@ -20,6 +20,8 @@ import example.nucleus.data.repository.ThemePalette
 import example.nucleus.data.repository.RenderApi
 import example.nucleus.data.repository.SeekBarStyle
 import example.nucleus.data.repository.YouTubeRegion
+import example.nucleus.data.repository.VideoQuality
+import example.nucleus.data.repository.VideoScale
 import example.nucleus.viewmodels.LibrarySortOrder
 import example.nucleus.viewmodels.UpdateCheckState
 import example.nucleus.viewmodels.UpdateStatus
@@ -30,6 +32,21 @@ fun AudioQuality.displayName(): String = when (this) {
     AudioQuality.LOW -> stringResource(Res.string.audio_quality_low)
     AudioQuality.NORMAL -> stringResource(Res.string.audio_quality_normal)
     AudioQuality.HIGH -> stringResource(Res.string.audio_quality_high)
+}
+
+@Composable
+fun VideoQuality.displayName(): String = when (this) {
+    VideoQuality.AUTO -> stringResource(Res.string.video_quality_auto)
+    VideoQuality.LOW -> stringResource(Res.string.video_quality_low)
+    VideoQuality.MEDIUM -> stringResource(Res.string.video_quality_medium)
+    VideoQuality.HIGH -> stringResource(Res.string.video_quality_high)
+    VideoQuality.FULL -> stringResource(Res.string.video_quality_full)
+}
+
+@Composable
+fun VideoScale.displayName(): String = when (this) {
+    VideoScale.FIT -> stringResource(Res.string.video_scale_fit)
+    VideoScale.CROP -> stringResource(Res.string.video_scale_crop)
 }
 
 @Composable

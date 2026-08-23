@@ -9,4 +9,6 @@ data class PlaybackData(
     val format: PlayerResponse.StreamingData.Format,
     val streamUrl: String,
     val streamExpiresInSeconds: Int,
+    val videoFormat: PlayerResponse.StreamingData.Format? = null,
+    val videoUrl: String? = null,
 )

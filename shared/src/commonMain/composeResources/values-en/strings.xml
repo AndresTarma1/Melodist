@@ -727,4 +727,25 @@
     <!-- Full screen player -->
     <string name="full_screen_player">Fullscreen player</string>
     <string name="full_screen_player_subtitle">Hide the navigation rail and mini player when Now Playing is expanded</string>
+
+    <!-- Video player -->
+    <string name="video_hide">Hide video</string>
+    <string name="video_show">Show video</string>
+    <string name="video_mode">Video</string>
+    <string name="video_mode_subtitle">Play the track's video (when available) instead of audio only</string>
+    <string name="video_quality">Video quality</string>
+    <string name="video_quality_auto">Automatic (720p)</string>
+    <string name="video_quality_low">360p</string>
+    <string name="video_quality_medium">480p</string>
+    <string name="video_quality_high">720p</string>
+    <string name="video_quality_full">1080p (experimental)</string>
+    <string name="video_fullscreen">Player fullscreen</string>
+    <string name="video_fullscreen_subtitle">Take the window to fullscreen (hides the taskbar) when watching video</string>
+    <string name="video_scale">Video fit</string>
+    <string name="video_scale_fit">Fit (letterbox)</string>
+    <string name="video_scale_crop">Fill (crop)</string>
+    <string name="video_settings">Video settings</string>
+    <string name="video_hint">Click: play/pause · Double click: fullscreen · Scroll: volume</string>
+    <string name="video_fullscreen_enter">Enter fullscreen</string>
+    <string name="video_fullscreen_exit">Exit fullscreen</string>
 </resources>

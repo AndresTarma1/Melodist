@@ -45,7 +45,7 @@ fun NowPlayingSettingsGroup() {
     var showSpacingDropdown by remember { mutableStateOf(false) }
     var showOffsetDropdown by remember { mutableStateOf(false) }
 
-    val itemCount = 8
+    val itemCount = 10
     var idx = 0
 
     SettingsGroup(

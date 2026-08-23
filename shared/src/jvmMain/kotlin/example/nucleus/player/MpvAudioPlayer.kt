@@ -16,6 +16,14 @@ class MpvAudioPlayer {
     private val log = Logger.getLogger("MpvAudioPlayer")
     private var handle: MemorySegment? = null
 
+    /**
+     * Contexto de render de video (backend SW). Se crea tras `mpv_initialize` y se libera en
+     * [dispose] ANTES de `mpv_terminate_destroy` (regla de libmpv). El render por software no
+     * interfiere con la reproducción solo-audio; se crea siempre para simplificar el ciclo de vida.
+     */
+    private var videoRenderContext: MpvRenderContext? = null
+    val renderContext: MpvRenderContext? get() = videoRenderContext
+
     // Ajustes de audio solicitados antes de que exista el handle nativo (init diferido/perezoso
     // de mpv) — se almacenan aquí y se reaplican en init() para no perder nada.
     private var lastEqualizer: List<Float>? = null
@@ -44,6 +52,17 @@ class MpvAudioPlayer {
     private val _streamFailed = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val streamFailed: SharedFlow<Unit> = _streamFailed.asSharedFlow()
 
+    /** True mientras la carga actual es en modo video (track de video activo). */
+    private val _videoActive = MutableStateFlow(false)
+    val videoActive = _videoActive.asStateFlow()
+
+    /**
+     * URL de audio externa pendiente de agregar (`audio-add`) cuando la carga actual termine de
+     * abrir (evento FILE_LOADED). Solo se usa en modo video (video+audio separados).
+     */
+    @Volatile
+    private var pendingExternalAudioUrl: String? = null
+
     // Resultado de la carga más reciente de openUri: completado por el bucle de eventos de mpv —
     // true en el primer PLAYBACK_RESTART (el nuevo archivo se está decodificando/reproduciendo),
     // false en END_FILE/ERROR (por ejemplo, un 403). Basado en eventos en lugar de sondeo, y
@@ -62,7 +81,7 @@ class MpvAudioPlayer {
      * @param name El nombre de la propiedad de mpv a obtener.
      * @return El valor de la propiedad como cadena, o `null` si el handle no está inicializado o la propiedad no está disponible.
      */
-    private fun getMpvPropertyString(name: String): String? {
+    internal fun getPropertyString(name: String): String? {
         val ptr = handle?.let { MpvLib.mpv_get_property_string(it, name) } ?: return null
         return try {
             ptr.reinterpret(1024).getString(0)
@@ -95,6 +114,10 @@ class MpvAudioPlayer {
                 MpvLib.mpv_set_property_string(it, "video", "no")
                 MpvLib.mpv_set_property_string(it, "audio-display", "no")
                 MpvLib.mpv_set_property_string(it, "audio-channels", "stereo")
+                // vo=libmpv: el video se entrega SIEMPRE vía el render context (MpvRenderContext)
+                // en lugar de que mpv abra su propia ventana nativa de video (vo=gpu/direct3d).
+                // Es la salida estándar para consumir frames del render API; inocua en modo audio.
+                MpvLib.mpv_set_property_string(it, "vo", "libmpv")
                 // WASAPI es solo para Windows — forzarlo en Linux/macOS falla silenciosamente al
                 // abrir un dispositivo de audio (mpv_initialize tiene éxito, pero la reproducción
                 // se bloquea esperando uno que nunca se abre, sin error aparente). En otros
@@ -108,6 +131,19 @@ class MpvAudioPlayer {
                 MpvLib.mpv_set_property_string(it, "hr-seek", "no")
 
                 MpvLib.mpv_initialize(it)
+
+                // Contexto de render de video (SW). Mejor esfuerzo: si falla, la reproducción
+                // de audio sigue funcionando y el modo video simplemente no mostrará frames.
+                try {
+                    val ctx = MpvRenderContext(it)
+                    if (ctx.create()) {
+                        videoRenderContext = ctx
+                    } else {
+                        log.warning("mpv render context (SW) no se pudo crear; modo video deshabilitado")
+                    }
+                } catch (e: Throwable) {
+                    log.warning("mpv render context (SW) falló: ${e.message}")
+                }
 
 // 3. Límites de memoria y control de búfer optimizado
                 MpvLib.mpv_set_property_string(it, "cache", "yes")
@@ -158,6 +194,21 @@ class MpvAudioPlayer {
                 when (ev.get(ValueLayout.JAVA_INT, 0L)) { // event_id @ offset 0
                     MpvLib.MPV_EVENT_SHUTDOWN -> eventLoopRunning = false
 
+                    MpvLib.MPV_EVENT_FILE_LOADED -> {
+                        // Modo video: agregar el track de audio externo (video+audio separados),
+                        // igual que hace ytdl_hook de mpv. FILE_LOADED garantiza que el demuxer
+                        // del archivo de video ya conoce sus pistas.
+                        val extAudio = pendingExternalAudioUrl
+                        if (extAudio != null) {
+                            pendingExternalAudioUrl = null
+                            runCatching {
+                                MpvLib.mpv_command(h, arrayOf("audio-add", extAudio, "select", null))
+                            }.onFailure { e ->
+                                log.warning("audio-add falló para pista externa: ${e.message}")
+                            }
+                        }
+                    }
+
                     MpvLib.MPV_EVENT_PLAYBACK_RESTART -> {
                         // El nuevo archivo se está decodificando/reproduciendo (también se dispara
                         // después de búsquedas — inofensivo).
@@ -205,9 +256,13 @@ class MpvAudioPlayer {
      * Cancela cualquier operación de carga pendiente anterior. El resultado está disponible
      * mediante `awaitPlaybackStarted()`.
      *
-     * @param uri La URI a cargar.
+     * @param uri La URI a cargar. En modo video ([videoMode] = true) DEBE ser la URL del VIDEO
+     *            (es el archivo principal de mpv, el único que aporta la pista de video).
+     * @param audioUrl Pista de audio externa a enlazar tras cargar [uri] (video+audio separados).
+     *                 Si es igual a [uri] (stream muxed) se ignora.
+     * @param videoMode true para activar la decodificación de video antes de cargar.
      */
-    fun openUri(uri: String) {
+    fun openUri(uri: String, audioUrl: String? = null, videoMode: Boolean = false) {
         handle?.let { h ->
             openUriJob?.cancel()
             // Desbloquear cualquier await pendiente de una carga reemplazada, y preparar un nuevo
@@ -221,10 +276,38 @@ class MpvAudioPlayer {
             // pista anterior.
             _isPlaying.value = false
             _isBuffering.value = false
+            _videoActive.value = videoMode
+            pendingExternalAudioUrl = audioUrl?.takeIf { it.isNotBlank() && it != uri }
             openUriJob = scope.launch {
                 withContext(Dispatchers.IO) {
                     MpvLib.mpv_set_property_string(h, "user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:140.0) Gecko/20100101 Firefox/140.0")
                     MpvLib.mpv_set_property_string(h, "referrer", "https://music.youtube.com")
+                    // video es una propiedad de pre-carga: debe fijarse antes del loadfile.
+                    MpvLib.mpv_set_property_string(h, "video", if (videoMode) "yes" else "no")
+                    if (videoMode) {
+                        MpvLib.mpv_set_property_string(h, "vid", "auto")
+                        // El gapless no aplica con video (buffering del archivo siguiente con VO
+                        // activo); se restaura en la siguiente carga solo-audio vía lastGapless.
+                        MpvLib.mpv_set_property_string(h, "gapless-audio", "no")
+                        // Sin pausa por caché: tras un seek a una posición lejana el stream de red
+                        // podría quedar permanentemente "paused-for-cache" (reproducción trabada).
+                        // Con cache-pause=no mpv sigue tirando del buffer y reanuda al llegar datos.
+                        MpvLib.mpv_set_property_string(h, "cache-pause", "no")
+                        // Cache generoso para video 720/1080p — evita que un seek deje el demuxer sin
+                        // bytes y el rebuffer sea eterno.
+                        MpvLib.mpv_set_property_string(h, "demuxer-max-bytes", "157286400") // 150 MiB
+                        MpvLib.mpv_set_property_string(h, "demuxer-max-back-bytes", "52428800") // 50 MiB
+                        MpvLib.mpv_set_property_string(h, "cache-secs", "60")
+                    } else {
+                        lastGapless?.let {
+                            MpvLib.mpv_set_property_string(h, "gapless-audio", if (it) "yes" else "no")
+                        }
+                        // Restaurar cache de audio (valores de init).
+                        MpvLib.mpv_set_property_string(h, "cache-pause", "yes")
+                        MpvLib.mpv_set_property_string(h, "demuxer-max-bytes", "52428800")
+                        MpvLib.mpv_set_property_string(h, "demuxer-max-back-bytes", "10485760")
+                        MpvLib.mpv_set_property_string(h, "cache-secs", "45")
+                    }
                     MpvLib.mpv_command(h, arrayOf("loadfile", uri, "replace", null))
                     MpvLib.mpv_set_property_string(h, "pause", "no")
                 }
@@ -269,6 +352,8 @@ class MpvAudioPlayer {
             _isPlaying.value = false
             _isBuffering.value = false
             playbackEverStarted = false
+            _videoActive.value = false
+            pendingExternalAudioUrl = null
         }
     }
 
@@ -276,6 +361,7 @@ class MpvAudioPlayer {
         handle?.let {
             val position = (percent * 100).coerceIn(0f, 100f)
             MpvLib.mpv_command(it, arrayOf("seek", "$position", "absolute-percent", null))
+            MpvLib.mpv_set_property_string(it, "pause", "no")
         }
     }
 
@@ -320,13 +406,13 @@ class MpvAudioPlayer {
     }
 
     private fun mpvFlagTrue(name: String): Boolean {
-        val v = getMpvPropertyString(name) ?: return false
+        val v = getPropertyString(name) ?: return false
         return v == "yes" || v == "true" || v == "1"
     }
 
     var volume: Float
         get() {
-            return getMpvPropertyString("volume")?.toFloatOrNull() ?: 100f
+            return getPropertyString("volume")?.toFloatOrNull() ?: 100f
         }
         set(value) {
             handle?.let {
@@ -390,21 +476,44 @@ class MpvAudioPlayer {
     }
 
     fun getDuration(): Long {
-        val durStr = getMpvPropertyString("duration") ?: "0"
+        val durStr = getPropertyString("duration") ?: "0"
         return ((durStr.toDoubleOrNull() ?: 0.0) * 1000).toLong()
     }
 
     fun getCurrentPosition(): Long {
-        val posStr = getMpvPropertyString("time-pos") ?: "0"
+        val posStr = getPropertyString("time-pos") ?: "0"
         return ((posStr.toDoubleOrNull() ?: 0.0) * 1000).toLong()
+    }
+
+    /**
+     * Tamaño del video activo (ancho x alto en píxeles) según las propiedades width/height de
+     * mpv, o null si la carga actual no es modo video o el video aún no se reconoció.
+     * Pensado para sondeo desde el ticker del [PlayerService].
+     */
+    fun getVideoSize(): Pair<Int, Int>? {
+        if (!_videoActive.value) return null
+        val w = getPropertyString("width")?.toIntOrNull() ?: return null
+        val h = getPropertyString("height")?.toIntOrNull() ?: return null
+        if (w <= 0 || h <= 0) return null
+        return w to h
     }
 
     fun dispose() {
         openUriJob?.cancel()
         eventLoopRunning = false
+        pendingExternalAudioUrl = null
         handle?.let {
             MpvLib.mpv_wakeup(it) // desbloquear el mpv_wait_event del hilo de eventos
             eventThread = null
+            // Orden obligatorio: liberar el render context ANTES de destruir el core.
+            videoRenderContext?.let { ctx ->
+                try {
+                    ctx.close()
+                } catch (e: Throwable) {
+                    log.warning("render context close falló: ${e.message}")
+                }
+                videoRenderContext = null
+            }
             MpvLib.mpv_terminate_destroy(it)
             handle = null
         }

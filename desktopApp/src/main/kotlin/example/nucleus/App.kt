@@ -1,6 +1,7 @@
 package example.nucleus
 
 
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -27,7 +28,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpSize
@@ -68,6 +76,7 @@ import example.nucleus.overlay.HotkeyCombo
 import example.nucleus.player.PlaybackState
 import example.nucleus.shared.generated.resources.Res
 import example.nucleus.shared.generated.resources.*
+import example.nucleus.ui.components.CoilSetup
 import example.nucleus.ui.components.artwork.ArtworkColors
 import example.nucleus.ui.components.artwork.LocalArtworkColors
 import example.nucleus.ui.components.artwork.rememberArtworkColors
@@ -80,6 +89,7 @@ import example.nucleus.utils.LocalSnackbarHostState
 import example.nucleus.utils.LocalSnackbarScope
 import example.nucleus.utils.LocalUserPreferences
 import example.nucleus.utils.LocalAnimationsEnabled
+import example.nucleus.utils.LocalAppFullscreen
 import example.nucleus.viewmodels.AppUpdateInfo
 import example.nucleus.viewmodels.AppViewModel
 import example.nucleus.viewmodels.DownloadViewModel
@@ -106,6 +116,10 @@ import java.util.Locale
 import kotlin.time.Duration.Companion.milliseconds
 import example.nucleus.ui.themes.LocalChromeSurface
 import example.nucleus.ui.themes.LocalLayoutMode
+import example.nucleus.utils.SyncUtils
+import example.nucleus.utils.cipher.PlayerPipelineWarmup
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @Composable
 fun NucleusApplicationScope.App(
@@ -129,7 +143,7 @@ fun NucleusApplicationScope.App(
             delay(2000.milliseconds)
             // Liberar los bitmaps decodificados (Coil) — el disk cache de 256 MB los conserva, así
             // que solo se pierde la copia en RAM. Luego se recorta el working set de Windows.
-            runCatching { example.nucleus.ui.components.CoilSetup.evictMemoryCache() }
+            runCatching { CoilSetup.evictMemoryCache() }
             example.nucleus.utils.WorkingSetTrimmer.trim()
         }
     }
@@ -146,27 +160,27 @@ fun NucleusApplicationScope.App(
     // Precalienta el pipeline WEB (solucionador EJS + PoToken sidecar) en background para que
     // la primera reproducción web no pague el cold-start (~20-25s de prepare). Nunca bloquea la UI.
     LaunchedEffect(Unit) {
-        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
-            example.nucleus.utils.cipher.PlayerPipelineWarmup.warmup()
+        withContext(Dispatchers.Default) {
+            PlayerPipelineWarmup.warmup()
         }
     }
 
     // Estado del overlay
-    val hotkeyManager: GlobalHotkeyManager = koinInject()
-    val overlayEnabled by remember(userPreferences) { userPreferences.overlayHotkeyEnabled }.collectAsState(true)
-    val overlayCode by remember(userPreferences) { userPreferences.overlayHotkeyCode }.collectAsState(0)
-    val overlayMods by remember(userPreferences) { userPreferences.overlayHotkeyMods }.collectAsState(0)
+//    val hotkeyManager: GlobalHotkeyManager = koinInject()
+//    val overlayEnabled by remember(userPreferences) { userPreferences.overlayHotkeyEnabled }.collectAsState(true)
+//    val overlayCode by remember(userPreferences) { userPreferences.overlayHotkeyCode }.collectAsState(0)
+//    val overlayMods by remember(userPreferences) { userPreferences.overlayHotkeyMods }.collectAsState(0)
 
-    LaunchedEffect(overlayEnabled, overlayCode, overlayMods) {
-        // jnativehook (hook nativo global) solo se registra cuando el overlay está activado:
-        // si está desactivado, no cargamos su DLL ni el hook del sistema.
-        if (overlayEnabled) hotkeyManager.start() else hotkeyManager.stop()
-        hotkeyManager.setEnabled(overlayEnabled)
-        hotkeyManager.updateCombo(HotkeyCombo.fromPrefs(overlayCode, overlayMods))
-    }
+//    LaunchedEffect(overlayEnabled, overlayCode, overlayMods) {
+//        // jnativehook (hook nativo global) solo se registra cuando el overlay está activado:
+//        // si está desactivado, no cargamos su DLL ni el hook del sistema.
+//        if (overlayEnabled) hotkeyManager.start() else hotkeyManager.stop()
+//        hotkeyManager.setEnabled(overlayEnabled)
+//        hotkeyManager.updateCombo(HotkeyCombo.fromPrefs(overlayCode, overlayMods))
+//    }
 
     // Estado de sincronización YTM
-    val syncUtils: example.nucleus.utils.SyncUtils = koinInject()
+    val syncUtils: SyncUtils = koinInject()
     val ytmSyncEnabled by remember(userPreferences) { userPreferences.ytmSyncEnabled }.collectAsState(false)
     val offlineMode by remember(userPreferences) { userPreferences.offlineModeEnabled }.collectAsState(false)
     val syncState by syncUtils.syncState.collectAsState()
@@ -198,6 +212,21 @@ fun NucleusApplicationScope.App(
         else -> false
     }
     val currentSong = playerUiState.currentSong
+
+    // Pantalla completa de la ventana: cuando está activa, se oculta la title bar (más abajo) y la
+    // ventana pasa a WindowPlacement.Fullscreen (cubre la barra de tareas del SO).
+    val appFullscreenState = remember { mutableStateOf(false) }
+    var previousWindowPlacement by remember { mutableStateOf(windowState.placement) }
+    LaunchedEffect(appFullscreenState.value) {
+        if (appFullscreenState.value) {
+            if (windowState.placement != WindowPlacement.Fullscreen) {
+                previousWindowPlacement = windowState.placement
+                windowState.placement = WindowPlacement.Fullscreen
+            }
+        } else if (windowState.placement == WindowPlacement.Fullscreen) {
+            windowState.placement = previousWindowPlacement
+        }
+    }
 
     val appLocale by remember(userPreferences) { userPreferences.locale }.collectAsState(AppLocale.SYSTEM)
     LaunchedEffect(appLocale) {
@@ -263,6 +292,7 @@ fun NucleusApplicationScope.App(
                 LocalPlaylistsViewModel provides playlistsViewModel,
                 LocalUserPreferences provides userPreferences,
                 LocalAnimationsEnabled provides animationsEnabled,
+                LocalAppFullscreen provides appFullscreenState,
             ) {
                 // Widget de medios dentro de la barra de tareas de Windows (antes de la bandeja).
                 // Se compone en su propia ventana pero hereda estos CompositionLocals y el tema.
@@ -353,49 +383,69 @@ fun NucleusApplicationScope.App(
                             imageUrl = playerUiState.currentSong?.thumbnailUrl,
                             backgroundStyle = backgroundAppStyle
                         ) {
-
+                            val focusRequester = remember { FocusRequester() }
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .background(LocalChromeSurface.current)
+                                    .focusRequester(focusRequester)
+                                    .focusable()
+                                    .onPreviewKeyEvent { event ->
+                                        if (event.type == KeyEventType.KeyDown) {
+                                            when (event.key) {
+                                                Key.F11 -> {
+                                                    appFullscreenState.value = !appFullscreenState.value
+                                                    true
+                                                }
+                                                Key.Escape -> if (appFullscreenState.value) {
+                                                    appFullscreenState.value = false
+                                                    true
+                                                } else false
+                                                else -> false
+                                            }
+                                        } else false
+                                    }
                             ) {
+                                LaunchedEffect(Unit) { focusRequester.requestFocus() }
                                 Column {
 
                                     val isSquareLayout = LocalLayoutMode.current == LayoutMode.SQUARE
                                     val navStack by rootComponent.childStack.subscribeAsState()
                                     val canGoBack = navStack.items.size > 1
 
-                                    TitleBar(
-                                        modifier = if (isSquareLayout) Modifier else Modifier.macOSLargeCornerRadius(),
-                                        style = titleBarStyle
-                                    ) {
+                                    if (!appFullscreenState.value) {
+                                        TitleBar(
+                                            modifier = if (isSquareLayout) Modifier else Modifier.macOSLargeCornerRadius(),
+                                            style = titleBarStyle
+                                        ) {
 
-                                        DesktopTitleBar(
-                                            currentSong = currentSong?.title,
-                                            isPlaying = isPlaying,
-                                            isLoggedIn = isLoggedIn,
-                                            accountInfo = accountInfo,
-                                            ytmSyncEnabled = ytmSyncEnabled,
-                                            isSyncing = syncState.overallStatus is example.nucleus.utils.SyncStatus.Syncing,
-                                            isOfflineMode = offlineMode,
-                                            canGoBack = canGoBack,
-                                            onBack = { if (canGoBack) rootComponent.onBack() },
-                                            onRefresh = { rootComponent.refresh() },
-                                            onToggleOfflineMode = { enabled ->
-                                                scope.launch { userPreferences.setOfflineModeEnabled(enabled) }
-                                            },
-                                            onToggleSync = { enabled ->
-                                                scope.launch { userPreferences.setYtmSyncEnabled(enabled) }
-                                            },
-                                            onSyncNow = { syncUtils.performFullSync() },
-                                        )
+                                            DesktopTitleBar(
+                                                currentSong = currentSong?.title,
+                                                isPlaying = isPlaying,
+                                                isLoggedIn = isLoggedIn,
+                                                accountInfo = accountInfo,
+                                                ytmSyncEnabled = ytmSyncEnabled,
+                                                isSyncing = syncState.overallStatus is example.nucleus.utils.SyncStatus.Syncing,
+                                                isOfflineMode = offlineMode,
+                                                canGoBack = canGoBack,
+                                                onBack = { if (canGoBack) rootComponent.onBack() },
+                                                onRefresh = { rootComponent.refresh() },
+                                                onToggleOfflineMode = { enabled ->
+                                                    scope.launch { userPreferences.setOfflineModeEnabled(enabled) }
+                                                },
+                                                onToggleSync = { enabled ->
+                                                    scope.launch { userPreferences.setYtmSyncEnabled(enabled) }
+                                                },
+                                                onSyncNow = { syncUtils.performFullSync() },
+                                            )
 
-                                    }
-                                    if (isSquareLayout) {
-                                        HorizontalDivider(
-                                            color = MaterialTheme.colorScheme.outlineVariant,
-                                            thickness = 1.dp
-                                        )
+                                        }
+                                        if (isSquareLayout) {
+                                            HorizontalDivider(
+                                                color = MaterialTheme.colorScheme.outlineVariant,
+                                                thickness = 1.dp
+                                            )
+                                        }
                                     }
                                     CompositionLocalProvider(
                                         LocalDensity provides Density(

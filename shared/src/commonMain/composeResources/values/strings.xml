@@ -731,4 +731,25 @@
     <!-- Full screen player -->
     <string name="full_screen_player">Reproductor a pantalla completa</string>
     <string name="full_screen_player_subtitle">Oculta la barra de navegación y el mini reproductor al expandir Now Playing</string>
+
+    <!-- Video player -->
+    <string name="video_hide">Ocultar video</string>
+    <string name="video_show">Mostrar video</string>
+    <string name="video_mode">Video</string>
+    <string name="video_mode_subtitle">Reproduce el video de las pistas (cuando esté disponible) en lugar de solo el audio</string>
+    <string name="video_quality">Calidad de video</string>
+    <string name="video_quality_auto">Automática (720p)</string>
+    <string name="video_quality_low">360p</string>
+    <string name="video_quality_medium">480p</string>
+    <string name="video_quality_high">720p</string>
+    <string name="video_quality_full">1080p (experimental)</string>
+    <string name="video_fullscreen">Pantalla completa del reproductor</string>
+    <string name="video_fullscreen_subtitle">Lleva la ventana a pantalla completa (oculta la barra de tareas) al ver video</string>
+    <string name="video_scale">Ajuste de video</string>
+    <string name="video_scale_fit">Ajustar (con barras)</string>
+    <string name="video_scale_crop">Llenar (recortar)</string>
+    <string name="video_settings">Ajustes de video</string>
+    <string name="video_hint">Click: play/pausa · Doble click: pantalla completa · Rueda: volumen</string>
+    <string name="video_fullscreen_enter">Entrar en pantalla completa</string>
+    <string name="video_fullscreen_exit">Salir de pantalla completa</string>
 </resources>

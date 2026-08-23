@@ -6,6 +6,8 @@ import example.nucleus.data.repository.BackgroundStyle
 import example.nucleus.data.repository.LyricsAnimationStyle
 import example.nucleus.data.repository.NowPlayingDesign
 import example.nucleus.data.repository.UserPreferencesRepository
+import example.nucleus.data.repository.VideoQuality
+import example.nucleus.data.repository.VideoScale
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -52,6 +54,18 @@ class NowPlayingSettingsViewModel(
     val queuePersistenceEnabled: StateFlow<Boolean> = preferencesRepository.queuePersistenceEnabled
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
+    val videoEnabled: StateFlow<Boolean> = preferencesRepository.videoEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val videoQuality: StateFlow<VideoQuality> = preferencesRepository.videoQuality
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), VideoQuality.AUTO)
+
+    val videoFullscreen: StateFlow<Boolean> = preferencesRepository.videoFullscreen
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val videoScale: StateFlow<VideoScale> = preferencesRepository.videoScale
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), VideoScale.CROP)
+
     fun setFullScreenPlayer(enabled: Boolean) {
         viewModelScope.launch { preferencesRepository.setFullScreenPlayer(enabled) }
     }
@@ -90,6 +104,22 @@ class NowPlayingSettingsViewModel(
 
     fun setQueuePersistenceEnabled(enabled: Boolean) {
         viewModelScope.launch { preferencesRepository.setQueuePersistenceEnabled(enabled) }
+    }
+
+    fun setVideoEnabled(enabled: Boolean) {
+        viewModelScope.launch { preferencesRepository.setVideoEnabled(enabled) }
+    }
+
+    fun setVideoQuality(quality: VideoQuality) {
+        viewModelScope.launch { preferencesRepository.setVideoQuality(quality) }
+    }
+
+    fun setVideoFullscreen(enabled: Boolean) {
+        viewModelScope.launch { preferencesRepository.setVideoFullscreen(enabled) }
+    }
+
+    fun setVideoScale(scale: VideoScale) {
+        viewModelScope.launch { preferencesRepository.setVideoScale(scale) }
     }
 
     fun setNowPlayingDesign(design: NowPlayingDesign) {

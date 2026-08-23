@@ -56,6 +56,7 @@ data class PlayerUiState(
     val repeatMode: RepeatMode = RepeatMode.OFF,
     val error: String? = null,
     val queueSession: QueueSession = QueueSession(),
+    @Transient val videoSize: Pair<Int, Int>? = null,
 )
 
 /**

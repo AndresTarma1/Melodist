@@ -28,12 +28,15 @@ object StreamUrlResolver {
      * @param format The streaming format to resolve a URL for.
      * @param videoId The YouTube video ID.
      * @param playerResponse The player response data.
+     * @param isVideo True cuando [format] es un formato de video (solo-video): omite el fallback
+     * de audio de NewPipe para no devolver una URL de audio para un itag de video.
      * @return A stream URL for the given format, or `null` if resolution fails.
      */
     suspend fun resolveUrl(
         format: PlayerResponse.StreamingData.Format,
         videoId: String,
         playerResponse: PlayerResponse,
+        isVideo: Boolean = false,
     ): String? {
         val formatUrl = format.url
         Napier.i("[RESOLVE_URL] videoId=$videoId itag=${format.itag} url=${formatUrl?.take(80)} sigCipher=${format.signatureCipher?.take(50)} cipher=${format.cipher?.take(50)}")
@@ -72,11 +75,15 @@ object StreamUrlResolver {
                 Napier.d("Using NewPipe StreamInfo URL for $videoId itag=${format.itag}")
                 return streamUrl
             }
-            val audioStream = streamUrls.find { urlPair ->
-                playerResponse.streamingData?.adaptiveFormats?.any {
-                    it.itag == urlPair.first && it.isAudio
-                } == true
-            }?.second
+            val audioStream = if (!isVideo) {
+                streamUrls.find { urlPair ->
+                    playerResponse.streamingData?.adaptiveFormats?.any {
+                        it.itag == urlPair.first && it.isAudio
+                    } == true
+                }?.second
+            } else {
+                null
+            }
             if (audioStream != null) {
                 Napier.d("Using NewPipe StreamInfo audio fallback URL for $videoId requestedItag=${format.itag}")
                 return audioStream

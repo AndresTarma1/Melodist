@@ -3,11 +3,14 @@
 package example.nucleus.ui.components.player
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
@@ -15,11 +18,17 @@ import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Fullscreen
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Lyrics
+import androidx.compose.material.icons.rounded.Videocam
+import androidx.compose.material.icons.rounded.VideocamOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -37,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import com.metrolist.innertube.models.MediaInfo
 import example.nucleus.models.MediaMetadata
 import example.nucleus.navigation.Route
+import example.nucleus.player.MpvVideoRenderer
 import example.nucleus.shared.generated.resources.*
 import example.nucleus.shared.generated.resources.Res
 import example.nucleus.ui.components.EqualizerDialog
@@ -46,6 +56,10 @@ import example.nucleus.ui.themes.expressiveFadeTween
 import example.nucleus.ui.themes.expressiveLayoutTween
 import example.nucleus.ui.themes.expressiveTween
 import example.nucleus.utils.LocalAnimationsEnabled
+import example.nucleus.data.repository.VideoQuality
+import example.nucleus.data.repository.VideoScale
+import example.nucleus.ui.screens.shared.displayName
+import example.nucleus.utils.LocalPlayerViewModel
 import example.nucleus.utils.LocalUserPreferences
 import example.nucleus.viewmodels.PlayerUiState
 import example.nucleus.viewmodels.QueueSource
@@ -94,14 +108,19 @@ fun NowPlayingLayout(
     mediaInfo: MediaInfo? = null,
     sharedTransitionScope: SharedTransitionScope? = null,
     animatedVisibilityScope: AnimatedVisibilityScope? = null,
+    videoRenderer: MpvVideoRenderer? = null,
 ) {
     val scope = rememberCoroutineScope()
     var showMenu by remember { mutableStateOf(false) }
     var showEqualizer by remember { mutableStateOf(false) }
+    var showVideoSettings by remember { mutableStateOf(false) }
     val preferencesRepo = LocalUserPreferences.current
     val equalizerBands by preferencesRepo.equalizerBands.collectAsState(initial = List(5) { 0f })
     val bottomInset = LocalMiniPlayerInset.current
     val queueCount = state.queue.size
+    val videoEnabled by preferencesRepo.videoEnabled.collectAsState(initial = false)
+    val playerViewModel = LocalPlayerViewModel.current
+    val showVideo by playerViewModel.showVideo.collectAsState(initial = true)
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val isCompact = maxWidth < 640.dp || maxHeight < 400.dp
@@ -118,29 +137,50 @@ fun NowPlayingLayout(
                 showMenu = showMenu,
                 onMenuToggle = { showMenu = it },
                 onOpenEqualizer = { showEqualizer = true },
+                onOpenVideoSettings = { showVideoSettings = true },
                 compact = isCompact,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 8.dp),
             )
 
-            Box(
+            Row(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth(),
             ) {
-                SpaciousNowPlayingBody(
-                    state = state,
-                    song = song,
-                    lyrics = lyrics,
-                    mediaInfo = mediaInfo,
-                    selectedTab = selectedTab,
-                    onNavigate = onNavigate,
-                    onCollapse = onCollapse,
-                    compact = isCompact,
-                    sharedTransitionScope = sharedTransitionScope,
-                    animatedVisibilityScope = animatedVisibilityScope,
-                )
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
+                ) {
+                    SpaciousNowPlayingBody(
+                        state = state,
+                        song = song,
+                        lyrics = lyrics,
+                        mediaInfo = mediaInfo,
+                        selectedTab = selectedTab,
+                        onNavigate = onNavigate,
+                        onCollapse = onCollapse,
+                        compact = isCompact,
+                        sharedTransitionScope = sharedTransitionScope,
+                        animatedVisibilityScope = animatedVisibilityScope,
+                        videoRenderer = videoRenderer,
+                        videoEnabled = videoEnabled,
+                        showVideo = showVideo,
+                        onToggleVideo = { playerViewModel.setShowVideo(!showVideo) },
+                    )
+                }
+                AnimatedVisibility(
+                    visible = showVideoSettings,
+                    enter = expandHorizontally(),
+                    exit = shrinkHorizontally(),
+                ) {
+                    VideoSettingsPanel(
+                        onDismiss = { showVideoSettings = false },
+                        modifier = Modifier.fillMaxHeight().width(340.dp),
+                    )
+                }
             }
         }
     }
@@ -151,6 +191,139 @@ fun NowPlayingLayout(
             onBandsChange = { scope.launch { preferencesRepo.setEqualizerBands(it) } },
             onDismiss = { showEqualizer = false },
         )
+    }
+}
+
+@Composable
+private fun VideoSettingsPanel(
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val prefs = LocalUserPreferences.current
+    val scope = rememberCoroutineScope()
+    val videoEnabled by prefs.videoEnabled.collectAsState(false)
+    val videoQuality by prefs.videoQuality.collectAsState(VideoQuality.AUTO)
+    val videoFullscreen by prefs.videoFullscreen.collectAsState(false)
+    val videoScale by prefs.videoScale.collectAsState(VideoScale.CROP)
+    var showQuality by remember { mutableStateOf(false) }
+    var showScale by remember { mutableStateOf(false) }
+
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 2.dp,
+        modifier = modifier,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource(Res.string.video_settings),
+                    style = MaterialTheme.typography.titleMediumEmphasized,
+                    modifier = Modifier.weight(1f),
+                )
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Rounded.Close, contentDescription = null)
+                }
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+            ListItem(
+                headlineContent = { Text(stringResource(Res.string.video_mode)) },
+                supportingContent = {
+                    Text(
+                        stringResource(Res.string.video_mode_subtitle),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                },
+                trailingContent = {
+                    Switch(
+                        checked = videoEnabled,
+                        onCheckedChange = { scope.launch { prefs.setVideoEnabled(it) } },
+                    )
+                },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            )
+            ListItem(
+                headlineContent = { Text(stringResource(Res.string.video_quality)) },
+                supportingContent = { Text(videoQuality.displayName(), style = MaterialTheme.typography.bodySmall) },
+                trailingContent = {
+                    Box {
+                        TextButton(onClick = { showQuality = true }) {
+                            Text(videoQuality.displayName())
+                        }
+                        DropdownMenu(
+                            expanded = showQuality,
+                            onDismissRequest = { showQuality = false },
+                        ) {
+                            VideoQuality.entries.forEach { q ->
+                                DropdownMenuItem(
+                                    text = { Text(q.displayName()) },
+                                    onClick = {
+                                        scope.launch { prefs.setVideoQuality(q) }
+                                        showQuality = false
+                                    },
+                                )
+                            }
+                        }
+                    }
+                },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            )
+            ListItem(
+                headlineContent = { Text(stringResource(Res.string.video_scale)) },
+                supportingContent = { Text(videoScale.displayName(), style = MaterialTheme.typography.bodySmall) },
+                trailingContent = {
+                    Box {
+                        TextButton(onClick = { showScale = true }) {
+                            Text(videoScale.displayName())
+                        }
+                        DropdownMenu(
+                            expanded = showScale,
+                            onDismissRequest = { showScale = false },
+                        ) {
+                            VideoScale.entries.forEach { s ->
+                                DropdownMenuItem(
+                                    text = { Text(s.displayName()) },
+                                    onClick = {
+                                        scope.launch { prefs.setVideoScale(s) }
+                                        showScale = false
+                                    },
+                                )
+                            }
+                        }
+                    }
+                },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            )
+            ListItem(
+                headlineContent = { Text(stringResource(Res.string.video_fullscreen)) },
+                supportingContent = {
+                    Text(
+                        stringResource(Res.string.video_fullscreen_subtitle),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                },
+                trailingContent = {
+                    Switch(
+                        checked = videoFullscreen,
+                        onCheckedChange = { scope.launch { prefs.setVideoFullscreen(it) } },
+                    )
+                },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            )
+            Text(
+                text = stringResource(Res.string.video_hint),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            )
+        }
     }
 }
 
@@ -166,6 +339,7 @@ private fun NowPlayingTopBar(
     showMenu: Boolean,
     onMenuToggle: (Boolean) -> Unit,
     onOpenEqualizer: () -> Unit,
+    onOpenVideoSettings: () -> Unit = {},
     compact: Boolean,
     modifier: Modifier = Modifier,
 ) {
@@ -193,6 +367,7 @@ private fun NowPlayingTopBar(
             showMenu = showMenu,
             onMenuToggle = onMenuToggle,
             onOpenEqualizer = onOpenEqualizer,
+            onOpenVideoSettings = onOpenVideoSettings,
         )
     }
 }
@@ -317,6 +492,10 @@ private fun SpaciousNowPlayingBody(
     compact: Boolean,
     sharedTransitionScope: SharedTransitionScope?,
     animatedVisibilityScope: AnimatedVisibilityScope?,
+    videoRenderer: MpvVideoRenderer? = null,
+    videoEnabled: Boolean = false,
+    showVideo: Boolean = true,
+    onToggleVideo: () -> Unit = {},
 ) {
     val (coverScale, coverAlpha) = rememberCoverEnter()
 
@@ -388,13 +567,18 @@ private fun SpaciousNowPlayingBody(
                 ) {
                     val coverDimension = 380.dp
 
-                    CoverArt(
-                        url = song.thumbnailUrl,
-                        title = song.title,
-                        modifier = Modifier
-                            .size(coverDimension)
-                            .heroCoverElement(song.id, sharedTransitionScope, animatedVisibilityScope)
-                            .coverEnter(coverScale, coverAlpha),
+                    VideoOrCoverArt(
+                        state = state,
+                        song = song,
+                        coverDimension = coverDimension,
+                        sharedTransitionScope = sharedTransitionScope,
+                        animatedVisibilityScope = animatedVisibilityScope,
+                        coverScale = coverScale,
+                        coverAlpha = coverAlpha,
+                        videoRenderer = videoRenderer,
+                        videoEnabled = videoEnabled,
+                        showVideo = showVideo,
+                        onToggleVideo = onToggleVideo,
                     )
 
                     Spacer(Modifier.height(20.dp))
@@ -437,6 +621,80 @@ private fun SpaciousNowPlayingBody(
                 }
             }
         }
+}
+
+/**
+ * Carátula de la pista o, si el modo video está activo y la pista trae video, la superficie
+ * de video con un botón para alternar entre video y carátula.
+ */
+@Composable
+private fun VideoOrCoverArt(
+    state: PlayerUiState,
+    song: MediaMetadata,
+    coverDimension: Dp,
+    sharedTransitionScope: SharedTransitionScope?,
+    animatedVisibilityScope: AnimatedVisibilityScope?,
+    coverScale: Animatable<Float, *>,
+    coverAlpha: Animatable<Float, *>,
+    videoRenderer: MpvVideoRenderer?,
+    videoEnabled: Boolean,
+    showVideo: Boolean,
+    onToggleVideo: () -> Unit,
+) {
+    val videoSize = state.videoSize
+    val videoAvailable = videoEnabled && videoRenderer != null && videoSize != null
+
+    Box(
+        modifier = Modifier.size(coverDimension),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (videoAvailable && showVideo) {
+            VideoSurface(
+                renderer = videoRenderer,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(videoSize!!.first.toFloat() / videoSize.second.toFloat())
+                    .clip(AppShapes.extraLarge),
+            )
+        } else {
+            CoverArt(
+                url = song.thumbnailUrl,
+                title = song.title,
+                modifier = Modifier
+                    .size(coverDimension)
+                    .heroCoverElement(song.id, sharedTransitionScope, animatedVisibilityScope)
+                    .coverEnter(coverScale, coverAlpha),
+            )
+        }
+
+        if (videoAvailable) {
+            Surface(
+                onClick = onToggleVideo,
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.scrim.copy(alpha = 0.45f),
+                tonalElevation = 0.dp,
+                shadowElevation = 0.dp,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(10.dp)
+                    .size(34.dp)
+                    .pointerHoverIcon(PointerIcon.Hand),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = if (showVideo) Icons.Rounded.VideocamOff else Icons.Rounded.Videocam,
+                        contentDescription = if (showVideo) {
+                            stringResource(Res.string.video_hide)
+                        } else {
+                            stringResource(Res.string.video_show)
+                        },
+                        tint = Color.White,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            }
+        }
+    }
 }
 
 /**

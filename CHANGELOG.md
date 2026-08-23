@@ -2,6 +2,16 @@
 
 Todas las versiones de PaltaSound. Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
+## [Sin publicar]
+
+### Añadido
+
+- **Modo video en Now Playing**: reproduce el video de la pista (YouTube Music) cuando está disponible, con calidad adaptativa (Auto/360p/480p/720p/1080p):
+  - Render API de libmpv con backend de software (`MpvRenderContext`/`MpvVideoRenderer`), frames BGRA publicados sin upcalls FFM (compatible con GraalVM native-image) y dibujados en Compose (`VideoSurface`).
+  - Video y audio separados enlazados con `audio-add` (estilo ytdl_hook de mpv); fallback yt-dlp `bv*+ba/b` con caída a solo-audio.
+  - Toggle video/portada en Now Playing y ajustes en Ajustes → Now Playing (Video, Calidad de video).
+  - Preferencias nuevas: `video_enabled` (por defecto no), `video_quality`.
+
 ## [0.8.1] - 2026-08-20
 
 ### Añadido
