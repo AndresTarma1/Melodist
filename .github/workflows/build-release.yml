@@ -93,7 +93,7 @@ jobs:
         run: |
           set -eux
           mkdir -p $(dirname "${{ matrix.rustypipe_bin }}")
-          if [[ "${{ matrix.rustypipe_bin }}" == *.zip ]]; then
+          if [[ "${{ matrix.rustypipe_url }}" == *.zip ]]; then
             curl -fL -o /tmp/rustypipe.zip "${{ matrix.rustypipe_url }}"
             unzip -o /tmp/rustypipe.zip -d /tmp/rustypipe
             find /tmp/rustypipe -name "rustypipe-botguard*" -type f -exec cp {} "${{ matrix.rustypipe_bin }}" \;
