@@ -167,7 +167,7 @@ nucleus.application {
         enableAotCache = !System.getProperty("os.name").lowercase().contains("linux")
         appName = "PaltaSound"
         packageName = "PaltaSound"
-        packageVersion = "0.8.3"
+        packageVersion = "0.8.2"
         vendor = "Tarma"
         homepage = "https://github.com/AndresTarma1/PaltaSound"
         // Nsis (no Exe): el updater selecciona el instalador .exe filtrando por el sufijo
@@ -211,11 +211,11 @@ nucleus.application {
         // Iconos del thumbbar: incluir los .ico como recursos del image heap para que
         // getResourceAsStream("/thumbbar/...") funcione en el binario nativo.
         buildArgs.add("-H:IncludeResources=thumbbar/.*")
-        // Truffle runtime's native-image.properties fuerza el módulo al module-path, pero el fat jar
+        // Truffle runtime's module-info.class fuerza ForceOnModulePath al module-path, pero el fat jar
         // está en el classpath, no en el module-path, y falla con "Module descriptor not found".
         // El solver EJS corre en intérprete (WarnInterpreterOnly=false), así que no se necesita
-        // en el heap del native-image.
-        buildArgs.add("-H:ExcludeResources=META-INF/native-image/org.graalvm.truffle/truffle-runtime/native-image.properties")
+        // en el heap del native-image. Desactivamos el module-system para ignorar module-info.class.
+        buildArgs.add("-H:-UseModuleSystem")
         // Heap del binario nativo acotado (objetivo RAM); Serial GC por defecto.
         maxHeapSize = "320m"
     }
