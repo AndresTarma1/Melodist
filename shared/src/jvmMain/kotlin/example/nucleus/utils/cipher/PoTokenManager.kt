@@ -5,6 +5,7 @@ import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeout
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Orquestador de generación de poTokens con el patrón de Metrolist (utils/potoken):
@@ -79,7 +80,7 @@ actual object PoTokenManager {
                 streamingDataPoToken = PoTokenGenerator.mintVideo(videoId),
             )
         } catch (t: Throwable) {
-            if (freshSession || forceRecreate) throw t
+            if (freshSession) throw t
             // El minter pudo expirar desde que se preparó la sesión: un reintento con
             // sesión nueva suele resolverlo (mismo patrón que Metrolist).
             Napier.w("[PoToken] Video mint failed (${t.message}); recreating session")
@@ -107,7 +108,7 @@ actual object PoTokenManager {
         cachedSessionPot = null
     }
 
-    private const val GENERATION_TIMEOUT_MS = 8_000L
+    private val GENERATION_TIMEOUT_MS = 8_000L.milliseconds
 
     /** Id estable cualquiera; el token resultante se descarta. Solo calienta el motor. */
     private const val PREWARM_VIDEO_ID = "dQw4w9WgXcQ"

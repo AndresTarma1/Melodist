@@ -113,9 +113,6 @@ fun main() = nucleusApplication(backend = NucleusBackend.Tao) {
         RootComponent(DefaultComponentContext(lifecycle))
     }
 
-    // Opt-in del framework (Nucleus 2.4.x): durante el entrenamiento del AOT cache
-    // (nucleus.aot.mode=training) arma un timer que cierra la app a los 15 s para que
-    // generateAotCache complete y genere app.aot. En ejecución normal no hace nada.
     aotTraining()
 
     App(

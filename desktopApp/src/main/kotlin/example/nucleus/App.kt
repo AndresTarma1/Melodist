@@ -509,7 +509,7 @@ private fun UnsentCrashReportsDialog() {
     }
 }
 
-// ── Integración con Windows (taskbar / thumbbar) ────────────────────────────
+// ── Integración con Windows (taskbar / thumb bar) ────────────────────────────
 
 /**
  * Espera el HWND real de la ventana Tao (getNativeHandle, no getHandle — el primero traduce el

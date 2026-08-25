@@ -26,7 +26,7 @@ import java.util.concurrent.TimeUnit
 object RustyPipeBotGuardSidecar {
 
     private const val BIN_DIR = "rustypipe-botguard"
-    private const val EXE_NAME = "rustypipe-botguard.exe"
+    private val EXE_NAME = if (example.nucleus.platform.Platform.isWindows) "rustypipe-botguard.exe" else "rustypipe-botguard"
     private const val API_VERSION = "1"
     private const val MINT_TIMEOUT_SECONDS = 20L
 
@@ -100,11 +100,24 @@ object RustyPipeBotGuardSidecar {
         val userDir = File(System.getProperty("user.dir"))
         val rootDir = userDir.parentFile ?: userDir
         val resProp = System.getProperty("compose.application.resources.dir")
+        val isWindows = example.nucleus.platform.Platform.isWindows
+        val exeName = EXE_NAME
         val candidates = buildList {
-            resProp?.let { add(File(it, EXE_NAME)); add(File(File(it, "windows"), EXE_NAME)) }
-            add(File(userDir, "resources/$EXE_NAME"))
-            add(File(userDir, "mpv-resources/windows/$EXE_NAME"))
-            add(File(rootDir, "mpv-resources/windows/$EXE_NAME"))
+            resProp?.let {
+                add(File(it, exeName))
+                add(File(File(it, "windows"), exeName))
+                add(File(File(it, "linux"), exeName))
+            }
+            add(File(userDir, "resources/$exeName"))
+            add(File(userDir, "mpv-resources/windows/$exeName"))
+            add(File(userDir, "mpv-resources/linux/$exeName"))
+            add(File(rootDir, "mpv-resources/windows/$exeName"))
+            add(File(rootDir, "mpv-resources/linux/$exeName"))
+            // Compat: si en Linux solo está el .exe en windows, permitirlo
+            if (!isWindows) {
+                add(File(userDir, "mpv-resources/windows/rustypipe-botguard.exe"))
+                add(File(rootDir, "mpv-resources/windows/rustypipe-botguard.exe"))
+            }
         }
         candidates.firstOrNull { it.exists() }?.let {
             log.info("Using bundled rustypipe-botguard: ${it.absolutePath}")

@@ -283,14 +283,7 @@ fun NavigationDesktop(rootComponent: RootComponent, userPreferences: UserPrefere
                                             .align(Alignment.BottomCenter)
                                     ) {
                                         AnimatedVisibility(
-                                            visible = floatingMiniPlayer,
-                                            enter = if (animationsEnabled) fadeIn(expressiveFadeTween()) + slideInVertically(animationSpec = expressiveLayoutTween(), initialOffsetY = { it / 4 }) else EnterTransition.None,
-                                            exit = if (animationsEnabled) fadeOut(expressiveFadeTween()) + slideOutVertically(animationSpec = expressiveLayoutTween(), targetOffsetY = { it / 4 }) else ExitTransition.None,
-                                        ) {
-                                            miniPlayerSlot(Modifier.fillMaxWidth())
-                                        }
-                                        AnimatedVisibility(
-                                            visible = dockedMiniPlayer,
+                                            visible = dockedMiniPlayer || floatingMiniPlayer,
                                             enter = if (animationsEnabled) fadeIn(expressiveFadeTween()) + slideInVertically(animationSpec = expressiveLayoutTween(), initialOffsetY = { it / 4 }) else EnterTransition.None,
                                             exit = if (animationsEnabled) fadeOut(expressiveFadeTween()) + slideOutVertically(animationSpec = expressiveLayoutTween(), targetOffsetY = { it / 4 }) else ExitTransition.None,
                                         ) {
@@ -339,15 +332,14 @@ fun NavigationDesktop(rootComponent: RootComponent, userPreferences: UserPrefere
                         }
                     }
 
-                    if (barMiniPlayer) {
-                        AnimatedVisibility(
-                            visible = currentSong != null,
-                            enter = if (animationsEnabled) fadeIn() else EnterTransition.None,
-                            exit = if (animationsEnabled) fadeOut() else ExitTransition.None,
-                        ) {
-                            miniPlayerSlot(Modifier.fillMaxWidth())
-                        }
+                    AnimatedVisibility(
+                        visible = barMiniPlayer,
+                        enter = if (animationsEnabled) fadeIn() else EnterTransition.None,
+                        exit = if (animationsEnabled) fadeOut() else ExitTransition.None,
+                    ) {
+                        miniPlayerSlot(Modifier.fillMaxWidth())
                     }
+
                 }
 
                 SnackBar(

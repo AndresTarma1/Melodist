@@ -2,6 +2,28 @@
 
 Todas las versiones de PaltaSound. Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
+## [0.8.2] - 2026-08-23
+
+### Añadido
+
+- **Reproducción de video en Now Playing** con `libmpv` SW render (`vo=libmpv`, `bgr0`, `MpvRenderContext` + `MpvVideoRenderer` `~30fps`, `VideoSurface` OPAQUE). Toggle video/caratula en Now Playing y overlay a pantalla completa con cola empujando (no superpone), miniPlayer transparente auto-hide (mouse move, 2.6s), doble clic y `F11`/`Esc` para fullscreen, rueda = volumen (`VideoFullscreenOverlay.kt:284`, `App.kt:380`).
+- **Panel de ajustes de video en Now Playing** (gear en `NowPlayingTopBar` y overlay) con video on/off, calidad, ajuste `FIT`/`CROP` y auto-fullscreen; quitados del Settings global (`NowPlayingSection.kt:32`).
+- **PoTokens web vía sidecar `rustypipe-botguard`** (`RustyPipeBotGuardSidecar.kt:26` API v1, snapshot en tmp, `PoTokenManager.kt:69` `WEB_REMIX` + `WEB` con `pot=`) para clientes web (`FallbackClients.kt:15`). Bundling para GraalVM y JVM (`desktopApp/build.gradle.kts:222`, `mpv-resources/windows/rustypipe-botguard.exe`).
+- **Video+audio juntos primero** (`FormatSelector.kt:52` `findMuxedFormat` progresivo, `YTPlayerutils.kt:124` compara alturas y solo usa muxed si no degrada resolución; `YtDlpResolver.kt:54` fallback).
+- **Recursos de string** `video_settings`, `video_hint`, `video_fullscreen_enter/exit` hardcodeados → `Res.string` (`values/strings.xml:746`, `VideoFullscreenOverlay.kt:277`).
+
+### Corregido
+
+- Seek en video ya no queda `cargando y reconectando`: `MpvAudioPlayer.kt:286` `cache-pause=no` + cache 150MiB en video y `seekTo:350` `pause=no`; `PlayerService.kt:269` `seekToMs` absoluto en video y watchdog `STALL_TICKS_VIDEO=25` + `SEEK_STALL_GRACE_MS=8000`.
+- Cerrar video/miniPlayer a NowPlaying: `NowPlayingLayouts.kt:110` usa `showVideo` compartido del `PlayerViewModel` (`PlayerViewModel.kt:86`), overlay `MiniPlayer` `onNowPlaying` cierra NowPlaying (`Navigation.kt:404`).
+- `RustyPipeBotGuardSidecar.kt:29` now maneja `exe` vs binario Linux y busca en `mpv-resources/linux/` + `resolveOnPath`.
+- `MpvAudioPlayer.kt:118` `vo=libmpv` y `MpvLib:259` FFM hardening; `PlayerService` anti-stall `BUFFERING`.
+
+### Cambiado
+
+- **CI** `.github/workflows/build-release.yml:36` descarga `rustypipe-botguard` para Windows y Linux (`x86_64` `v0.1.2` desde Codeberg) y verifica el binario empaquetado en GraalVM/JVM (`mpv-resources/linux/rustypipe-botguard`).
+- `App.kt:202` `LocalAppFullscreen` + `WindowPlacement.Fullscreen` oculta title bar en fullscreen (`App.kt:390`), `.gitignore` ignora `graphify-out`.
+
 ## [0.8.1] - 2026-08-20
 
 ### Añadido

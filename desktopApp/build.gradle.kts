@@ -167,7 +167,7 @@ nucleus.application {
         enableAotCache = !System.getProperty("os.name").lowercase().contains("linux")
         appName = "PaltaSound"
         packageName = "PaltaSound"
-        packageVersion = "0.8.1"
+        packageVersion = "0.8.2"
         vendor = "Tarma"
         homepage = "https://github.com/AndresTarma1/PaltaSound"
         // Nsis (no Exe): el updater selecciona el instalador .exe filtrando por el sufijo

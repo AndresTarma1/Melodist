@@ -5,6 +5,7 @@ import example.nucleus.utils.cipher.PoTokenManager
 import example.nucleus.utils.cipher.PoTokenResult
 import com.metrolist.innertube.YouTube
 import com.metrolist.innertube.models.response.PlayerResponse
+import example.nucleus.utils.cipher.PlayerJsFetcher
 import io.github.aakira.napier.Napier
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -144,9 +145,9 @@ object YTPlayerutils {
                 val needsNTransform = effectiveClient.useWebPoTokens ||
                     effectiveClient.clientName in listOf("WEB", "WEB_REMIX", "WEB_CREATOR", "TVHTML5")
                 if (needsNTransform) {
-                    streamUrl = StreamUrlResolver.applyNTransform(streamUrl!!)
+                    streamUrl = StreamUrlResolver.applyNTransform(streamUrl)
                 }
-                if (effectiveClient.useWebPoTokens && streamingPot != null && streamUrl != null) {
+                if (effectiveClient.useWebPoTokens && streamingPot != null) {
                     val separator = if (streamUrl.contains('?')) "&" else "?"
                     // El token es base64url ([A-Za-z0-9_-]); solo el padding '=' requiere escape.
                     streamUrl = streamUrl + separator + "pot=" + streamingPot.replace("=", "%3D")
@@ -210,7 +211,7 @@ object YTPlayerutils {
      * (mejor que inventar un valor tipo "días desde epoch").
      */
     private suspend fun getSignatureTimestampOrNull(videoId: String): Int? =
-        example.nucleus.utils.cipher.PlayerJsFetcher.getSignatureTimestamp()
+        PlayerJsFetcher.getSignatureTimestamp()
 
     /**
      * Invalida las URLs de stream en caché para un video.
