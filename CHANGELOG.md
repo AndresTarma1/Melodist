@@ -2,6 +2,16 @@
 
 Todas las versiones de PaltaSound. Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
+## [0.8.3] - 2026-08-25
+
+### Corregido
+
+- CI Windows GraalVM `native-image` fallaba con `ForceOnModulePath` de `truffle-runtime` (`Module descriptor for the module org.graalvm.truffle.runtime was not found` en el fat jar). Se excluye `META-INF/native-image/org.graalvm.truffle/truffle-runtime/native-image.properties` en `desktopApp/build.gradle.kts:213` — el solver EJS corre en intérprete.
+
+### Cambiado
+
+- Versión `0.8.2` → `0.8.3` (`packageVersion`, `CURRENT_VERSION`).
+
 ## [0.8.2] - 2026-08-23
 
 ### Añadido

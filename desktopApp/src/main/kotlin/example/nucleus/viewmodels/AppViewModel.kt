@@ -67,7 +67,7 @@ class AppViewModel : ViewModel() {
          * `desktopApp/build.gradle.kts`, porque el updater compara esta cadena contra la versión del
          * metadato `latest.yml` publicado en GitHub Releases.
          */
-        const val CURRENT_VERSION = "0.8.2"
+        const val CURRENT_VERSION = "0.8.3"
     }
 
     private val _status = MutableStateFlow<UpdateStatus>(UpdateStatus.None)
