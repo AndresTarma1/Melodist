@@ -93,17 +93,23 @@ jobs:
         run: |
           set -eux
           mkdir -p $(dirname "${{ matrix.rustypipe_bin }}")
+          rm -rf /tmp/rustypipe
+          mkdir -p /tmp/rustypipe
           if [[ "${{ matrix.rustypipe_url }}" == *.zip ]]; then
             curl -fL -o /tmp/rustypipe.zip "${{ matrix.rustypipe_url }}"
             unzip -o /tmp/rustypipe.zip -d /tmp/rustypipe
+            ls -R /tmp/rustypipe | head -30
             find /tmp/rustypipe -name "rustypipe-botguard*" -type f -exec cp {} "${{ matrix.rustypipe_bin }}" \;
           else
             curl -fL -o /tmp/rustypipe.tar.xz "${{ matrix.rustypipe_url }}"
-            tar -xf /tmp/rustypipe.tar.xz -C /tmp
-            find /tmp -name "rustypipe-botguard*" -type f -exec cp {} "${{ matrix.rustypipe_bin }}" \;
+            tar -tf /tmp/rustypipe.tar.xz | head -20
+            tar -xf /tmp/rustypipe.tar.xz -C /tmp/rustypipe
+            ls -R /tmp/rustypipe | head -30
+            find /tmp/rustypipe -name "rustypipe-botguard*" -type f -exec cp {} "${{ matrix.rustypipe_bin }}" \;
             chmod +x "${{ matrix.rustypipe_bin }}"
           fi
           ls -lh "${{ matrix.rustypipe_bin }}"
+          file "${{ matrix.rustypipe_bin }}" || true
 
       - name: Build installers (${{ matrix.dist_name }})
         shell: bash
