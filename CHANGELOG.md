@@ -14,7 +14,7 @@ Todas las versiones de PaltaSound. Formato basado en [Keep a Changelog](https://
 
 ### Corregido
 
-- CI Windows GraalVM `native-image` fallaba con `ForceOnModulePath` de `truffle-runtime` (`Module descriptor for the module org.graalvm.truffle.runtime was not found` en el fat jar). Se desactiva el module-system (`-H:-UseModuleSystem`) en `desktopApp/build.gradle.kts:214` — el solver EJS corre en intérprete.
+- CI Windows GraalVM `native-image` fallaba con `ForceOnModulePath` de `truffle-runtime` (`Module descriptor for the module org.graalvm.truffle.runtime was not found` en el fat jar). Windows ahora usa JVM (`packageDistributionForCurrentOS`) en vez de GraalVM (`packageGraalvmNsis`) — se desactiva el module-system (`-H:-UseModuleSystem`) en `desktopApp/build.gradle.kts:214` como fallback.
 - CI `Download rustypipe-botguard`: Linux hacía `tar` sobre `.zip` por comparar `rustypipe_bin` en vez de `rustypipe_url`. Ahora compara la URL y usa directorio temporal dedicado (`build-release.yml:91`). Binario Windows `mpv-resources/windows/rustypipe-botguard.exe` añadido a `.gitignore`.
 - Seek en video ya no queda `cargando y reconectando`: `MpvAudioPlayer.kt:286` `cache-pause=no` + cache 150MiB en video y `seekTo:350` `pause=no`; `PlayerService.kt:269` `seekToMs` absoluto en video y watchdog `STALL_TICKS_VIDEO=25` + `SEEK_STALL_GRACE_MS=8000`.
 - Cerrar video/miniPlayer a NowPlaying: `NowPlayingLayouts.kt:110` usa `showVideo` compartido del `PlayerViewModel` (`PlayerViewModel.kt:86`), overlay `MiniPlayer` `onNowPlaying` cierra NowPlaying (`Navigation.kt:404`).
@@ -23,15 +23,8 @@ Todas las versiones de PaltaSound. Formato basado en [Keep a Changelog](https://
 
 ### Cambiado
 
-- **CI** `.github/workflows/build-release.yml:36` descarga `rustypipe-botguard` para Windows y Linux (`x86_64` `v0.1.2` desde Codeberg) y verifica el binario empaquetado en GraalVM/JVM (`mpv-resources/linux/rustypipe-botguard`).
-- `App.kt:202` `LocalAppFullscreen` + `WindowPlacement.Fullscreen` oculta title bar en fullscreen (`App.kt:390`), `.gitignore` ignora `graphify-out`.
-
-## [0.8.1] - 2026-08-20
-
-### Cambiado
-
-- **CI** `.github/workflows/build-release.yml:36` descarga `rustypipe-botguard` para Windows y Linux (`x86_64` `v0.1.2` desde Codeberg) y verifica el binario empaquetado en GraalVM/JVM (`mpv-resources/linux/rustypipe-botguard`).
-- `App.kt:202` `LocalAppFullscreen` + `WindowPlacement.Fullscreen` oculta title bar en fullscreen (`App.kt:390`), `.gitignore` ignora `graphify-out`.
+- **CI** `.github/workflows/build-release.yml:36` descarga `rustypipe-botguard` para Windows y Linux (`x86_64` `v0.1.2` desde Codeberg) y verifica el binario empaquetado. Windows ahora usa JVM en vez de GraalVM.
+- `App.kt:202` `LocalAppFullscreen` + `WindowPlacement.Fullscreen` oculta title bar en fullscreen (`App.kt:390`), `.gitignore` ignora `graphify-out` y `mpv-resources/windows/rustypipe-botguard.exe`.
 
 ## [0.8.1] - 2026-08-20
 

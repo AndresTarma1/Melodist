@@ -39,7 +39,8 @@ jobs:
             # yt-dlp solo se empaqueta en Windows (en Linux se usa el del sistema).
             needs_yt_dlp: true
             python_cmd: python
-            gradle_tasks: ":desktopApp:packageGraalvmNsis"
+            # JVM (no GraalVM): el native-image falla con ForceOnModulePath de truffle-runtime.
+            gradle_tasks: ":desktopApp:packageDistributionForCurrentOS"
             rustypipe_url: "https://codeberg.org/ThetaDev/rustypipe-botguard/releases/download/v0.1.2/rustypipe-botguard-v0.1.2-x86_64-pc-windows-msvc.zip"
             rustypipe_bin: "mpv-resources/windows/rustypipe-botguard.exe"
           - os: ubuntu-latest
