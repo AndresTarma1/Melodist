@@ -163,8 +163,8 @@ nucleus.application {
         // El AOT cache del JDK 25 (JEP 483) tiene un límite fijo de tamaño de la región 'ro'
         // (~40 MB); con el volumen de clases actual la app se desborda por pocos KB al
         // escribir app.aot ("Unable to allocate from 'ro' region", sin flag para agrandarlo).
-        // Se desactiva en Linux (distribución JVM); Windows CI usa GraalVM y no lo necesita.
-        enableAotCache = !System.getProperty("os.name").lowercase().contains("linux")
+        // Se desactiva: falla en CI Windows ("An error has occurred while writing the shared archive file").
+        enableAotCache = false
         appName = "PaltaSound"
         packageName = "PaltaSound"
         packageVersion = "0.8.2"
